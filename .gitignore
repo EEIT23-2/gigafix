@@ -1,0 +1,71 @@
+# ==========================================
+# 前端 (Vue / Node.js) 相關
+# ==========================================
+**/node_modules/
+**/dist/
+**/dist-electron/
+**/.output/
+**/.nuxt/
+**/.cache/
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/pnpm-debug.log*
+
+# ==========================================
+# 後端 (Spring Boot / Maven / Gradle) 相關
+# ==========================================
+# Maven 編譯輸出
+**/target/
+**/*.jar
+**/*.war
+**/*.ear
+**/*.rar
+
+# Gradle 編譯輸出 (若使用 Gradle)
+**/build/
+**/.gradle/
+
+# Maven Wrapper 執行包 (若不需要可忽略)
+**/.mvn/
+**/mvnw
+**/mvnw.cmd
+
+# ==========================================
+# 開發工具 / IDE 相關 (避免個人設定檔上傳)
+# ==========================================
+# IntelliJ IDEA
+**/.idea/
+**/*.iml
+**/*.iws
+**/*.ipr
+**/out/
+
+# Eclipse / STS
+**/.metadata/
+**/.apt_generated
+**/.classpath
+**/.factorypath
+**/.project
+**/.settings/
+
+# VS Code
+**/.vscode/
+!**/.vscode/tasks.json
+!**/.vscode/launch.json
+!**/.vscode/extensions.json
+
+# ==========================================
+# 作業系統暫存檔與環境變數
+# ==========================================
+**/.DS_Store
+**/.DS_Store?
+**/._*
+**/.Spotlight-V100
+**/.Trashes
+**/ehthumbs.db
+**/Thumbs.db
+
+**/*.log
+**/.env
+**/.env.local
