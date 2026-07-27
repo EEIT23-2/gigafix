@@ -1,7 +1,5 @@
 package com.gigafix.cart.controller;
 
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -32,7 +30,6 @@ import com.gigafix.cart.exception.CartExceptionHandler;
 import com.gigafix.cart.exception.CartItemNotFoundException;
 import com.gigafix.cart.service.CartService;
 
-import jakarta.servlet.ServletException;
 import tools.jackson.databind.ObjectMapper;
 
 @WebMvcTest(CartController.class)
@@ -141,19 +138,24 @@ class CartControllerTest {
 	}
 
 	@Test
-	@DisplayName("GET 遇到未處理的 IllegalArgumentException 時向外拋出")
-	void getCartItems_propagatesUnhandledIllegalArgumentException() {
+	@DisplayName("GET 遇到 IllegalArgumentException 時回傳 400")
+	void getCartItems_returnsBadRequestForIllegalArgumentException()
+			throws Exception {
 		when(cartService.getCartItems(0L))
 				.thenThrow(new IllegalArgumentException("userId 必須大於 0"));
 
-		ServletException exception = assertThrows(
-				ServletException.class,
-				() -> mockMvc.perform(get("/api/cart-items/user/0")
-								.contentType(MediaType.APPLICATION_JSON))
-						.andReturn()
-		);
+		mockMvc.perform(get("/api/cart-items/user/0")
+						.contentType(MediaType.APPLICATION_JSON))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.error").value("Bad Request"))
+				.andExpect(jsonPath("$.message").value(
+						org.hamcrest.Matchers.containsString("userId")
+				))
+				.andExpect(jsonPath("$.path").value(
+						"/api/cart-items/user/0"
+				));
 
-		assertInstanceOf(IllegalArgumentException.class, exception.getCause());
 		verify(cartService, times(1)).getCartItems(0L);
 	}
 

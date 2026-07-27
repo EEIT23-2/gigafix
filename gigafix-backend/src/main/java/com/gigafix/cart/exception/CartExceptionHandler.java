@@ -37,6 +37,18 @@ public class CartExceptionHandler {
 		);
 	}
 
+	@ExceptionHandler(IllegalArgumentException.class)
+	public ResponseEntity<CartErrorResponse> handleIllegalArgument(
+			IllegalArgumentException exception,
+			HttpServletRequest request
+	) {
+		return buildErrorResponse(
+				HttpStatus.BAD_REQUEST,
+				exception.getMessage(),
+				request.getRequestURI()
+		);
+	}
+
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	public ResponseEntity<CartErrorResponse> handleValidation(
 			MethodArgumentNotValidException exception,
