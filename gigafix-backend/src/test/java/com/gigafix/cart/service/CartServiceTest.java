@@ -33,6 +33,8 @@ import com.gigafix.cart.dto.response.CartResponse;
 import com.gigafix.cart.entity.Cart;
 import com.gigafix.cart.entity.CartItem;
 import com.gigafix.cart.exception.CartItemNotFoundException;
+import com.gigafix.cart.exception.CartNotFoundException;
+import com.gigafix.cart.exception.EmptyCartException;
 import com.gigafix.cart.exception.InvalidCartQuantityException;
 import com.gigafix.cart.repository.CartItemRepository;
 import com.gigafix.cart.repository.CartRepository;
@@ -216,33 +218,25 @@ class CartServiceTest {
 		assertTrue(response.items().stream()
 				.allMatch(item -> item.cartId().equals(100L)));
 		verify(cartItemRepository, times(1)).findByCartId(100L);
+		verify(cartRepository, never()).save(any(Cart.class));
 	}
 
 	@Test
-	@DisplayName("沒有購物車時建立空購物車")
-	void getActiveCart_createsEmptyCartWhenCartDoesNotExist() {
+	@DisplayName("沒有 ACTIVE Cart 時拋出 CartNotFoundException")
+	void getActiveCart_throwsExceptionWhenCartDoesNotExist() {
 		when(cartRepository.findByUserIdAndStatus(
 				1L,
 				Cart.CartStatus.ACTIVE
 		)).thenReturn(Optional.empty());
-		when(cartRepository.save(any(Cart.class)))
-				.thenAnswer(invocation -> {
-					Cart cart = invocation.getArgument(0);
-					cart.setCartId(100L);
-					return cart;
-				});
-		when(cartItemRepository.findByCartId(100L)).thenReturn(List.of());
 
-		CartResponse response = cartService.getActiveCart(1L);
-
-		ArgumentCaptor<Cart> cartCaptor = ArgumentCaptor.forClass(Cart.class);
-		verify(cartRepository, times(1)).save(cartCaptor.capture());
-		assertEquals(1L, cartCaptor.getValue().getUserId());
-		assertEquals(
-				Cart.CartStatus.ACTIVE,
-				cartCaptor.getValue().getStatus()
+		CartNotFoundException exception = assertThrows(
+				CartNotFoundException.class,
+				() -> cartService.getActiveCart(1L)
 		);
-		assertTrue(response.items().isEmpty());
+
+		assertTrue(exception.getMessage().contains("userId：1"));
+		verify(cartRepository, never()).save(any(Cart.class));
+		verify(cartItemRepository, never()).findByCartId(any(Long.class));
 	}
 
 	@Test
@@ -365,12 +359,12 @@ class CartServiceTest {
 				Cart.CartStatus.ACTIVE
 		)).thenReturn(Optional.empty());
 
-		InvalidCartQuantityException exception = assertThrows(
-				InvalidCartQuantityException.class,
+		CartNotFoundException exception = assertThrows(
+				CartNotFoundException.class,
 				() -> cartService.checkoutCart(1L)
 		);
 
-		assertEquals("找不到可結帳的購物車", exception.getMessage());
+		assertTrue(exception.getMessage().contains("userId：1"));
 		verifyNoInteractions(cartItemRepository);
 		verify(cartRepository, never()).save(any(Cart.class));
 	}
@@ -385,12 +379,12 @@ class CartServiceTest {
 		)).thenReturn(Optional.of(cart));
 		when(cartItemRepository.findByCartId(100L)).thenReturn(List.of());
 
-		InvalidCartQuantityException exception = assertThrows(
-				InvalidCartQuantityException.class,
+		EmptyCartException exception = assertThrows(
+				EmptyCartException.class,
 				() -> cartService.checkoutCart(1L)
 		);
 
-		assertEquals("購物車不可為空", exception.getMessage());
+		assertTrue(exception.getMessage().contains("cartId：100"));
 		verify(cartRepository, never()).save(any(Cart.class));
 	}
 

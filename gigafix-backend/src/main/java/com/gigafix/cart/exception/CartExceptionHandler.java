@@ -13,6 +13,30 @@ import jakarta.servlet.http.HttpServletRequest;
 @RestControllerAdvice(basePackages = "com.gigafix.cart.controller")
 public class CartExceptionHandler {
 
+	@ExceptionHandler(CartNotFoundException.class)
+	public ResponseEntity<CartErrorResponse> handleCartNotFound(
+			CartNotFoundException exception,
+			HttpServletRequest request
+	) {
+		return buildErrorResponse(
+				HttpStatus.NOT_FOUND,
+				exception.getMessage(),
+				request.getRequestURI()
+		);
+	}
+
+	@ExceptionHandler(EmptyCartException.class)
+	public ResponseEntity<CartErrorResponse> handleEmptyCart(
+			EmptyCartException exception,
+			HttpServletRequest request
+	) {
+		return buildErrorResponse(
+				HttpStatus.CONFLICT,
+				exception.getMessage(),
+				request.getRequestURI()
+		);
+	}
+
 	@ExceptionHandler(CartItemNotFoundException.class)
 	public ResponseEntity<CartErrorResponse> handleCartItemNotFound(
 			CartItemNotFoundException exception,

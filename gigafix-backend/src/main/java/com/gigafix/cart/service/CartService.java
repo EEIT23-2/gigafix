@@ -11,6 +11,8 @@ import com.gigafix.cart.dto.response.CartResponse;
 import com.gigafix.cart.entity.Cart;
 import com.gigafix.cart.entity.CartItem;
 import com.gigafix.cart.exception.CartItemNotFoundException;
+import com.gigafix.cart.exception.CartNotFoundException;
+import com.gigafix.cart.exception.EmptyCartException;
 import com.gigafix.cart.exception.InvalidCartQuantityException;
 import com.gigafix.cart.repository.CartItemRepository;
 import com.gigafix.cart.repository.CartRepository;
@@ -63,10 +65,7 @@ public class CartService {
 		Cart cart = cartRepository.findByUserIdAndStatus(
 				userId,
 				Cart.CartStatus.ACTIVE
-		).orElseGet(() -> cartRepository.save(Cart.builder()
-				.userId(userId)
-				.status(Cart.CartStatus.ACTIVE)
-				.build()));
+		).orElseThrow(() -> new CartNotFoundException(userId));
 		List<CartItem> items = cartItemRepository.findByCartId(
 				cart.getCartId()
 		);
@@ -101,14 +100,12 @@ public class CartService {
 		Cart cart = cartRepository.findByUserIdAndStatus(
 				userId,
 				Cart.CartStatus.ACTIVE
-		).orElseThrow(() -> new InvalidCartQuantityException(
-				"找不到可結帳的購物車"
-		));
+		).orElseThrow(() -> new CartNotFoundException(userId));
 		List<CartItem> items = cartItemRepository.findByCartId(
 				cart.getCartId()
 		);
 		if (items.isEmpty()) {
-			throw new InvalidCartQuantityException("購物車不可為空");
+			throw new EmptyCartException(cart.getCartId());
 		}
 
 		cart.setStatus(Cart.CartStatus.CHECKED_OUT);

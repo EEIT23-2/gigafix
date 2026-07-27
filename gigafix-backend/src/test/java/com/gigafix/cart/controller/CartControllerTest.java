@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -31,7 +32,8 @@ import com.gigafix.cart.dto.response.CartResponse;
 import com.gigafix.cart.entity.Cart;
 import com.gigafix.cart.exception.CartExceptionHandler;
 import com.gigafix.cart.exception.CartItemNotFoundException;
-import com.gigafix.cart.exception.InvalidCartQuantityException;
+import com.gigafix.cart.exception.CartNotFoundException;
+import com.gigafix.cart.exception.EmptyCartException;
 import com.gigafix.cart.service.CartService;
 
 import tools.jackson.databind.ObjectMapper;
@@ -134,13 +136,35 @@ class CartControllerTest {
 	}
 
 	@Test
-	@DisplayName("PUT 成功修改購物車數量")
+	@DisplayName("GET 找不到 ACTIVE Cart 時回傳 404")
+	void getActiveCart_returnsNotFoundWhenCartDoesNotExist()
+			throws Exception {
+		when(cartService.getActiveCart(1L))
+				.thenThrow(new CartNotFoundException(1L));
+
+		mockMvc.perform(get("/api/carts/users/1/active")
+						.contentType(MediaType.APPLICATION_JSON))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.status").value(404))
+				.andExpect(jsonPath("$.error").value("Not Found"))
+				.andExpect(jsonPath("$.message").value(
+						org.hamcrest.Matchers.containsString("userId：1")
+				))
+				.andExpect(jsonPath("$.path").value(
+						"/api/carts/users/1/active"
+				));
+
+		verify(cartService, times(1)).getActiveCart(1L);
+	}
+
+	@Test
+	@DisplayName("PATCH 成功修改購物車數量")
 	void updateQuantity_returnsUpdatedItem() throws Exception {
 		UpdateCartItemRequest request = new UpdateCartItemRequest(5);
 		CartItemResponse response = itemResponse(1L, 100L, 10L, 5);
 		when(cartService.updateQuantity(1L, request)).thenReturn(response);
 
-		mockMvc.perform(put("/api/carts/items/1")
+		mockMvc.perform(patch("/api/carts/items/1")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isOk())
@@ -151,17 +175,30 @@ class CartControllerTest {
 	}
 
 	@Test
-	@DisplayName("PUT Validation 失敗時回傳 400")
+	@DisplayName("PATCH Validation 失敗時回傳 400")
 	void updateQuantity_returnsBadRequestWhenQuantityIsInvalid() throws Exception {
 		UpdateCartItemRequest request = new UpdateCartItemRequest(0);
 
-		mockMvc.perform(put("/api/carts/items/1")
+		mockMvc.perform(patch("/api/carts/items/1")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.message").value(
 						org.hamcrest.Matchers.containsString("quantity")
 				));
+
+		verifyNoInteractions(cartService);
+	}
+
+	@Test
+	@DisplayName("舊 PUT 修改購物車數量不再支援")
+	void updateQuantity_putIsNotSupported() throws Exception {
+		UpdateCartItemRequest request = new UpdateCartItemRequest(5);
+
+		mockMvc.perform(put("/api/carts/items/1")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().is4xxClientError());
 
 		verifyNoInteractions(cartService);
 	}
@@ -217,18 +254,39 @@ class CartControllerTest {
 	}
 
 	@Test
-	@DisplayName("POST checkout 空購物車時回傳 400")
-	void checkoutCart_returnsBadRequestWhenCartIsEmpty() throws Exception {
+	@DisplayName("POST checkout 找不到 Cart 時回傳 404")
+	void checkoutCart_returnsNotFoundWhenCartDoesNotExist() throws Exception {
 		when(cartService.checkoutCart(1L))
-				.thenThrow(new InvalidCartQuantityException("購物車不可為空"));
+				.thenThrow(new CartNotFoundException(1L));
 
 		mockMvc.perform(post("/api/carts/users/1/checkout")
 						.contentType(MediaType.APPLICATION_JSON))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.status").value(400))
-				.andExpect(jsonPath("$.error").value("Bad Request"))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.status").value(404))
+				.andExpect(jsonPath("$.error").value("Not Found"))
 				.andExpect(jsonPath("$.message").value(
-						org.hamcrest.Matchers.containsString("購物車不可為空")
+						org.hamcrest.Matchers.containsString("userId：1")
+				))
+				.andExpect(jsonPath("$.path").value(
+						"/api/carts/users/1/checkout"
+				));
+
+		verify(cartService, times(1)).checkoutCart(1L);
+	}
+
+	@Test
+	@DisplayName("POST checkout 空購物車時回傳 409")
+	void checkoutCart_returnsConflictWhenCartIsEmpty() throws Exception {
+		when(cartService.checkoutCart(1L))
+				.thenThrow(new EmptyCartException(100L));
+
+		mockMvc.perform(post("/api/carts/users/1/checkout")
+						.contentType(MediaType.APPLICATION_JSON))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.status").value(409))
+				.andExpect(jsonPath("$.error").value("Conflict"))
+				.andExpect(jsonPath("$.message").value(
+						org.hamcrest.Matchers.containsString("cartId：100")
 				))
 				.andExpect(jsonPath("$.path").value(
 						"/api/carts/users/1/checkout"
