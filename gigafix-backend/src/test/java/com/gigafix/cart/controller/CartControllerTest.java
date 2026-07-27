@@ -1,5 +1,6 @@
 package com.gigafix.cart.controller;
 
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -26,8 +27,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.gigafix.cart.dto.request.AddCartItemRequest;
 import com.gigafix.cart.dto.request.UpdateCartItemRequest;
 import com.gigafix.cart.dto.response.CartItemResponse;
+import com.gigafix.cart.dto.response.CartResponse;
+import com.gigafix.cart.entity.Cart;
 import com.gigafix.cart.exception.CartExceptionHandler;
 import com.gigafix.cart.exception.CartItemNotFoundException;
+import com.gigafix.cart.exception.InvalidCartQuantityException;
 import com.gigafix.cart.service.CartService;
 
 import tools.jackson.databind.ObjectMapper;
@@ -35,6 +39,9 @@ import tools.jackson.databind.ObjectMapper;
 @WebMvcTest(CartController.class)
 @Import(CartExceptionHandler.class)
 class CartControllerTest {
+
+	private static final LocalDateTime FIXED_TIME =
+			LocalDateTime.of(2026, 7, 1, 10, 0);
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -49,15 +56,15 @@ class CartControllerTest {
 	@DisplayName("POST 成功新增購物車項目")
 	void addCartItem_returnsCreated() throws Exception {
 		AddCartItemRequest request = new AddCartItemRequest(1L, 10L, 2);
-		CartItemResponse response = response(1L, 1L, 10L, 2);
+		CartItemResponse response = itemResponse(1L, 100L, 10L, 2);
 		when(cartService.addCartItem(request)).thenReturn(response);
 
-		mockMvc.perform(post("/api/cart-items")
+		mockMvc.perform(post("/api/carts/items")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isCreated())
 				.andExpect(jsonPath("$.cartItemId").value(1))
-				.andExpect(jsonPath("$.userId").value(1))
+				.andExpect(jsonPath("$.cartId").value(100))
 				.andExpect(jsonPath("$.productId").value(10))
 				.andExpect(jsonPath("$.quantity").value(2));
 
@@ -65,11 +72,11 @@ class CartControllerTest {
 	}
 
 	@Test
-	@DisplayName("POST 數量驗證失敗時回傳 400")
+	@DisplayName("POST Validation 失敗時回傳 400")
 	void addCartItem_returnsBadRequestWhenQuantityIsInvalid() throws Exception {
 		AddCartItemRequest request = new AddCartItemRequest(1L, 10L, 0);
 
-		mockMvc.perform(post("/api/cart-items")
+		mockMvc.perform(post("/api/carts/items")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isBadRequest())
@@ -82,69 +89,36 @@ class CartControllerTest {
 	}
 
 	@Test
-	@DisplayName("GET 成功回傳會員購物車")
-	void getCartItems_returnsTwoItems() throws Exception {
-		List<CartItemResponse> responses = List.of(
-				response(1L, 1L, 10L, 2),
-				response(2L, 1L, 20L, 3)
+	@DisplayName("GET 成功取得 ACTIVE Cart")
+	void getActiveCart_returnsCartSuccessfully() throws Exception {
+		CartResponse response = cartResponse(
+				Cart.CartStatus.ACTIVE,
+				List.of(
+						itemResponse(1L, 100L, 10L, 2),
+						itemResponse(2L, 100L, 20L, 3)
+				)
 		);
-		when(cartService.getCartItems(1L)).thenReturn(responses);
+		when(cartService.getActiveCart(1L)).thenReturn(response);
 
-		mockMvc.perform(get("/api/cart-items/user/1")
+		mockMvc.perform(get("/api/carts/users/1/active")
 						.contentType(MediaType.APPLICATION_JSON))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.length()").value(2));
+				.andExpect(jsonPath("$.cartId").value(100))
+				.andExpect(jsonPath("$.userId").value(1))
+				.andExpect(jsonPath("$.status").value("ACTIVE"))
+				.andExpect(jsonPath("$.items.length()").value(2));
 
-		verify(cartService, times(1)).getCartItems(1L);
+		verify(cartService, times(1)).getActiveCart(1L);
 	}
 
 	@Test
-	@DisplayName("PUT 成功修改購物車數量")
-	void updateQuantity_returnsUpdatedItem() throws Exception {
-		UpdateCartItemRequest request = new UpdateCartItemRequest(5);
-		CartItemResponse response = response(1L, 1L, 10L, 5);
-		when(cartService.updateQuantity(1L, request)).thenReturn(response);
-
-		mockMvc.perform(put("/api/cart-items/1")
-						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(request)))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.quantity").value(5));
-
-		verify(cartService, times(1)).updateQuantity(1L, request);
-	}
-
-	@Test
-	@DisplayName("PUT 數量驗證失敗時回傳 400")
-	void updateQuantity_returnsBadRequestWhenQuantityIsInvalid() throws Exception {
-		UpdateCartItemRequest request = new UpdateCartItemRequest(0);
-
-		mockMvc.perform(put("/api/cart-items/1")
-						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(request)))
-				.andExpect(status().isBadRequest());
-
-		verifyNoInteractions(cartService);
-	}
-
-	@Test
-	@DisplayName("DELETE 成功刪除購物車項目")
-	void deleteCartItem_returnsNoContent() throws Exception {
-		mockMvc.perform(delete("/api/cart-items/1")
-						.contentType(MediaType.APPLICATION_JSON))
-				.andExpect(status().isNoContent());
-
-		verify(cartService, times(1)).deleteCartItem(1L);
-	}
-
-	@Test
-	@DisplayName("GET 遇到 IllegalArgumentException 時回傳 400")
-	void getCartItems_returnsBadRequestForIllegalArgumentException()
+	@DisplayName("GET userId 不合法時回傳 400")
+	void getActiveCart_returnsBadRequestWhenUserIdIsInvalid()
 			throws Exception {
-		when(cartService.getCartItems(0L))
+		when(cartService.getActiveCart(0L))
 				.thenThrow(new IllegalArgumentException("userId 必須大於 0"));
 
-		mockMvc.perform(get("/api/cart-items/user/0")
+		mockMvc.perform(get("/api/carts/users/0/active")
 						.contentType(MediaType.APPLICATION_JSON))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.status").value(400))
@@ -153,46 +127,143 @@ class CartControllerTest {
 						org.hamcrest.Matchers.containsString("userId")
 				))
 				.andExpect(jsonPath("$.path").value(
-						"/api/cart-items/user/0"
+						"/api/carts/users/0/active"
 				));
 
-		verify(cartService, times(1)).getCartItems(0L);
+		verify(cartService, times(1)).getActiveCart(0L);
 	}
 
 	@Test
-	@DisplayName("PUT 找不到購物車項目時回傳 404")
-	void updateQuantity_returnsNotFoundWhenItemDoesNotExist() throws Exception {
+	@DisplayName("PUT 成功修改購物車數量")
+	void updateQuantity_returnsUpdatedItem() throws Exception {
 		UpdateCartItemRequest request = new UpdateCartItemRequest(5);
-		when(cartService.updateQuantity(1L, request))
-				.thenThrow(new CartItemNotFoundException(1L));
+		CartItemResponse response = itemResponse(1L, 100L, 10L, 5);
+		when(cartService.updateQuantity(1L, request)).thenReturn(response);
 
-		mockMvc.perform(put("/api/cart-items/1")
+		mockMvc.perform(put("/api/carts/items/1")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(request)))
-				.andExpect(status().isNotFound())
-				.andExpect(jsonPath("$.status").value(404))
-				.andExpect(jsonPath("$.message").value(
-						org.hamcrest.Matchers.containsString("cartItemId")
-				));
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.cartId").value(100))
+				.andExpect(jsonPath("$.quantity").value(5));
 
 		verify(cartService, times(1)).updateQuantity(1L, request);
 	}
 
-	private CartItemResponse response(
+	@Test
+	@DisplayName("PUT Validation 失敗時回傳 400")
+	void updateQuantity_returnsBadRequestWhenQuantityIsInvalid() throws Exception {
+		UpdateCartItemRequest request = new UpdateCartItemRequest(0);
+
+		mockMvc.perform(put("/api/carts/items/1")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.message").value(
+						org.hamcrest.Matchers.containsString("quantity")
+				));
+
+		verifyNoInteractions(cartService);
+	}
+
+	@Test
+	@DisplayName("DELETE 成功刪除購物車項目")
+	void deleteCartItem_returnsNoContent() throws Exception {
+		mockMvc.perform(delete("/api/carts/items/1")
+						.contentType(MediaType.APPLICATION_JSON))
+				.andExpect(status().isNoContent());
+
+		verify(cartService, times(1)).deleteCartItem(1L);
+	}
+
+	@Test
+	@DisplayName("DELETE 找不到購物車項目時回傳 404")
+	void deleteCartItem_returnsNotFoundWhenItemDoesNotExist() throws Exception {
+		doThrow(new CartItemNotFoundException(999L))
+				.when(cartService)
+				.deleteCartItem(999L);
+
+		mockMvc.perform(delete("/api/carts/items/999")
+						.contentType(MediaType.APPLICATION_JSON))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.status").value(404))
+				.andExpect(jsonPath("$.message").value(
+						org.hamcrest.Matchers.containsString("999")
+				))
+				.andExpect(jsonPath("$.path").value(
+						"/api/carts/items/999"
+				));
+
+		verify(cartService, times(1)).deleteCartItem(999L);
+	}
+
+	@Test
+	@DisplayName("POST checkout 成功")
+	void checkoutCart_returnsCheckedOutCart() throws Exception {
+		CartResponse response = cartResponse(
+				Cart.CartStatus.CHECKED_OUT,
+				List.of(itemResponse(1L, 100L, 10L, 2))
+		);
+		when(cartService.checkoutCart(1L)).thenReturn(response);
+
+		mockMvc.perform(post("/api/carts/users/1/checkout")
+						.contentType(MediaType.APPLICATION_JSON))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.cartId").value(100))
+				.andExpect(jsonPath("$.status").value("CHECKED_OUT"))
+				.andExpect(jsonPath("$.items.length()").value(1));
+
+		verify(cartService, times(1)).checkoutCart(1L);
+	}
+
+	@Test
+	@DisplayName("POST checkout 空購物車時回傳 400")
+	void checkoutCart_returnsBadRequestWhenCartIsEmpty() throws Exception {
+		when(cartService.checkoutCart(1L))
+				.thenThrow(new InvalidCartQuantityException("購物車不可為空"));
+
+		mockMvc.perform(post("/api/carts/users/1/checkout")
+						.contentType(MediaType.APPLICATION_JSON))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.error").value("Bad Request"))
+				.andExpect(jsonPath("$.message").value(
+						org.hamcrest.Matchers.containsString("購物車不可為空")
+				))
+				.andExpect(jsonPath("$.path").value(
+						"/api/carts/users/1/checkout"
+				));
+
+		verify(cartService, times(1)).checkoutCart(1L);
+	}
+
+	private CartItemResponse itemResponse(
 			Long cartItemId,
-			Long userId,
+			Long cartId,
 			Long productId,
 			Integer quantity
 	) {
-		LocalDateTime createdAt = LocalDateTime.of(2026, 7, 1, 10, 0);
-		LocalDateTime updatedAt = LocalDateTime.of(2026, 7, 1, 10, 30);
 		return new CartItemResponse(
 				cartItemId,
-				userId,
+				cartId,
 				productId,
 				quantity,
-				createdAt,
-				updatedAt
+				FIXED_TIME,
+				FIXED_TIME
+		);
+	}
+
+	private CartResponse cartResponse(
+			Cart.CartStatus status,
+			List<CartItemResponse> items
+	) {
+		return new CartResponse(
+				100L,
+				1L,
+				status,
+				FIXED_TIME,
+				FIXED_TIME,
+				items
 		);
 	}
 }

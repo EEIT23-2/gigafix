@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 
 public record CartItemResponse(
 		Long cartItemId,
-		Long userId,
+		Long cartId,
 		Long productId,
 		Integer quantity,
 		LocalDateTime createdAt,

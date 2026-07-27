@@ -1,7 +1,5 @@
 package com.gigafix.cart.controller;
 
-import java.util.List;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -16,19 +14,20 @@ import org.springframework.web.bind.annotation.RestController;
 import com.gigafix.cart.dto.request.AddCartItemRequest;
 import com.gigafix.cart.dto.request.UpdateCartItemRequest;
 import com.gigafix.cart.dto.response.CartItemResponse;
+import com.gigafix.cart.dto.response.CartResponse;
 import com.gigafix.cart.service.CartService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/cart-items")
+@RequestMapping("/api/carts")
 @RequiredArgsConstructor
 public class CartController {
 
 	private final CartService cartService;
 
-	@PostMapping
+	@PostMapping("/items")
 	public ResponseEntity<CartItemResponse> addCartItem(
 			@Valid @RequestBody AddCartItemRequest request
 	) {
@@ -37,14 +36,14 @@ public class CartController {
 				.body(cartService.addCartItem(request));
 	}
 
-	@GetMapping("/user/{userId}")
-	public ResponseEntity<List<CartItemResponse>> getCartItems(
+	@GetMapping("/users/{userId}/active")
+	public ResponseEntity<CartResponse> getActiveCart(
 			@PathVariable Long userId
 	) {
-		return ResponseEntity.ok(cartService.getCartItems(userId));
+		return ResponseEntity.ok(cartService.getActiveCart(userId));
 	}
 
-	@PutMapping("/{cartItemId}")
+	@PutMapping("/items/{cartItemId}")
 	public ResponseEntity<CartItemResponse> updateQuantity(
 			@PathVariable Long cartItemId,
 			@Valid @RequestBody UpdateCartItemRequest request
@@ -54,11 +53,18 @@ public class CartController {
 		);
 	}
 
-	@DeleteMapping("/{cartItemId}")
+	@DeleteMapping("/items/{cartItemId}")
 	public ResponseEntity<Void> deleteCartItem(
 			@PathVariable Long cartItemId
 	) {
 		cartService.deleteCartItem(cartItemId);
 		return ResponseEntity.noContent().build();
+	}
+
+	@PostMapping("/users/{userId}/checkout")
+	public ResponseEntity<CartResponse> checkoutCart(
+			@PathVariable Long userId
+	) {
+		return ResponseEntity.ok(cartService.checkoutCart(userId));
 	}
 }

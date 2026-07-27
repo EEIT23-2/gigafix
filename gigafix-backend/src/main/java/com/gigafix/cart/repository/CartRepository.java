@@ -5,19 +5,19 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import com.gigafix.cart.entity.CartItem;
+import com.gigafix.cart.entity.Cart;
 
-public interface CartRepository extends JpaRepository<CartItem, Long> {
+public interface CartRepository extends JpaRepository<Cart, Long> {
 
-	List<CartItem> findByUserId(Long userId);
-
-	Optional<CartItem> findByUserIdAndProductId(
+	Optional<Cart> findByUserIdAndStatus(
 			Long userId,
-			Long productId
+			Cart.CartStatus status
 	);
 
-	void deleteByUserIdAndProductId(
+	List<Cart> findByUserIdOrderByCreatedAtDesc(Long userId);
+
+	boolean existsByUserIdAndStatus(
 			Long userId,
-			Long productId
+			Cart.CartStatus status
 	);
 }

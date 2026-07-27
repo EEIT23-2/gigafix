@@ -7,9 +7,12 @@ import org.springframework.stereotype.Service;
 import com.gigafix.cart.dto.request.AddCartItemRequest;
 import com.gigafix.cart.dto.request.UpdateCartItemRequest;
 import com.gigafix.cart.dto.response.CartItemResponse;
+import com.gigafix.cart.dto.response.CartResponse;
+import com.gigafix.cart.entity.Cart;
 import com.gigafix.cart.entity.CartItem;
 import com.gigafix.cart.exception.CartItemNotFoundException;
 import com.gigafix.cart.exception.InvalidCartQuantityException;
+import com.gigafix.cart.repository.CartItemRepository;
 import com.gigafix.cart.repository.CartRepository;
 
 import jakarta.transaction.Transactional;
@@ -21,12 +24,24 @@ import lombok.RequiredArgsConstructor;
 public class CartService {
 
 	private final CartRepository cartRepository;
+	private final CartItemRepository cartItemRepository;
 
 	public CartItemResponse addCartItem(AddCartItemRequest request) {
 		validateQuantity(request.quantity());
 
-		CartItem cartItem = cartRepository
-				.findByUserIdAndProductId(request.userId(), request.productId())
+		Cart cart = cartRepository.findByUserIdAndStatus(
+				request.userId(),
+				Cart.CartStatus.ACTIVE
+		).orElseGet(() -> cartRepository.save(Cart.builder()
+				.userId(request.userId())
+				.status(Cart.CartStatus.ACTIVE)
+				.build()));
+
+		CartItem cartItem = cartItemRepository
+				.findByCartIdAndProductId(
+						cart.getCartId(),
+						request.productId()
+				)
 				.map(existingItem -> {
 					existingItem.setQuantity(
 							existingItem.getQuantity() + request.quantity()
@@ -34,24 +49,29 @@ public class CartService {
 					return existingItem;
 				})
 				.orElseGet(() -> CartItem.builder()
-						.userId(request.userId())
+						.cartId(cart.getCartId())
 						.productId(request.productId())
 						.quantity(request.quantity())
 						.build());
 
-		return toResponse(cartRepository.save(cartItem));
+		return toItemResponse(cartItemRepository.save(cartItem));
 	}
 
-	@Transactional(Transactional.TxType.SUPPORTS)
-	public List<CartItemResponse> getCartItems(Long userId) {
-		if (userId == null || userId <= 0) {
-			throw new IllegalArgumentException("userId 必須大於 0");
-		}
+	public CartResponse getActiveCart(Long userId) {
+		validateUserId(userId);
 
-		return cartRepository.findByUserId(userId)
-				.stream()
-				.map(this::toResponse)
-				.toList();
+		Cart cart = cartRepository.findByUserIdAndStatus(
+				userId,
+				Cart.CartStatus.ACTIVE
+		).orElseGet(() -> cartRepository.save(Cart.builder()
+				.userId(userId)
+				.status(Cart.CartStatus.ACTIVE)
+				.build()));
+		List<CartItem> items = cartItemRepository.findByCartId(
+				cart.getCartId()
+		);
+
+		return toCartResponse(cart, items);
 	}
 
 	public CartItemResponse updateQuantity(
@@ -60,30 +80,71 @@ public class CartService {
 	) {
 		validateQuantity(request.quantity());
 
-		CartItem cartItem = cartRepository.findById(cartItemId)
+		CartItem cartItem = cartItemRepository.findById(cartItemId)
 				.orElseThrow(() -> new CartItemNotFoundException(cartItemId));
 
 		cartItem.setQuantity(request.quantity());
 
-		return toResponse(cartRepository.save(cartItem));
+		return toItemResponse(cartItemRepository.save(cartItem));
 	}
 
 	public void deleteCartItem(Long cartItemId) {
-		CartItem cartItem = cartRepository.findById(cartItemId)
+		CartItem cartItem = cartItemRepository.findById(cartItemId)
 				.orElseThrow(() -> new CartItemNotFoundException(cartItemId));
 
-		cartRepository.delete(cartItem);
+		cartItemRepository.delete(cartItem);
 	}
 
-	private CartItemResponse toResponse(CartItem cartItem) {
+	public CartResponse checkoutCart(Long userId) {
+		validateUserId(userId);
+
+		Cart cart = cartRepository.findByUserIdAndStatus(
+				userId,
+				Cart.CartStatus.ACTIVE
+		).orElseThrow(() -> new InvalidCartQuantityException(
+				"找不到可結帳的購物車"
+		));
+		List<CartItem> items = cartItemRepository.findByCartId(
+				cart.getCartId()
+		);
+		if (items.isEmpty()) {
+			throw new InvalidCartQuantityException("購物車不可為空");
+		}
+
+		cart.setStatus(Cart.CartStatus.CHECKED_OUT);
+		Cart savedCart = cartRepository.save(cart);
+		return toCartResponse(savedCart, items);
+	}
+
+	private CartItemResponse toItemResponse(CartItem cartItem) {
 		return new CartItemResponse(
 				cartItem.getCartItemId(),
-				cartItem.getUserId(),
+				cartItem.getCartId(),
 				cartItem.getProductId(),
 				cartItem.getQuantity(),
 				cartItem.getCreatedAt(),
 				cartItem.getUpdatedAt()
 		);
+	}
+
+	private CartResponse toCartResponse(
+			Cart cart,
+			List<CartItem> items
+	) {
+		return new CartResponse(
+				cart.getCartId(),
+				cart.getUserId(),
+				cart.getStatus(),
+				cart.getCreatedAt(),
+				cart.getUpdatedAt(),
+				items.stream().map(this::toItemResponse).toList()
+		);
+	}
+
+	private void validateUserId(Long userId) {
+		if (userId == null || userId <= 0) {
+			throw new IllegalArgumentException("userId 必須大於 0");
+		}
 	}
 
 	private void validateQuantity(Integer quantity) {
