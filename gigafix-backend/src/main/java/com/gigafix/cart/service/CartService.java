@@ -11,11 +11,11 @@ import com.gigafix.cart.dto.response.CartResponse;
 import com.gigafix.cart.entity.Cart;
 import com.gigafix.cart.entity.CartItem;
 import com.gigafix.cart.exception.CartItemNotFoundException;
+import com.gigafix.cart.exception.CartMemberNotFoundException;
 import com.gigafix.cart.exception.CartNotFoundException;
 import com.gigafix.cart.repository.CartItemRepository;
 import com.gigafix.cart.repository.CartRepository;
 import com.gigafix.user.entity.Member;
-import com.gigafix.user.exception.MemberNotFoundException;
 import com.gigafix.user.repository.MemberRepository;
 
 import jakarta.transaction.Transactional;
@@ -96,7 +96,7 @@ public class CartService {
 	private Member findMember(Long memberId) {
 		validateId(memberId, "memberId");
 		return memberRepository.findById(memberId)
-				.orElseThrow(() -> new MemberNotFoundException(memberId));
+				.orElseThrow(() -> new CartMemberNotFoundException(memberId));
 	}
 
 	private Cart findActiveCart(Long memberId) {

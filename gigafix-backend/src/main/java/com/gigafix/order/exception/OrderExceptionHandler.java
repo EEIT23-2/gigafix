@@ -11,14 +11,13 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import jakarta.servlet.http.HttpServletRequest;
 import com.gigafix.cart.exception.CartNotFoundException;
 import com.gigafix.cart.exception.EmptyCartException;
-import com.gigafix.user.exception.MemberNotFoundException;
 
 @RestControllerAdvice(basePackages = "com.gigafix.order.controller")
 public class OrderExceptionHandler {
 
-	@ExceptionHandler(MemberNotFoundException.class)
+	@ExceptionHandler(OrderMemberNotFoundException.class)
 	public ResponseEntity<OrderErrorResponse> handleMemberNotFound(
-			MemberNotFoundException exception,
+			OrderMemberNotFoundException exception,
 			HttpServletRequest request
 	) {
 		return buildErrorResponse(

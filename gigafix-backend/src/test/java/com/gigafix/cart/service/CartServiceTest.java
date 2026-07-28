@@ -21,11 +21,11 @@ import com.gigafix.cart.dto.request.UpdateCartItemRequest;
 import com.gigafix.cart.entity.Cart;
 import com.gigafix.cart.entity.CartItem;
 import com.gigafix.cart.exception.CartItemNotFoundException;
+import com.gigafix.cart.exception.CartMemberNotFoundException;
 import com.gigafix.cart.exception.CartNotFoundException;
 import com.gigafix.cart.repository.CartItemRepository;
 import com.gigafix.cart.repository.CartRepository;
 import com.gigafix.user.entity.Member;
-import com.gigafix.user.exception.MemberNotFoundException;
 import com.gigafix.user.repository.MemberRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -64,7 +64,7 @@ class CartServiceTest {
 		when(memberRepository.findById(99L)).thenReturn(Optional.empty());
 
 		assertThrows(
-				MemberNotFoundException.class,
+				CartMemberNotFoundException.class,
 				() -> cartService.addCartItem(
 						99L,
 						new AddCartItemRequest(10L, 1)
@@ -106,7 +106,7 @@ class CartServiceTest {
 		when(memberRepository.findById(99L)).thenReturn(Optional.empty());
 
 		assertThrows(
-				MemberNotFoundException.class,
+				CartMemberNotFoundException.class,
 				() -> cartService.getActiveCart(99L)
 		);
 	}

@@ -29,12 +29,13 @@ import com.gigafix.cart.dto.response.CartResponse;
 import com.gigafix.cart.entity.Cart;
 import com.gigafix.cart.exception.CartExceptionHandler;
 import com.gigafix.cart.exception.CartItemNotFoundException;
+import com.gigafix.cart.exception.CartMemberNotFoundException;
 import com.gigafix.cart.exception.CartNotFoundException;
 import com.gigafix.cart.exception.CheckoutNotAvailableException;
 import com.gigafix.cart.exception.EmptyCartException;
 import com.gigafix.cart.service.CartService;
+import com.gigafix.order.exception.OrderMemberNotFoundException;
 import com.gigafix.order.service.OrderService;
-import com.gigafix.user.exception.MemberNotFoundException;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -106,7 +107,7 @@ class CartControllerTest {
 	@Test
 	void missingMemberReturnsNotFound() throws Exception {
 		when(cartService.getActiveCart(99L))
-				.thenThrow(new MemberNotFoundException(99L));
+				.thenThrow(new CartMemberNotFoundException(99L));
 
 		mockMvc.perform(get("/api/members/99/cart"))
 				.andExpect(status().isNotFound())
@@ -178,7 +179,7 @@ class CartControllerTest {
 	@Test
 	void checkoutMissingMemberReturnsNotFound() throws Exception {
 		when(orderService.checkoutCart(99L))
-				.thenThrow(new MemberNotFoundException(99L));
+				.thenThrow(new OrderMemberNotFoundException(99L));
 
 		mockMvc.perform(post("/api/members/99/cart/checkout"))
 				.andExpect(status().isNotFound());

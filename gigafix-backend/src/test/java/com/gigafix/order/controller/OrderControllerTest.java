@@ -26,9 +26,9 @@ import com.gigafix.order.dto.request.UpdatePaymentStatusRequest;
 import com.gigafix.order.dto.response.OrderResponse;
 import com.gigafix.order.entity.Order;
 import com.gigafix.order.exception.OrderExceptionHandler;
+import com.gigafix.order.exception.OrderMemberNotFoundException;
 import com.gigafix.order.exception.OrderNotFoundException;
 import com.gigafix.order.service.OrderService;
-import com.gigafix.user.exception.MemberNotFoundException;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -74,7 +74,7 @@ class OrderControllerTest {
 	@Test
 	void missingMemberReturnsNotFound() throws Exception {
 		when(orderService.getOrdersByMember(99L))
-				.thenThrow(new MemberNotFoundException(99L));
+				.thenThrow(new OrderMemberNotFoundException(99L));
 
 		mockMvc.perform(get("/api/members/99/orders"))
 				.andExpect(status().isNotFound());

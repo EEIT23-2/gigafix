@@ -18,11 +18,11 @@ import com.gigafix.order.dto.response.OrderResponse;
 import com.gigafix.order.entity.Order;
 import com.gigafix.order.entity.OrderItem;
 import com.gigafix.order.exception.InvalidOrderException;
+import com.gigafix.order.exception.OrderMemberNotFoundException;
 import com.gigafix.order.exception.OrderNotFoundException;
 import com.gigafix.order.repository.OrderItemRepository;
 import com.gigafix.order.repository.OrderRepository;
 import com.gigafix.user.entity.Member;
-import com.gigafix.user.exception.MemberNotFoundException;
 import com.gigafix.user.repository.MemberRepository;
 
 import jakarta.transaction.Transactional;
@@ -130,7 +130,7 @@ public class OrderService {
 	private Member findMember(Long memberId) {
 		validateId(memberId, "memberId");
 		return memberRepository.findById(memberId)
-				.orElseThrow(() -> new MemberNotFoundException(memberId));
+				.orElseThrow(() -> new OrderMemberNotFoundException(memberId));
 	}
 
 	private Order findOwnedOrder(Long memberId, Long orderId) {

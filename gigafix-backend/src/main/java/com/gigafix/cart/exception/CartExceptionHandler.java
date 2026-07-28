@@ -13,14 +13,17 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.persistence.PessimisticLockException;
-import com.gigafix.user.exception.MemberNotFoundException;
+import com.gigafix.order.exception.OrderMemberNotFoundException;
 
 @RestControllerAdvice(basePackages = "com.gigafix.cart.controller")
 public class CartExceptionHandler {
 
-	@ExceptionHandler(MemberNotFoundException.class)
+	@ExceptionHandler({
+			CartMemberNotFoundException.class,
+			OrderMemberNotFoundException.class
+	})
 	public ResponseEntity<CartErrorResponse> handleMemberNotFound(
-			MemberNotFoundException exception,
+			RuntimeException exception,
 			HttpServletRequest request
 	) {
 		return buildErrorResponse(

@@ -26,11 +26,11 @@ import com.gigafix.order.dto.request.UpdateOrderStatusRequest;
 import com.gigafix.order.dto.request.UpdatePaymentStatusRequest;
 import com.gigafix.order.entity.Order;
 import com.gigafix.order.entity.OrderItem;
+import com.gigafix.order.exception.OrderMemberNotFoundException;
 import com.gigafix.order.exception.OrderNotFoundException;
 import com.gigafix.order.repository.OrderItemRepository;
 import com.gigafix.order.repository.OrderRepository;
 import com.gigafix.user.entity.Member;
-import com.gigafix.user.exception.MemberNotFoundException;
 import com.gigafix.user.repository.MemberRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -78,7 +78,7 @@ class OrderServiceTest {
 		when(memberRepository.findById(99L)).thenReturn(Optional.empty());
 
 		assertThrows(
-				MemberNotFoundException.class,
+				OrderMemberNotFoundException.class,
 				() -> orderService.checkoutCart(99L)
 		);
 	}
