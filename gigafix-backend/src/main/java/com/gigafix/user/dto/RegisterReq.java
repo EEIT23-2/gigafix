@@ -2,7 +2,7 @@ package com.gigafix.user.dto;
 
 import java.time.LocalDateTime;
 
-import com.gigafix.user.entity.GigaFixUsers.Gender;
+import com.gigafix.user.entity.Member.Gender;
 
 
 public record RegisterReq(String password,

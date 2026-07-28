@@ -5,25 +5,24 @@ import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
 
 import com.gigafix.user.dto.RegisterReq;
-import com.gigafix.user.dto.RegisterResp;
-import com.gigafix.user.entity.GigaFixUsers;
-import com.gigafix.user.repository.GigaFixUsersRepository;
+import com.gigafix.user.entity.Member;
+import com.gigafix.user.repository.MemberRepository;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Service @Transactional
 @RequiredArgsConstructor
-public class GigaFixUsersService {
-	private final GigaFixUsersRepository gigaFixUsersRepository;
+public class MemberService {
+	private final MemberRepository memberRepository;
 //	private final 
 	
-	public GigaFixUsers registerGigaFixUser(RegisterReq registerReq) throws Exception {
-		GigaFixUsers user = gigaFixUsersRepository.findByEmail(registerReq.email());
+	public Member registerGigaFixUser(RegisterReq registerReq) throws Exception {
+		Member user = memberRepository.findByEmail(registerReq.email());
 		if (user != null) {
 			throw new RuntimeException();
 		}
-		user = GigaFixUsers.builder()
+		user = Member.builder()
 				.password(registerReq.password())
 				.realName(registerReq.realName())
 				.nickName(registerReq.nickName())
@@ -32,7 +31,7 @@ public class GigaFixUsersService {
 				.address(registerReq.address())
 				.gender(registerReq.gender())
 				.createDateTime(LocalDateTime.now()).build();
-		return gigaFixUsersRepository.save(user);
+		return memberRepository.save(user);
 	}
 	
 	

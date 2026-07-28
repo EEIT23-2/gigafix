@@ -8,21 +8,21 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.gigafix.user.dto.RegisterReq;
 import com.gigafix.user.dto.RegisterResp;
-import com.gigafix.user.entity.GigaFixUsers;
-import com.gigafix.user.service.GigaFixUsersService;
+import com.gigafix.user.entity.Member;
+import com.gigafix.user.service.MemberService;
 
 import lombok.RequiredArgsConstructor;
 
 @RestController("gigaFixUsersController")
 @RequestMapping("/gigafix/users")
 @RequiredArgsConstructor
-public class GigaFixUsersController {
-	private final GigaFixUsersService gigaFixUsersService;
+public class MemberController {
+	private final MemberService memberService;
 	
 	@PostMapping("/register")
 	public ResponseEntity<RegisterResp> register(@RequestBody RegisterReq registerReq) throws Exception {
 		//寄信
-		GigaFixUsers user = gigaFixUsersService.registerGigaFixUser(registerReq);
+		Member user = memberService.registerGigaFixUser(registerReq);
 		//用user的password(??)跟id做JWT
 		RegisterResp registerResp = RegisterResp.builder()
 						.realName(user.getRealName())
