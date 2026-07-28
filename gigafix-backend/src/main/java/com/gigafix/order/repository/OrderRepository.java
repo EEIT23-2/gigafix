@@ -9,11 +9,11 @@ import com.gigafix.order.entity.Order;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
-	List<Order> findByUserIdOrderByCreatedAtDesc(Long userId);
+	List<Order> findByMemberIdOrderByCreatedAtDesc(Long memberId);
 
-	Optional<Order> findByOrderIdAndUserId(
+	Optional<Order> findByOrderIdAndMemberId(
 			Long orderId,
-			Long userId
+			Long memberId
 	);
 
 	List<Order> findByStatusOrderByCreatedAtDesc(

@@ -12,10 +12,11 @@ import com.gigafix.cart.entity.Cart;
 import com.gigafix.cart.entity.CartItem;
 import com.gigafix.cart.exception.CartItemNotFoundException;
 import com.gigafix.cart.exception.CartNotFoundException;
-import com.gigafix.cart.exception.EmptyCartException;
-import com.gigafix.cart.exception.InvalidCartQuantityException;
 import com.gigafix.cart.repository.CartItemRepository;
 import com.gigafix.cart.repository.CartRepository;
+import com.gigafix.user.entity.Member;
+import com.gigafix.user.exception.MemberNotFoundException;
+import com.gigafix.user.repository.MemberRepository;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -27,20 +28,25 @@ public class CartService {
 
 	private final CartRepository cartRepository;
 	private final CartItemRepository cartItemRepository;
+	private final MemberRepository memberRepository;
 
-	public CartItemResponse addCartItem(AddCartItemRequest request) {
+	public CartItemResponse addCartItem(
+			Long memberId,
+			AddCartItemRequest request
+	) {
+		Member member = findMember(memberId);
 		validateQuantity(request.quantity());
 
-		Cart cart = cartRepository.findByUserIdAndStatus(
-				request.userId(),
+		Cart cart = cartRepository.findByMemberIdAndStatus(
+				memberId,
 				Cart.CartStatus.ACTIVE
 		).orElseGet(() -> cartRepository.save(Cart.builder()
-				.userId(request.userId())
+				.member(member)
 				.status(Cart.CartStatus.ACTIVE)
 				.build()));
 
 		CartItem cartItem = cartItemRepository
-				.findByCartIdAndProductId(
+				.findByCartCartIdAndProductId(
 						cart.getCartId(),
 						request.productId()
 				)
@@ -51,7 +57,7 @@ public class CartService {
 					return existingItem;
 				})
 				.orElseGet(() -> CartItem.builder()
-						.cartId(cart.getCartId())
+						.cart(cart)
 						.productId(request.productId())
 						.quantity(request.quantity())
 						.build());
@@ -59,64 +65,59 @@ public class CartService {
 		return toItemResponse(cartItemRepository.save(cartItem));
 	}
 
-	public CartResponse getActiveCart(Long userId) {
-		validateUserId(userId);
-
-		Cart cart = cartRepository.findByUserIdAndStatus(
-				userId,
-				Cart.CartStatus.ACTIVE
-		).orElseThrow(() -> new CartNotFoundException(userId));
-		List<CartItem> items = cartItemRepository.findByCartId(
-				cart.getCartId()
+	@Transactional(Transactional.TxType.SUPPORTS)
+	public CartResponse getActiveCart(Long memberId) {
+		findMember(memberId);
+		Cart cart = findActiveCart(memberId);
+		return toCartResponse(
+				cart,
+				cartItemRepository.findByCartCartId(cart.getCartId())
 		);
-
-		return toCartResponse(cart, items);
 	}
 
 	public CartItemResponse updateQuantity(
+			Long memberId,
 			Long cartItemId,
 			UpdateCartItemRequest request
 	) {
+		findMember(memberId);
 		validateQuantity(request.quantity());
 
-		CartItem cartItem = cartItemRepository.findById(cartItemId)
-				.orElseThrow(() -> new CartItemNotFoundException(cartItemId));
-
+		CartItem cartItem = findOwnedCartItem(memberId, cartItemId);
 		cartItem.setQuantity(request.quantity());
-
 		return toItemResponse(cartItemRepository.save(cartItem));
 	}
 
-	public void deleteCartItem(Long cartItemId) {
-		CartItem cartItem = cartItemRepository.findById(cartItemId)
-				.orElseThrow(() -> new CartItemNotFoundException(cartItemId));
-
-		cartItemRepository.delete(cartItem);
+	public void deleteCartItem(Long memberId, Long cartItemId) {
+		findMember(memberId);
+		cartItemRepository.delete(findOwnedCartItem(memberId, cartItemId));
 	}
 
-	public CartResponse checkoutCart(Long userId) {
-		validateUserId(userId);
+	private Member findMember(Long memberId) {
+		validateId(memberId, "memberId");
+		return memberRepository.findById(memberId)
+				.orElseThrow(() -> new MemberNotFoundException(memberId));
+	}
 
-		Cart cart = cartRepository.findByUserIdAndStatus(
-				userId,
+	private Cart findActiveCart(Long memberId) {
+		return cartRepository.findByMemberIdAndStatus(
+				memberId,
 				Cart.CartStatus.ACTIVE
-		).orElseThrow(() -> new CartNotFoundException(userId));
-		List<CartItem> items = cartItemRepository.findByCartId(
-				cart.getCartId()
-		);
-		if (items.isEmpty()) {
-			throw new EmptyCartException(cart.getCartId());
-		}
+		).orElseThrow(() -> new CartNotFoundException(memberId));
+	}
 
-		cart.setStatus(Cart.CartStatus.CHECKED_OUT);
-		Cart savedCart = cartRepository.save(cart);
-		return toCartResponse(savedCart, items);
+	private CartItem findOwnedCartItem(Long memberId, Long cartItemId) {
+		validateId(cartItemId, "cartItemId");
+		return cartItemRepository.findByCartItemIdAndCartMemberId(
+				cartItemId,
+				memberId
+		).orElseThrow(() -> new CartItemNotFoundException(cartItemId));
 	}
 
 	private CartItemResponse toItemResponse(CartItem cartItem) {
 		return new CartItemResponse(
 				cartItem.getCartItemId(),
-				cartItem.getCartId(),
+				cartItem.getCart().getCartId(),
 				cartItem.getProductId(),
 				cartItem.getQuantity(),
 				cartItem.getCreatedAt(),
@@ -124,13 +125,10 @@ public class CartService {
 		);
 	}
 
-	private CartResponse toCartResponse(
-			Cart cart,
-			List<CartItem> items
-	) {
+	private CartResponse toCartResponse(Cart cart, List<CartItem> items) {
 		return new CartResponse(
 				cart.getCartId(),
-				cart.getUserId(),
+				cart.getMember().getId(),
 				cart.getStatus(),
 				cart.getCreatedAt(),
 				cart.getUpdatedAt(),
@@ -138,15 +136,15 @@ public class CartService {
 		);
 	}
 
-	private void validateUserId(Long userId) {
-		if (userId == null || userId <= 0) {
-			throw new IllegalArgumentException("userId 必須大於 0");
+	private void validateId(Long id, String fieldName) {
+		if (id == null || id <= 0) {
+			throw new IllegalArgumentException(fieldName + " 必須大於 0");
 		}
 	}
 
 	private void validateQuantity(Integer quantity) {
 		if (quantity == null || quantity <= 0) {
-			throw new InvalidCartQuantityException("購物車數量必須大於 0");
+			throw new IllegalArgumentException("購物車數量必須大於 0");
 		}
 	}
 }

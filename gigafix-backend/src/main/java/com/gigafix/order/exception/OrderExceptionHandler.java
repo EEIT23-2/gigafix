@@ -9,9 +9,48 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import jakarta.servlet.http.HttpServletRequest;
+import com.gigafix.cart.exception.CartNotFoundException;
+import com.gigafix.cart.exception.EmptyCartException;
+import com.gigafix.user.exception.MemberNotFoundException;
 
 @RestControllerAdvice(basePackages = "com.gigafix.order.controller")
 public class OrderExceptionHandler {
+
+	@ExceptionHandler(MemberNotFoundException.class)
+	public ResponseEntity<OrderErrorResponse> handleMemberNotFound(
+			MemberNotFoundException exception,
+			HttpServletRequest request
+	) {
+		return buildErrorResponse(
+				HttpStatus.NOT_FOUND,
+				exception.getMessage(),
+				request.getRequestURI()
+		);
+	}
+
+	@ExceptionHandler(CartNotFoundException.class)
+	public ResponseEntity<OrderErrorResponse> handleCartNotFound(
+			CartNotFoundException exception,
+			HttpServletRequest request
+	) {
+		return buildErrorResponse(
+				HttpStatus.NOT_FOUND,
+				exception.getMessage(),
+				request.getRequestURI()
+		);
+	}
+
+	@ExceptionHandler(EmptyCartException.class)
+	public ResponseEntity<OrderErrorResponse> handleEmptyCart(
+			EmptyCartException exception,
+			HttpServletRequest request
+	) {
+		return buildErrorResponse(
+				HttpStatus.CONFLICT,
+				exception.getMessage(),
+				request.getRequestURI()
+		);
+	}
 
 	@ExceptionHandler(OrderNotFoundException.class)
 	public ResponseEntity<OrderErrorResponse> handleOrderNotFound(

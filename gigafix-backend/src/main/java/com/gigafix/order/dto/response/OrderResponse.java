@@ -8,7 +8,7 @@ import com.gigafix.order.entity.Order;
 
 public record OrderResponse(
 		Long orderId,
-		Long userId,
+		Long memberId,
 		LocalDateTime orderDate,
 		BigDecimal totalAmount,
 		Order.OrderStatus status,

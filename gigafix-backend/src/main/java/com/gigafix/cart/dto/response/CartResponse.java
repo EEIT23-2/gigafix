@@ -7,7 +7,7 @@ import com.gigafix.cart.entity.Cart;
 
 public record CartResponse(
 		Long cartId,
-		Long userId,
+		Long memberId,
 		Cart.CartStatus status,
 		LocalDateTime createdAt,
 		LocalDateTime updatedAt,

@@ -8,6 +8,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -31,8 +33,9 @@ public class OrderItem {
 	@Column(name = "order_item_id")
 	private Long orderItemId;
 
-	@Column(name = "order_id", nullable = false)
-	private Long orderId;
+	@ManyToOne(fetch = jakarta.persistence.FetchType.LAZY, optional = false)
+	@JoinColumn(name = "order_id", nullable = false)
+	private Order order;
 
 	@Column(name = "product_id", nullable = false)
 	private Long productId;
@@ -42,9 +45,9 @@ public class OrderItem {
 
 	@Column(
 			name = "unit_price",
-			nullable = false,
 			precision = 10,
-			scale = 2
+			scale = 2,
+			nullable = false
 	)
 	private BigDecimal unitPrice;
 
@@ -53,9 +56,9 @@ public class OrderItem {
 
 	@Column(
 			name = "subtotal",
-			nullable = false,
 			precision = 12,
-			scale = 2
+			scale = 2,
+			nullable = false
 	)
 	private BigDecimal subtotal;
 

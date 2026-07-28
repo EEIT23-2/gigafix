@@ -8,7 +8,7 @@ import com.gigafix.order.entity.OrderItem;
 
 public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 
-	List<OrderItem> findByOrderId(Long orderId);
+	List<OrderItem> findByOrderOrderId(Long orderId);
 
-	void deleteByOrderId(Long orderId);
+	void deleteByOrderOrderId(Long orderId);
 }

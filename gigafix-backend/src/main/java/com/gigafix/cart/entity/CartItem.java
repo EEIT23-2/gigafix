@@ -7,6 +7,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -39,8 +41,9 @@ public class CartItem {
 	@Column(name = "cart_item_id")
 	private Long cartItemId;
 
-	@Column(name = "cart_id", nullable = false)
-	private Long cartId;
+	@ManyToOne(fetch = jakarta.persistence.FetchType.LAZY, optional = false)
+	@JoinColumn(name = "cart_id", nullable = false)
+	private Cart cart;
 
 	@Column(name = "product_id", nullable = false)
 	private Long productId;

@@ -16,55 +16,62 @@ import com.gigafix.cart.dto.request.UpdateCartItemRequest;
 import com.gigafix.cart.dto.response.CartItemResponse;
 import com.gigafix.cart.dto.response.CartResponse;
 import com.gigafix.cart.service.CartService;
+import com.gigafix.order.dto.response.OrderResponse;
+import com.gigafix.order.service.OrderService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/carts")
+@RequestMapping("/api/members/{memberId}/cart")
 @RequiredArgsConstructor
 public class CartController {
 
 	private final CartService cartService;
+	private final OrderService orderService;
 
 	@PostMapping("/items")
 	public ResponseEntity<CartItemResponse> addCartItem(
+			@PathVariable Long memberId,
 			@Valid @RequestBody AddCartItemRequest request
 	) {
 		return ResponseEntity
 				.status(HttpStatus.CREATED)
-				.body(cartService.addCartItem(request));
+				.body(cartService.addCartItem(memberId, request));
 	}
 
-	@GetMapping("/users/{userId}/active")
+	@GetMapping
 	public ResponseEntity<CartResponse> getActiveCart(
-			@PathVariable Long userId
+			@PathVariable Long memberId
 	) {
-		return ResponseEntity.ok(cartService.getActiveCart(userId));
+		return ResponseEntity.ok(cartService.getActiveCart(memberId));
 	}
 
 	@PatchMapping("/items/{cartItemId}")
 	public ResponseEntity<CartItemResponse> updateQuantity(
+			@PathVariable Long memberId,
 			@PathVariable Long cartItemId,
 			@Valid @RequestBody UpdateCartItemRequest request
 	) {
 		return ResponseEntity.ok(
-				cartService.updateQuantity(cartItemId, request)
+				cartService.updateQuantity(memberId, cartItemId, request)
 		);
 	}
 
 	@DeleteMapping("/items/{cartItemId}")
 	public ResponseEntity<Void> deleteCartItem(
+			@PathVariable Long memberId,
 			@PathVariable Long cartItemId
 	) {
-		cartService.deleteCartItem(cartItemId);
+		cartService.deleteCartItem(memberId, cartItemId);
 		return ResponseEntity.noContent().build();
 	}
 
-	@PostMapping("/users/{userId}/checkout")
-	public ResponseEntity<CartResponse> checkoutCart(
-			@PathVariable Long userId
+	@PostMapping("/checkout")
+	public ResponseEntity<OrderResponse> checkoutCart(
+			@PathVariable Long memberId
 	) {
-		return ResponseEntity.ok(cartService.checkoutCart(userId));
+		return ResponseEntity.status(HttpStatus.CREATED)
+				.body(orderService.checkoutCart(memberId));
 	}
 }

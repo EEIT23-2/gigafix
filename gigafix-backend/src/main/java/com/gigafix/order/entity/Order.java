@@ -10,6 +10,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -18,6 +20,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import com.gigafix.user.entity.Member;
 
 @Entity
 @Table(name = "orders")
@@ -33,17 +37,18 @@ public class Order {
 	@Column(name = "order_id")
 	private Long orderId;
 
-	@Column(name = "user_id", nullable = false)
-	private Long userId;
+	@ManyToOne(fetch = jakarta.persistence.FetchType.LAZY, optional = false)
+	@JoinColumn(name = "member_id", nullable = false)
+	private Member member;
 
 	@Column(name = "order_date", nullable = false, updatable = false)
 	private LocalDateTime orderDate;
 
 	@Column(
 			name = "total_amount",
-			nullable = false,
 			precision = 12,
-			scale = 2
+			scale = 2,
+			nullable = false
 	)
 	private BigDecimal totalAmount;
 
@@ -66,17 +71,17 @@ public class Order {
 
 	@Column(
 			name = "shipping_fee",
-			nullable = false,
 			precision = 10,
-			scale = 2
+			scale = 2,
+			nullable = false
 	)
 	private BigDecimal shippingFee;
 
 	@Column(
 			name = "discount_amount",
-			nullable = false,
 			precision = 10,
-			scale = 2
+			scale = 2,
+			nullable = false
 	)
 	private BigDecimal discountAmount;
 
@@ -106,15 +111,6 @@ public class Order {
 		}
 		if (paymentStatus == null) {
 			paymentStatus = PaymentStatus.UNPAID;
-		}
-		if (shippingFee == null) {
-			shippingFee = BigDecimal.ZERO;
-		}
-		if (discountAmount == null) {
-			discountAmount = BigDecimal.ZERO;
-		}
-		if (totalAmount == null) {
-			totalAmount = BigDecimal.ZERO;
 		}
 	}
 

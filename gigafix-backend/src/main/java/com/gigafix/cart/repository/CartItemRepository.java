@@ -9,12 +9,17 @@ import com.gigafix.cart.entity.CartItem;
 
 public interface CartItemRepository extends JpaRepository<CartItem, Long> {
 
-	List<CartItem> findByCartId(Long cartId);
+	List<CartItem> findByCartCartId(Long cartId);
 
-	Optional<CartItem> findByCartIdAndProductId(
+	Optional<CartItem> findByCartCartIdAndProductId(
 			Long cartId,
 			Long productId
 	);
 
-	void deleteByCartId(Long cartId);
+	Optional<CartItem> findByCartItemIdAndCartMemberId(
+			Long cartItemId,
+			Long memberId
+	);
+
+	void deleteByCartCartId(Long cartId);
 }

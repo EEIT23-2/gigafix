@@ -4,7 +4,7 @@ public class CartNotFoundException extends RuntimeException {
 
 	private static final long serialVersionUID = 1L;
 
-	public CartNotFoundException(Long userId) {
-		super("找不到使用者的啟用中購物車，userId：" + userId);
+	public CartNotFoundException(Long memberId) {
+		super("找不到會員的啟用中購物車，memberId：" + memberId);
 	}
 }
