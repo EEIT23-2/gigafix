@@ -6,6 +6,10 @@ import java.util.List;
 
 import com.gigafix.order.entity.Order;
 
+/**
+ * 後端回傳完整訂單內容的回應 DTO。
+ * 包含會員、金額、處理與付款狀態、收件資料、時間及 Order Service 組合的商品明細。
+ */
 public record OrderResponse(
 		Long orderId,
 		Long memberId,

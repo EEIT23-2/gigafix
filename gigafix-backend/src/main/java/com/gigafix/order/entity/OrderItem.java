@@ -19,6 +19,10 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * 訂單商品明細 Entity，對應 {@code order_items} 資料表。
+ * 每筆資料隸屬一個 Order，保存結帳當下的商品資訊，供 Order Service 組成訂單回應 DTO。
+ */
 @Entity
 @Table(name = "order_items")
 @Getter
@@ -28,11 +32,13 @@ import lombok.Setter;
 @Builder
 public class OrderItem {
 
+	/** 訂單項目主鍵。 */
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column(name = "order_item_id")
 	private Long orderItemId;
 
+	/** 此項目所屬的訂單，多筆項目可關聯同一個 Order。 */
 	@ManyToOne(fetch = jakarta.persistence.FetchType.LAZY, optional = false)
 	@JoinColumn(name = "order_id", nullable = false)
 	private Order order;
@@ -62,9 +68,11 @@ public class OrderItem {
 	)
 	private BigDecimal subtotal;
 
+	/** 訂單項目建立時間，首次寫入後不再更新。 */
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private LocalDateTime createdAt;
 
+	/** 訂單項目最近更新時間。 */
 	@Column(name = "updated_at", nullable = false)
 	private LocalDateTime updatedAt;
 
