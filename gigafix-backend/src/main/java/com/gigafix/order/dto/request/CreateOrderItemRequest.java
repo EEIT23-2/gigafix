@@ -9,6 +9,10 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
+/**
+ * 建立訂單時描述單筆商品的請求 DTO。
+ * 前端傳入商品識別碼、名稱、單價與數量，作為 CreateOrderRequest 的明細內容。
+ */
 public record CreateOrderItemRequest(
 		@NotNull
 		@Positive
