@@ -1,6 +1,6 @@
 package com.gigafix.product.service;
 
-import com.gigafix.product.model.Product;
+import com.gigafix.product.entity.Product;
 
 public interface ProductService {
     //以id查詢商品

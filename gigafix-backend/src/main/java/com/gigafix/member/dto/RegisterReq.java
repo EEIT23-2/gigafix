@@ -1,8 +1,8 @@
-package com.gigafix.user.dto;
+package com.gigafix.member.dto;
 
 import java.time.LocalDateTime;
 
-import com.gigafix.user.entity.Member.Gender;
+import com.gigafix.member.entity.Member.Gender;
 
 
 public record RegisterReq(String password,

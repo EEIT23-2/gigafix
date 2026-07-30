@@ -1,6 +1,6 @@
 package com.gigafix.product.controller;
 
-import com.gigafix.product.model.Product;
+import com.gigafix.product.entity.Product;
 import com.gigafix.product.service.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
 

@@ -2,6 +2,8 @@ package com.gigafix.cart.entity;
 
 import java.time.LocalDateTime;
 
+import com.gigafix.member.entity.Member;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -20,8 +22,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import com.gigafix.user.entity.Member;
 
 /**
  * 購物車主檔 Entity，對應 {@code carts} 資料表。

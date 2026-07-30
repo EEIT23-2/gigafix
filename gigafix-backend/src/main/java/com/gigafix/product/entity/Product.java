@@ -1,4 +1,4 @@
-package com.gigafix.product.model;
+package com.gigafix.product.entity;
 
 
 import jakarta.persistence.*;

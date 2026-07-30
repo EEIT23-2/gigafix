@@ -3,6 +3,8 @@ package com.gigafix.order.entity;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+import com.gigafix.member.entity.Member;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -20,8 +22,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import com.gigafix.user.entity.Member;
 
 /**
  * 訂單主檔 Entity，對應 {@code orders} 資料表。
