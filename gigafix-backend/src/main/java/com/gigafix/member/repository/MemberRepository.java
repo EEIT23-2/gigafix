@@ -1,8 +1,8 @@
-package com.gigafix.user.repository;
+package com.gigafix.member.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import com.gigafix.user.entity.Member;
+import com.gigafix.member.entity.Member;
 
 
 public interface MemberRepository extends JpaRepository<Member, Long> {

@@ -22,6 +22,8 @@ import com.gigafix.cart.exception.CheckoutNotAvailableException;
 import com.gigafix.cart.exception.EmptyCartException;
 import com.gigafix.cart.repository.CartItemRepository;
 import com.gigafix.cart.repository.CartRepository;
+import com.gigafix.member.entity.Member;
+import com.gigafix.member.repository.MemberRepository;
 import com.gigafix.order.dto.request.UpdateOrderStatusRequest;
 import com.gigafix.order.dto.request.UpdatePaymentStatusRequest;
 import com.gigafix.order.entity.Order;
@@ -30,8 +32,6 @@ import com.gigafix.order.exception.OrderMemberNotFoundException;
 import com.gigafix.order.exception.OrderNotFoundException;
 import com.gigafix.order.repository.OrderItemRepository;
 import com.gigafix.order.repository.OrderRepository;
-import com.gigafix.user.entity.Member;
-import com.gigafix.user.repository.MemberRepository;
 
 @ExtendWith(MockitoExtension.class)
 class OrderServiceTest {

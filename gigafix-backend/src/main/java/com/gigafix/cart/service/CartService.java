@@ -15,8 +15,8 @@ import com.gigafix.cart.exception.CartMemberNotFoundException;
 import com.gigafix.cart.exception.CartNotFoundException;
 import com.gigafix.cart.repository.CartItemRepository;
 import com.gigafix.cart.repository.CartRepository;
-import com.gigafix.user.entity.Member;
-import com.gigafix.user.repository.MemberRepository;
+import com.gigafix.member.entity.Member;
+import com.gigafix.member.repository.MemberRepository;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;

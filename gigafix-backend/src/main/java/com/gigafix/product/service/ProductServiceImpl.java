@@ -1,6 +1,6 @@
 package com.gigafix.product.service;
 
-import com.gigafix.product.model.Product;
+import com.gigafix.product.entity.Product;
 import com.gigafix.product.repository.ProductDao;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;

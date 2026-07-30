@@ -1,12 +1,12 @@
-package com.gigafix.user.service;
+package com.gigafix.member.service;
 
 import java.time.LocalDateTime;
 
 import org.springframework.stereotype.Service;
 
-import com.gigafix.user.dto.RegisterReq;
-import com.gigafix.user.entity.Member;
-import com.gigafix.user.repository.MemberRepository;
+import com.gigafix.member.dto.RegisterReq;
+import com.gigafix.member.entity.Member;
+import com.gigafix.member.repository.MemberRepository;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;

@@ -1,6 +1,6 @@
-package com.gigafix.user.dto;
+package com.gigafix.member.dto;
 
-import com.gigafix.user.entity.Member.Gender;
+import com.gigafix.member.entity.Member.Gender;
 
 import lombok.Builder;
 

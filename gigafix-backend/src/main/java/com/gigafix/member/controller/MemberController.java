@@ -1,4 +1,4 @@
-package com.gigafix.user.controller;
+package com.gigafix.member.controller;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -6,10 +6,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.gigafix.user.dto.RegisterReq;
-import com.gigafix.user.dto.RegisterResp;
-import com.gigafix.user.entity.Member;
-import com.gigafix.user.service.MemberService;
+import com.gigafix.member.dto.RegisterReq;
+import com.gigafix.member.dto.RegisterResp;
+import com.gigafix.member.entity.Member;
+import com.gigafix.member.service.MemberService;
 
 import lombok.RequiredArgsConstructor;
 
