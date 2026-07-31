@@ -78,11 +78,11 @@ public class Member {
 	private Set<RecycleApplication> recycleApplications = new HashSet<>();
 	
 	@Builder.Default
-	@OneToOne(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "member")
+	@OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "member")
 	private Set<Cart> carts = new HashSet<>();
 	
 	@Builder.Default
-	@OneToOne(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "member")
+	@OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "member")
 	private Set<Order> orders = new HashSet<>();
 	
 	@Builder.Default
@@ -102,11 +102,11 @@ public class Member {
 	private Set<Reports> reports = new HashSet<>();
 	
 	@Builder.Default
-	@OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "reporter")
+	@OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "member")
 	private Set<Likes> likes = new HashSet<>();
 	
 	@Builder.Default
-	@OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "reporter")
+	@OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "member")
 	private Set<Bookmarks> bookmarks = new HashSet<>();
 	
 	public enum Gender {

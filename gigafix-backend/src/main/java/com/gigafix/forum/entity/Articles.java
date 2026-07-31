@@ -23,9 +23,9 @@ import lombok.Setter;
 @Entity
 @Table(name = "articles")
 public class Articles {
-	@Id@Column(name = "articles_id")
+	@Id@Column(name = "article_id")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long articlesId;
+    private Long articleId;
 	
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "author_id")
