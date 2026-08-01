@@ -67,7 +67,11 @@ public class ProductServiceImpl implements ProductService   {
         }else{
             return; //若有商品直接返回
         }
+    }
 
+    @Override
+    public void deleteProductById(Long productId) {
+        productDao.deleteById(productId);
     }
 }
 

@@ -10,4 +10,6 @@ public interface ProductService {
     Long createProduct(ProductRequest productRequest);
     //修改商品 沒有回傳值
     void updateProduct(Long productId , ProductRequest productRequest);
+    //商除商品 沒有回傳值
+    void deleteProductById(Long productId);
 }
