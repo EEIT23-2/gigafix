@@ -8,4 +8,6 @@ public interface ProductService {
     Product getProductById(Long productId);
     //新增商品
     Long createProduct(ProductRequest productRequest);
+    //修改商品 沒有回傳值
+    void updateProduct(Long productId , ProductRequest productRequest);
 }
