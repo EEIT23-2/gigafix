@@ -1,7 +1,6 @@
 package com.gigafix.product.entity;
 
 
-import com.gigafix.product.constant.ProductCategory;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -20,12 +19,12 @@ public class Product {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long productId; //主鍵    
+    private Integer productId; //主鍵
     @Column(name = "product_name",nullable = false)
     private String productName; //品名(包含型號)
-    @Enumerated(EnumType.STRING)
+    //@Enumerated(EnumType.STRING)
     @Column(name ="category" ,nullable = false)
-    private ProductCategory category;  //之後要用enum列舉分類:手機 手錶 ipad 之後型別要改成 ProductCategory 暫用String代替
+    private String category;  //之後要用enum列舉分類:手機 手錶 ipad 之後型別要改成 ProductCategory 暫用String代替
     @Column(name = "image_url" ,nullable = true)
     private String imageUrl; //圖檔連結
     @Column(name = "description",nullable = false)
