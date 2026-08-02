@@ -1,5 +1,8 @@
 package com.gigafix.product.service;
 
+import com.gigafix.product.Utils;
+import com.gigafix.product.constant.ProductCategory;
+import com.gigafix.product.dto.ProductQueryParams;
 import com.gigafix.product.dto.ProductRequest;
 import com.gigafix.product.entity.Product;
 import com.gigafix.product.repository.ProductDao;
@@ -20,9 +23,14 @@ public class ProductServiceImpl implements ProductService   {
 
     //實作查詢全部商品列表
     @Override
-    public List<Product> getProducts() {
+    public List<Product> getProducts(ProductQueryParams productQueryParams) {
+        ProductCategory category = productQueryParams.getCategory();
+        String search = Utils.blankToNull(productQueryParams.getSearch());
+        String modelName = Utils.blankToNull(productQueryParams.getModelName());
+        String color = Utils.blankToNull(productQueryParams.getColor());
+        String storage = Utils.blankToNull(productQueryParams.getStorage());
 
-        return productDao.findAll();
+        return productDao.findByConditions(category,search,modelName,color,storage);
     }
 
     //實作以id查詢商品

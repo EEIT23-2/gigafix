@@ -1,5 +1,6 @@
 package com.gigafix.product.service;
 
+import com.gigafix.product.dto.ProductQueryParams;
 import com.gigafix.product.dto.ProductRequest;
 import com.gigafix.product.entity.Product;
 
@@ -8,7 +9,7 @@ import java.util.List;
 public interface ProductService {
 
     //查詢商品列表
-    List<Product> getProducts();
+    List<Product> getProducts(ProductQueryParams productQueryParams);
     //以id查詢商品
     Product getProductById(Long productId);
     //新增商品

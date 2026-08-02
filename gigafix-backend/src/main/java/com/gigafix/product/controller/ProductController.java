@@ -1,5 +1,7 @@
 package com.gigafix.product.controller;
 
+import com.gigafix.product.constant.ProductCategory;
+import com.gigafix.product.dto.ProductQueryParams;
 import com.gigafix.product.dto.ProductRequest;
 import com.gigafix.product.entity.Product;
 import com.gigafix.product.service.ProductService;
@@ -17,10 +19,10 @@ public class    ProductController {
     @Autowired
     private ProductService productService;
 
-    //查詢商品列表
-    @GetMapping("/products")    
-    public ResponseEntity<List<Product>> getProducts(){
-        List<Product> productList = productService.getProducts();
+    //查詢商品列表  (條件查詢:類別查詢,關鍵字查詢)
+    @GetMapping("/products")
+    public ResponseEntity<List<Product>> getProducts(ProductQueryParams productQueryParams){
+        List<Product> productList = productService.getProducts(productQueryParams);
         return ResponseEntity.status(HttpStatus.OK).body(productList);
     }
 
