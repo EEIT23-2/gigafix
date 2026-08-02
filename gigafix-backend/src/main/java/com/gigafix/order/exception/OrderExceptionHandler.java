@@ -94,6 +94,18 @@ public class OrderExceptionHandler {
 		);
 	}
 
+	@ExceptionHandler(InvalidOrderStatusTransitionException.class)
+	public ResponseEntity<OrderErrorResponse> handleInvalidStatusTransition(
+			InvalidOrderStatusTransitionException exception,
+			HttpServletRequest request
+	) {
+		return buildErrorResponse(
+				HttpStatus.CONFLICT,
+				exception.getMessage(),
+				request.getRequestURI()
+		);
+	}
+
 	/**
 	 * 將識別碼或其他方法參數錯誤轉為 400 Bad Request。
 	 */

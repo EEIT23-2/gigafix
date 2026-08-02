@@ -5,23 +5,20 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import com.gigafix.order.entity.Order;
+import com.gigafix.order.enums.OrderType;
 
 /**
  * 後端回傳完整訂單內容的回應 DTO。
- * 包含會員、金額、處理與付款狀態、收件資料、時間及 Order Service 組合的商品明細。
+ * 包含會員、訂單類型、金額、狀態、時間及 Order Service 組合的商品快照。
  */
 public record OrderResponse(
 		Long orderId,
 		Long memberId,
+		OrderType orderType,
 		LocalDateTime orderDate,
 		BigDecimal totalAmount,
 		Order.OrderStatus status,
 		Order.PaymentStatus paymentStatus,
-		String receiverName,
-		String receiverPhone,
-		String shippingAddress,
-		BigDecimal shippingFee,
-		BigDecimal discountAmount,
 		String remark,
 		LocalDateTime createdAt,
 		LocalDateTime updatedAt,

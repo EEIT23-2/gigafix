@@ -121,15 +121,20 @@ public class CartExceptionHandler {
 	}
 
 	/**
-	 * 將不合法的購物車數量例外轉為 400 Bad Request。
+	 * 將重複商品或非 ACTIVE 購物車修改轉為 409 Conflict。
+	 * TODO 下一輪：若資料庫已有 (cart_id, product_id) unique constraint，
+	 * 將重複寫入產生的 DataIntegrityViolationException 安全映射為 409。
 	 */
-	@ExceptionHandler(InvalidCartQuantityException.class)
-	public ResponseEntity<CartErrorResponse> handleInvalidCartQuantity(
-			InvalidCartQuantityException exception,
+	@ExceptionHandler({
+			DuplicateCartItemException.class,
+			CartNotModifiableException.class
+	})
+	public ResponseEntity<CartErrorResponse> handleCartConflict(
+			RuntimeException exception,
 			HttpServletRequest request
 	) {
 		return buildErrorResponse(
-				HttpStatus.BAD_REQUEST,
+				HttpStatus.CONFLICT,
 				exception.getMessage(),
 				request.getRequestURI()
 		);
