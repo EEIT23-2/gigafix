@@ -9,14 +9,22 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Transactional
 @Service
-@Component
 public class ProductServiceImpl implements ProductService   {
     @Autowired
     private ProductDao productDao;
+
+    //實作查詢全部商品列表
+    @Override
+    public List<Product> getProducts() {
+
+        return productDao.findAll();
+    }
+
     //實作以id查詢商品
     @Override
     public Product getProductById(Long productId) {
