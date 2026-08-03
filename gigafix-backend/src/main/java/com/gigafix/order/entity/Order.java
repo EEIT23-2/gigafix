@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import com.gigafix.member.entity.Member;
+import com.gigafix.order.enums.OrderType;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -25,7 +26,7 @@ import lombok.Setter;
 
 /**
  * 訂單主檔 Entity，對應 {@code orders} 資料表。
- * 保存會員、收件、金額與狀態資料，並由 Order Repository 存取、Order Service 組成回應 DTO。
+ * 保存會員、訂單類型、金額與狀態，收件資料改由 Shipment 保存。
  */
 @Entity
 @Table(name = "orders")
@@ -46,6 +47,11 @@ public class Order {
 	@ManyToOne(fetch = jakarta.persistence.FetchType.LAZY, optional = false)
 	@JoinColumn(name = "member_id", nullable = false)
 	private Member member;
+
+	/** 區分一般商品訂單與維修訂單。 */
+	@Enumerated(EnumType.STRING)
+	@Column(name = "order_type", nullable = false, length = 20)
+	private OrderType orderType;
 
 	/** 訂單成立時間。 */
 	@Column(name = "order_date", nullable = false, updatable = false)
@@ -69,32 +75,7 @@ public class Order {
 	@Column(name = "payment_status", nullable = false, length = 20)
 	private PaymentStatus paymentStatus;
 
-	@Column(name = "receiver_name", nullable = false, length = 50)
-	private String receiverName;
-
-	@Column(name = "receiver_phone", nullable = false, length = 20)
-	private String receiverPhone;
-
-	@Column(name = "shipping_address", nullable = false, length = 255)
-	private String shippingAddress;
-
-	@Column(
-			name = "shipping_fee",
-			precision = 10,
-			scale = 2,
-			nullable = false
-	)
-	private BigDecimal shippingFee;
-
-	@Column(
-			name = "discount_amount",
-			precision = 10,
-			scale = 2,
-			nullable = false
-	)
-	private BigDecimal discountAmount;
-
-	@Column(name = "remark", length = 255)
+	@Column(name = "remark", length = 500)
 	private String remark;
 
 	/** 訂單資料建立時間，首次寫入後不再更新。 */

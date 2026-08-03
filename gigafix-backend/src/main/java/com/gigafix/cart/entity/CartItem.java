@@ -20,15 +20,15 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * 購物車商品明細 Entity，對應 {@code cart_items} 資料表。
+ * 購物車商品明細 Entity，對應 {@code cart_item} 資料表。
  * 每筆資料隸屬一個 Cart，並由 CartItem Repository 提供給 Cart Service 查詢與更新。
  */
 @Entity
 @Table(
-		name = "cart_items",
+		name = "cart_item",
 		uniqueConstraints = {
 				@UniqueConstraint(
-						name = "uk_cart_items_cart_product",
+						name = "uk_cart_item_cart_product",
 						columnNames = {"cart_id", "product_id"}
 				)
 		}
@@ -54,10 +54,6 @@ public class CartItem {
 	/** 商品模組中的商品識別碼。 */
 	@Column(name = "product_id", nullable = false)
 	private Long productId;
-
-	/** 此商品在購物車中的數量。 */
-	@Column(name = "quantity", nullable = false)
-	private Integer quantity;
 
 	/** 購物車項目建立時間，首次寫入後不再更新。 */
 	@Column(name = "created_at", nullable = false, updatable = false)

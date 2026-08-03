@@ -24,11 +24,11 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * 購物車主檔 Entity，對應 {@code carts} 資料表。
+ * 購物車主檔 Entity，對應 {@code cart} 資料表。
  * 保存會員目前或歷史購物車的狀態，並由 Cart Repository 存取、Cart Service 組成回應 DTO。
  */
 @Entity
-@Table(name = "carts")
+@Table(name = "cart")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -49,7 +49,7 @@ public class Cart {
 
 	/** 並行更新版本號，供 JPA 偵測同一購物車被同時修改。 */
 	@Version
-	@Column(name = "version")
+	@Column(name = "version", nullable = false)
 	private Long version;
 
 	/** 購物車目前的生命週期狀態。 */
