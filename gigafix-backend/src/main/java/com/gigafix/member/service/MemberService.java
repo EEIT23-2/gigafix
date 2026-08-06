@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 
 import org.springframework.stereotype.Service;
 
-import com.gigafix.member.dto.JwtDto;
+import com.gigafix.member.dto.CreateJwtDto;
 import com.gigafix.member.dto.LoginReq;
 import com.gigafix.member.dto.LoginResp;
 import com.gigafix.member.dto.RegisterReq;
@@ -49,7 +49,8 @@ public class MemberService {
 			throw new RuntimeException("帳號或密碼錯誤");
 		}
 		
-		String jwt = jwtUtils.createToken(JwtDto.builder().subject(member.getId()).username(member.getNickName()).build());
+		String jwt = jwtUtils.createToken(CreateJwtDto.builder().subject(String.valueOf(member.getId())).username(member.getNickName()).build());
+		//在創建jwt時要把從資料庫撈出來的id轉成字串，避免前端的number型別太小，導致後端的long型別溢位
 		LoginResp loginResp = LoginResp.builder()
 				.realName(member.getRealName())
 				.nickName(member.getNickName())

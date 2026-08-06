@@ -1,6 +1,7 @@
 package com.gigafix.member.controller;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -13,11 +14,10 @@ import com.gigafix.member.service.MemberService;
 import lombok.RequiredArgsConstructor;
 
 @RestController("gigaFixUsersController")
-@RequestMapping("/gigafix/users")
+@RequestMapping("/gigafix/member")
 @RequiredArgsConstructor
 public class MemberController {
 	private final MemberService memberService;
-	
 	
 	
 	@PostMapping("/register")
@@ -30,10 +30,12 @@ public class MemberController {
 	@PostMapping("/login")
 	public ResponseEntity<LoginResp> login(@RequestBody LoginReq loginReq){
 		LoginResp loginResp = memberService.login(loginReq);
-		
 		return ResponseEntity.status(200).body(loginResp);
 	}
-	
+	@GetMapping("/test")
+	public ResponseEntity<String> login(String email, String password){
+		return ResponseEntity.status(200).body(email + password +"登入成功");
+	}
 	
 	
 	
