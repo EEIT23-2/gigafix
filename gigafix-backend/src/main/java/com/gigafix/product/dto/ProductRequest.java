@@ -1,6 +1,7 @@
 package com.gigafix.product.dto;
 
 import com.gigafix.product.constant.ProductCategory;
+import com.gigafix.product.constant.ProductSaleStatus;
 import jakarta.validation.constraints.NotNull;
 
 
@@ -20,7 +21,7 @@ public class ProductRequest {
     @NotNull
     private Integer price; //價格
     @NotNull
-    private Integer saleStatus; //銷售(庫存)狀況 之後用enum常數列舉
+    private ProductSaleStatus saleStatus; //銷售(庫存)狀況 之後用enum常數列舉
 
     public String getProductName() {
         return productName;
@@ -78,11 +79,11 @@ public class ProductRequest {
         this.price = price;
     }
 
-    public Integer getSaleStatus() {
+    public ProductSaleStatus getSaleStatus() {
         return saleStatus;
     }
 
-    public void setSaleStatus(Integer saleStatus) {
+    public void setSaleStatus(ProductSaleStatus saleStatus) {
         this.saleStatus = saleStatus;
     }
 }
