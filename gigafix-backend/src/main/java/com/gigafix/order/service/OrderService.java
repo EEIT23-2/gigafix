@@ -1,6 +1,8 @@
 package com.gigafix.order.service;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
@@ -14,24 +16,20 @@ import com.gigafix.cart.repository.CartRepository;
 import com.gigafix.member.entity.Member;
 import com.gigafix.member.repository.MemberRepository;
 import com.gigafix.order.dto.request.UpdateOrderStatusRequest;
-import com.gigafix.order.dto.request.UpdatePaymentStatusRequest;
-import com.gigafix.order.dto.response.OrderItemResponse;
 import com.gigafix.order.dto.response.OrderResponse;
 import com.gigafix.order.entity.Order;
 import com.gigafix.order.entity.OrderItem;
 import com.gigafix.order.exception.InvalidOrderException;
 import com.gigafix.order.exception.OrderMemberNotFoundException;
 import com.gigafix.order.exception.OrderNotFoundException;
+import com.gigafix.order.mapper.OrderMapper;
 import com.gigafix.order.repository.OrderItemRepository;
 import com.gigafix.order.repository.OrderRepository;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
-/**
- * 訂單模組的商業邏輯與交易服務。
- * 協調會員、購物車、訂單及其項目 Repository，處理結帳、查詢、狀態更新與刪除流程。
- */
+/** 訂單查詢、狀態轉換與未來 checkout 的交易協調服務。 */
 @Service
 @Transactional
 @RequiredArgsConstructor
@@ -42,81 +40,62 @@ public class OrderService {
 	private final CartRepository cartRepository;
 	private final CartItemRepository cartItemRepository;
 	private final MemberRepository memberRepository;
+	private final OrderMapper orderMapper;
+	private final OrderStatusPolicy orderStatusPolicy;
 
 	/**
-	 * 嘗試將會員目前啟用中的購物車轉為訂單。
-	 * 現階段完成鎖定與前置檢查後，會停止建立缺少商品資料的訂單。
-	 *
-	 * @param memberId 要結帳的會員識別碼
-	 * @return 商品資料完整並完成結帳後的訂單資料
-	 * @throws CheckoutNotAvailableException 商品資料尚未能完整取得時
+	 * 驗證 checkout 前置條件，但在 Product 契約完成前不建立訂單或改變購物車。
 	 */
 	public OrderResponse checkoutCart(Long memberId) {
-		// 先確認會員存在，再鎖定其 ACTIVE 購物車進行結帳檢查。
 		findMember(memberId);
-		// 悲觀鎖可避免同一購物車被兩個請求同時重複結帳。
 		Cart cart = cartRepository.findForCheckoutByMemberIdAndStatus(
 				memberId,
 				Cart.CartStatus.ACTIVE
 		).orElseThrow(() -> new CartNotFoundException(memberId));
-		List<CartItem> cartItems = cartItemRepository.findByCartCartId(
-				cart.getCartId()
-		);
+		List<CartItem> cartItems = cartItemRepository.findByCartCartId(cart.getCartId());
 		if (cartItems.isEmpty()) {
 			throw new EmptyCartException(cart.getCartId());
 		}
 
-		/*
-		 * 商品模組完成前無法取得可信的商品名稱、價格與庫存，因此在這裡停止建立訂單，
-		 * 避免寫入金額不完整的 Order、OrderItem，或過早將購物車標記為已結帳。
-		 */
 		throw new CheckoutNotAvailableException();
 	}
 
-	/**
-	 * 查詢會員擁有的單筆訂單與訂單項目。
-	 *
-	 * @param memberId 訂單所屬會員的識別碼
-	 * @param orderId 要查詢的訂單識別碼
-	 * @return 完整訂單資料
-	 */
 	@Transactional(Transactional.TxType.SUPPORTS)
+	/** 查詢會員自己的單筆訂單與下單快照。 */
 	public OrderResponse getOrder(Long memberId, Long orderId) {
 		findMember(memberId);
 		Order order = findOwnedOrder(memberId, orderId);
-		return toResponse(
+		return orderMapper.toResponse(
 				order,
 				orderItemRepository.findByOrderOrderId(orderId)
 		);
 	}
 
-	/**
-	 * 查詢會員的全部訂單，並依建立時間由新到舊組成回應清單。
-	 *
-	 * @param memberId 要查詢訂單的會員識別碼
-	 * @return 會員的訂單清單
-	 */
 	@Transactional(Transactional.TxType.SUPPORTS)
+	/** 依建立時間列出會員自己的訂單。 */
 	public List<OrderResponse> getOrdersByMember(Long memberId) {
 		findMember(memberId);
-		return orderRepository.findByMemberIdOrderByCreatedAtDesc(memberId)
+		List<Order> orders = orderRepository.findByMemberIdOrderByCreatedAtDesc(memberId);
+		if (orders.isEmpty()) {
+			return List.of();
+		}
+
+		List<Long> orderIds = orders.stream().map(Order::getOrderId).toList();
+		Map<Long, List<OrderItem>> itemsByOrderId = orderItemRepository
+				.findAllByOrderOrderIdIn(orderIds)
 				.stream()
-				.map(order -> toResponse(
+				.collect(Collectors.groupingBy(item -> item.getOrder().getOrderId()));
+
+		return orders.stream()
+				.map(order -> orderMapper.toResponse(
 						order,
-						orderItemRepository.findByOrderOrderId(
-								order.getOrderId()
-						)
+						itemsByOrderId.getOrDefault(order.getOrderId(), List.of())
 				))
 				.toList();
 	}
 
 	/**
-	 * 更新會員指定訂單的處理狀態。
-	 *
-	 * @param memberId 訂單所屬會員的識別碼
-	 * @param orderId 要更新的訂單識別碼
-	 * @param request 新的訂單狀態
-	 * @return 更新後的訂單資料
+	 * 套用集中式狀態規則。此方法目前僅供訂單內部流程與測試使用，未公開為會員 API。
 	 */
 	public OrderResponse updateOrderStatus(
 			Long memberId,
@@ -125,52 +104,26 @@ public class OrderService {
 	) {
 		findMember(memberId);
 		Order order = findOwnedOrder(memberId, orderId);
-		if (request.status() == null) {
-			throw new InvalidOrderException("訂單狀態不可為 null");
+		if (request == null || request.status() == null) {
+			throw new InvalidOrderException("訂單狀態不得為 null");
 		}
+		orderStatusPolicy.validateTransition(order.getStatus(), request.status());
 		order.setStatus(request.status());
-		return toResponse(
+		return orderMapper.toResponse(
 				orderRepository.save(order),
 				orderItemRepository.findByOrderOrderId(orderId)
 		);
 	}
 
 	/**
-	 * 更新會員指定訂單的付款狀態。
-	 *
-	 * @param memberId 訂單所屬會員的識別碼
-	 * @param orderId 要更新的訂單識別碼
-	 * @param request 新的付款狀態
-	 * @return 更新後的訂單資料
+	 * 取消會員自己的待處理訂單；保留訂單與 snapshot items，不處理 Product release。
 	 */
-	public OrderResponse updatePaymentStatus(
-			Long memberId,
-			Long orderId,
-			UpdatePaymentStatusRequest request
-	) {
-		findMember(memberId);
-		Order order = findOwnedOrder(memberId, orderId);
-		if (request.paymentStatus() == null) {
-			throw new InvalidOrderException("付款狀態不可為 null");
-		}
-		order.setPaymentStatus(request.paymentStatus());
-		return toResponse(
-				orderRepository.save(order),
-				orderItemRepository.findByOrderOrderId(orderId)
+	public OrderResponse cancelOrder(Long memberId, Long orderId) {
+		return updateOrderStatus(
+				memberId,
+				orderId,
+				new UpdateOrderStatusRequest(Order.OrderStatus.CANCELLED)
 		);
-	}
-
-	/**
-	 * 刪除會員擁有的訂單，並先移除其訂單項目。
-	 *
-	 * @param memberId 訂單所屬會員的識別碼
-	 * @param orderId 要刪除的訂單識別碼
-	 */
-	public void deleteOrder(Long memberId, Long orderId) {
-		findMember(memberId);
-		Order order = findOwnedOrder(memberId, orderId);
-		orderItemRepository.deleteByOrderOrderId(orderId);
-		orderRepository.delete(order);
 	}
 
 	private Member findMember(Long memberId) {
@@ -189,38 +142,5 @@ public class OrderService {
 		if (id == null || id <= 0) {
 			throw new IllegalArgumentException(fieldName + " 必須大於 0");
 		}
-	}
-
-	private OrderItemResponse toItemResponse(OrderItem item) {
-		return new OrderItemResponse(
-				item.getOrderItemId(),
-				item.getProductId(),
-				item.getProductName(),
-				item.getUnitPrice(),
-				item.getQuantity(),
-				item.getSubtotal(),
-				item.getCreatedAt(),
-				item.getUpdatedAt()
-		);
-	}
-
-	private OrderResponse toResponse(Order order, List<OrderItem> items) {
-		return new OrderResponse(
-				order.getOrderId(),
-				order.getMember().getId(),
-				order.getOrderDate(),
-				order.getTotalAmount(),
-				order.getStatus(),
-				order.getPaymentStatus(),
-				order.getReceiverName(),
-				order.getReceiverPhone(),
-				order.getShippingAddress(),
-				order.getShippingFee(),
-				order.getDiscountAmount(),
-				order.getRemark(),
-				order.getCreatedAt(),
-				order.getUpdatedAt(),
-				items.stream().map(this::toItemResponse).toList()
-		);
 	}
 }

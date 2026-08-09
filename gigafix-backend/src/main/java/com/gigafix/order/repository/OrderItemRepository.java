@@ -20,6 +20,9 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 	 */
 	List<OrderItem> findByOrderOrderId(Long orderId);
 
+	/** 一次取得多張訂單的 snapshot items，避免訂單列表產生 N+1 查詢。 */
+	List<OrderItem> findAllByOrderOrderIdIn(List<Long> orderIds);
+
 	/**
 	 * 刪除指定訂單的全部商品明細。
 	 *

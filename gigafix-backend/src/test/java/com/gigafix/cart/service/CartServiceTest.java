@@ -2,7 +2,6 @@ package com.gigafix.cart.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -17,223 +16,109 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.gigafix.cart.dto.request.AddCartItemRequest;
-import com.gigafix.cart.dto.request.UpdateCartItemRequest;
 import com.gigafix.cart.entity.Cart;
 import com.gigafix.cart.entity.CartItem;
 import com.gigafix.cart.exception.CartItemNotFoundException;
-import com.gigafix.cart.exception.CartMemberNotFoundException;
 import com.gigafix.cart.exception.CartNotFoundException;
+import com.gigafix.cart.exception.CartNotModifiableException;
+import com.gigafix.cart.exception.DuplicateCartItemException;
 import com.gigafix.cart.repository.CartItemRepository;
 import com.gigafix.cart.repository.CartRepository;
 import com.gigafix.member.entity.Member;
 import com.gigafix.member.repository.MemberRepository;
 
+/** 驗證購物車唯一商品、ownership 與 ACTIVE 狀態限制。 */
 @ExtendWith(MockitoExtension.class)
 class CartServiceTest {
-
-	@Mock
-	private CartRepository cartRepository;
-
-	@Mock
-	private CartItemRepository cartItemRepository;
-
-	@Mock
-	private MemberRepository memberRepository;
-
-	private CartService cartService;
+	@Mock CartRepository cartRepository;
+	@Mock CartItemRepository cartItemRepository;
+	@Mock MemberRepository memberRepository;
+	private CartService service;
 	private Member member;
 	private Cart cart;
 
 	@BeforeEach
 	void setUp() {
-		cartService = new CartService(
-				cartRepository,
-				cartItemRepository,
-				memberRepository
-		);
+		service = new CartService(cartRepository, cartItemRepository, memberRepository);
 		member = Member.builder().id(1L).build();
-		cart = Cart.builder()
-				.cartId(100L)
-				.member(member)
-				.status(Cart.CartStatus.ACTIVE)
-				.build();
+		cart = Cart.builder().cartId(10L).member(member).status(Cart.CartStatus.ACTIVE).build();
 	}
 
 	@Test
-	void addCartItem_requiresExistingMember() {
-		when(memberRepository.findById(99L)).thenReturn(Optional.empty());
-
-		assertThrows(
-				CartMemberNotFoundException.class,
-				() -> cartService.addCartItem(
-						99L,
-						new AddCartItemRequest(10L, 1)
-				)
-		);
-		verify(cartRepository, never())
-				.findByMemberIdAndStatus(any(), any());
-	}
-
-	@Test
-	void addCartItem_createsCartWithManagedMember() {
+	void activeCartCanAddUniqueProductWithoutQuantity() {
 		when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
-		when(cartRepository.findByMemberIdAndStatus(
-				1L,
-				Cart.CartStatus.ACTIVE
-		)).thenReturn(Optional.empty());
-		when(cartRepository.save(any(Cart.class))).thenReturn(cart);
-		when(cartItemRepository.findByCartCartIdAndProductId(100L, 10L))
-				.thenReturn(Optional.empty());
-		when(cartItemRepository.save(any(CartItem.class)))
-				.thenAnswer(invocation -> {
-					CartItem item = invocation.getArgument(0);
-					item.setCartItemId(200L);
-					return item;
-				});
-
-		var response = cartService.addCartItem(
-				1L,
-				new AddCartItemRequest(10L, 2)
-		);
-
-		assertEquals(100L, response.cartId());
-		assertEquals(10L, response.productId());
-		assertEquals(2, response.quantity());
+		when(cartRepository.findByMemberIdAndStatus(1L, Cart.CartStatus.ACTIVE)).thenReturn(Optional.of(cart));
+		when(cartItemRepository.findByCartCartIdAndProductId(10L, 20L)).thenReturn(Optional.empty());
+		when(cartItemRepository.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> i.getArgument(0));
+		assertEquals(20L, service.addCartItem(1L, new AddCartItemRequest(20L)).productId());
 	}
 
 	@Test
-	void getActiveCart_requiresExistingMember() {
-		when(memberRepository.findById(99L)).thenReturn(Optional.empty());
-
-		assertThrows(
-				CartMemberNotFoundException.class,
-				() -> cartService.getActiveCart(99L)
-		);
-	}
-
-	@Test
-	void getActiveCart_returnsOnlyRequestedMembersCart() {
+	void createsActiveCartForMemberWithoutOne() {
 		when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
-		when(cartRepository.findByMemberIdAndStatus(
-				1L,
-				Cart.CartStatus.ACTIVE
-		)).thenReturn(Optional.of(cart));
-		when(cartItemRepository.findByCartCartId(100L))
-				.thenReturn(List.of());
-
-		var response = cartService.getActiveCart(1L);
-
-		assertEquals(1L, response.memberId());
-		verify(cartRepository).findByMemberIdAndStatus(
-				1L,
-				Cart.CartStatus.ACTIVE
-		);
+		when(cartRepository.findByMemberIdAndStatus(1L, Cart.CartStatus.ACTIVE)).thenReturn(Optional.empty());
+		when(cartRepository.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> { Cart c=i.getArgument(0); c.setCartId(10L); return c; });
+		when(cartItemRepository.findByCartCartIdAndProductId(10L, 20L)).thenReturn(Optional.empty());
+		when(cartItemRepository.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> i.getArgument(0));
+		service.addCartItem(1L, new AddCartItemRequest(20L));
+		verify(cartRepository).save(org.mockito.ArgumentMatchers.any());
 	}
 
 	@Test
-	void updateQuantity_rejectsAnotherMembersCartItem() {
+	void duplicateProductIsRejected() {
 		when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
-		when(cartItemRepository.findByCartItemIdAndCartMemberId(200L, 1L))
-				.thenReturn(Optional.empty());
-
-		assertThrows(
-				CartItemNotFoundException.class,
-				() -> cartService.updateQuantity(
-						1L,
-						200L,
-						new UpdateCartItemRequest(3)
-				)
-		);
+		when(cartRepository.findByMemberIdAndStatus(1L, Cart.CartStatus.ACTIVE)).thenReturn(Optional.of(cart));
+		when(cartItemRepository.findByCartCartIdAndProductId(10L, 20L)).thenReturn(Optional.of(CartItem.builder().cart(cart).productId(20L).build()));
+		assertThrows(DuplicateCartItemException.class, () -> service.addCartItem(1L, new AddCartItemRequest(20L)));
+		verify(cartItemRepository, never()).save(org.mockito.ArgumentMatchers.any());
 	}
 
 	@Test
-	void deleteCartItem_rejectsAnotherMembersCartItem() {
+	void deleteUsesOwnershipQuery() {
+		CartItem item = CartItem.builder().cartItemId(30L).cart(cart).productId(20L).build();
 		when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
-		when(cartItemRepository.findByCartItemIdAndCartMemberId(200L, 1L))
-				.thenReturn(Optional.empty());
-
-		assertThrows(
-				CartItemNotFoundException.class,
-				() -> cartService.deleteCartItem(1L, 200L)
-		);
-		verify(cartItemRepository, never()).delete(any());
-	}
-
-	@Test
-	void addCartItemIncreasesExistingQuantity() {
-		CartItem existing = CartItem.builder()
-				.cartItemId(200L)
-				.cart(cart)
-				.productId(10L)
-				.quantity(2)
-				.build();
-		when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
-		when(cartRepository.findByMemberIdAndStatus(
-				1L,
-				Cart.CartStatus.ACTIVE
-		)).thenReturn(Optional.of(cart));
-		when(cartItemRepository.findByCartCartIdAndProductId(100L, 10L))
-				.thenReturn(Optional.of(existing));
-		when(cartItemRepository.save(existing)).thenReturn(existing);
-
-		var response = cartService.addCartItem(
-				1L,
-				new AddCartItemRequest(10L, 3)
-		);
-
-		assertEquals(5, response.quantity());
-	}
-
-	@Test
-	void getActiveCartRejectsMissingCart() {
-		when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
-		when(cartRepository.findByMemberIdAndStatus(
-				1L,
-				Cart.CartStatus.ACTIVE
-		)).thenReturn(Optional.empty());
-
-		assertThrows(
-				CartNotFoundException.class,
-				() -> cartService.getActiveCart(1L)
-		);
-	}
-
-	@Test
-	void updateQuantityUpdatesOwnedItem() {
-		CartItem item = CartItem.builder()
-				.cartItemId(200L)
-				.cart(cart)
-				.productId(10L)
-				.quantity(1)
-				.build();
-		when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
-		when(cartItemRepository.findByCartItemIdAndCartMemberId(200L, 1L))
-				.thenReturn(Optional.of(item));
-		when(cartItemRepository.save(item)).thenReturn(item);
-
-		var response = cartService.updateQuantity(
-				1L,
-				200L,
-				new UpdateCartItemRequest(4)
-		);
-
-		assertEquals(4, response.quantity());
-	}
-
-	@Test
-	void deleteCartItemDeletesOwnedItem() {
-		CartItem item = CartItem.builder()
-				.cartItemId(200L)
-				.cart(cart)
-				.productId(10L)
-				.quantity(1)
-				.build();
-		when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
-		when(cartItemRepository.findByCartItemIdAndCartMemberId(200L, 1L))
-				.thenReturn(Optional.of(item));
-
-		cartService.deleteCartItem(1L, 200L);
-
+		when(cartItemRepository.findByCartItemIdAndCartMemberId(30L, 1L)).thenReturn(Optional.of(item));
+		service.deleteCartItem(1L, 30L);
 		verify(cartItemRepository).delete(item);
+	}
+
+	@Test
+	void crossMemberDeleteDoesNotRevealItem() {
+		when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+		when(cartItemRepository.findByCartItemIdAndCartMemberId(30L, 1L)).thenReturn(Optional.empty());
+		assertThrows(CartItemNotFoundException.class, () -> service.deleteCartItem(1L, 30L));
+	}
+
+	@Test
+	void inactiveCartCannotBeMutated() {
+		cart.setStatus(Cart.CartStatus.CHECKED_OUT);
+		CartItem item = CartItem.builder().cartItemId(30L).cart(cart).productId(20L).build();
+		when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+		when(cartItemRepository.findByCartItemIdAndCartMemberId(30L, 1L)).thenReturn(Optional.of(item));
+		assertThrows(CartNotModifiableException.class, () -> service.deleteCartItem(1L, 30L));
+	}
+
+	@Test
+	void clearDeletesOnlyItemsAndAllowsEmptyCart() {
+		when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+		when(cartRepository.findByMemberIdAndStatus(1L, Cart.CartStatus.ACTIVE)).thenReturn(Optional.of(cart));
+		service.clearActiveCart(1L);
+		verify(cartItemRepository).deleteByCartCartId(10L);
+		verify(cartRepository, never()).delete(cart);
+	}
+
+	@Test
+	void missingActiveCartReturnsNotFound() {
+		when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+		when(cartRepository.findByMemberIdAndStatus(1L, Cart.CartStatus.ACTIVE)).thenReturn(Optional.empty());
+		assertThrows(CartNotFoundException.class, () -> service.getActiveCart(1L));
+	}
+
+	@Test
+	void getCartReturnsItemsWithoutQuantity() {
+		when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
+		when(cartRepository.findByMemberIdAndStatus(1L, Cart.CartStatus.ACTIVE)).thenReturn(Optional.of(cart));
+		when(cartItemRepository.findByCartCartId(10L)).thenReturn(List.of(CartItem.builder().cartItemId(30L).cart(cart).productId(20L).build()));
+		assertEquals(20L, service.getActiveCart(1L).items().getFirst().productId());
 	}
 }
