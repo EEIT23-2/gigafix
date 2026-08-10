@@ -11,6 +11,8 @@ import com.gigafix.member.dto.LoginReq;
 import com.gigafix.member.dto.LoginResp;
 import com.gigafix.member.dto.RegisterReq;
 import com.gigafix.member.service.MemberService;
+
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController("gigaFixUsersController")
@@ -21,14 +23,14 @@ public class MemberController {
 	
 	
 	@PostMapping("/register")
-	public ResponseEntity<LoginResp> register(@RequestBody RegisterReq registerReq) throws Exception {
+	public ResponseEntity<LoginResp> register(@Valid @RequestBody RegisterReq registerReq) throws Exception {
 		//寄信
 		LoginResp loginResp = memberService.register(registerReq);//註冊及登入，所以回傳登入的dto
 		return ResponseEntity.status(201).body(loginResp); 
 	}
 	
 	@PostMapping("/login")
-	public ResponseEntity<LoginResp> login(@RequestBody LoginReq loginReq){
+	public ResponseEntity<LoginResp> login(@Valid @RequestBody LoginReq loginReq){
 		LoginResp loginResp = memberService.login(loginReq);
 		return ResponseEntity.status(200).body(loginResp);
 	}

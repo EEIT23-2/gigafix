@@ -1,9 +1,9 @@
-package com.gigafix.interceptor;
+package com.gigafix.common.interceptor;
 
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
-import com.gigafix.util.JwtUtils;
+import com.gigafix.common.util.JwtUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

@@ -1,4 +1,4 @@
-package com.gigafix.util;
+package com.gigafix.common.util;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -9,12 +9,15 @@ import javax.crypto.SecretKey;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.validation.annotation.Validated;
 
 import com.gigafix.member.dto.CreateJwtDto;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import jakarta.validation.Valid;
 
+@Validated
 @Component
 public class JwtUtils {
 	private final int expireTime;
@@ -30,9 +33,9 @@ public class JwtUtils {
     }
 	
 	//創建JWT
-	public String createToken(CreateJwtDto createJwtDto) { //在給前端時id要是String避免前端的number把long搞爛
+	public String createToken(@Valid CreateJwtDto createJwtDto) { //在給前端時id要是String避免前端的number把long搞爛
 		return Jwts.builder().
-				claim("memberName", createJwtDto.username()).
+				claim("memberName", createJwtDto.membername()).
 				claim("memberId", createJwtDto.subject()).
 				issuedAt(Date.from(Instant.now())).
 				expiration(Date.from(Instant.now().plus(expireTime,ChronoUnit.SECONDS))).
