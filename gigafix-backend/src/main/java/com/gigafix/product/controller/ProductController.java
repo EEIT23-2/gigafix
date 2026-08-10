@@ -8,6 +8,7 @@ import com.gigafix.product.service.ProductService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -24,11 +25,11 @@ public class    ProductController {
     @Autowired
     private ProductService productService;
 
-    //查詢商品列表  (條件查詢:類別查詢,關鍵字查詢)
+    //查詢商品列表  (條件查詢:類別查詢,關鍵字查詢 ;Page<>介面做分頁&總頁數計算)
     @GetMapping("/products")
-    public ResponseEntity<List<Product>> getProducts(ProductQueryParams productQueryParams){
-        List<Product> productList = productService.getProducts(productQueryParams);
-        return ResponseEntity.status(HttpStatus.OK).body(productList);
+    public ResponseEntity<Page<Product>> getProducts(ProductQueryParams productQueryParams){
+        Page<Product> pageResult = productService.getProducts(productQueryParams);
+        return ResponseEntity.status(HttpStatus.OK).body(pageResult);
     }
 
 
