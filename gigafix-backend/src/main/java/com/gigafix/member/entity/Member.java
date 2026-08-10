@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
-import com.gigafix.cart.entity.Cart;
+import com.gigafix.cart.entity.CartItem;
 import com.gigafix.forum.entity.Articles;
 import com.gigafix.forum.entity.Bookmarks;
 import com.gigafix.forum.entity.Comments;
@@ -80,7 +80,7 @@ public class Member {
 	
 	@Builder.Default
 	@OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "member")
-	private Set<Cart> carts = new HashSet<>();
+	private Set<CartItem> cartItems = new HashSet<>();
 	
 	@Builder.Default
 	@OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "member")
