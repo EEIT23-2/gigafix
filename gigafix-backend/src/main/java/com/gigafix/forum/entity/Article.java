@@ -1,0 +1,111 @@
+package com.gigafix.forum.entity;
+
+import java.time.LocalDateTime;
+
+import com.gigafix.member.entity.Member;
+
+import jakarta.persistence.CheckConstraint;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Entity
+@Table(name = "articles")
+public class Article {
+
+	@Id
+	@Column(name = "article_id")
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long articleId;
+
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "category_id", nullable = false)
+	private Category category;
+
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "author_id", nullable = false)
+	private Member author;
+
+	@Column(name = "title", nullable = false, columnDefinition = "NVARCHAR(255)")
+	private String title;
+
+	@Column(name = "content", nullable = false, columnDefinition = "NVARCHAR(MAX)")
+	private String content;
+
+	@Column(name = "view_count", nullable = false)
+	private Integer viewCount;
+
+	@Column(name = "like_count", nullable = false)
+	private Integer likeCount;
+
+	@Column(name = "comment_count", nullable = false)
+	private Integer commentCount;
+
+	@Column(name = "cover_image", columnDefinition = "VARCHAR(255)")
+	private String coverImage;
+
+	// 狀態代碼：0=草稿 1=發布 2=隱藏 3=下架 4=限制，用宣告順序對應 TINYINT，新增狀態只能加在最後面
+	@Enumerated(EnumType.ORDINAL)
+	@Column(name = "status", nullable = false, columnDefinition = "TINYINT", check = @CheckConstraint(name = "CK_articles_status", constraint = "status IN (0,1,2,3,4)"))
+	private ArticleStatus status;
+
+	@Column(name = "is_pinned", nullable = false)
+	private Boolean isPinned;
+
+	@Column(name = "article_created_time", nullable = false, updatable = false)
+	private LocalDateTime articleCreatedTime;
+
+	@Column(name = "article_updated_time")
+	private LocalDateTime articleUpdatedTime;
+
+	@PrePersist
+	private void prePersist() {
+		if (viewCount == null) {
+			viewCount = 0;
+		}
+		if (likeCount == null) {
+			likeCount = 0;
+		}
+		if (commentCount == null) {
+			commentCount = 0;
+		}
+		if (status == null) {
+			status = ArticleStatus.DRAFT;
+		}
+		if (isPinned == null) {
+			isPinned = false;
+		}
+		if (articleCreatedTime == null) {
+			articleCreatedTime = LocalDateTime.now();
+		}
+	}
+
+	@PreUpdate
+	private void preUpdate() {
+		articleUpdatedTime = LocalDateTime.now();
+	}
+
+	public enum ArticleStatus {
+		DRAFT, PUBLISHED, HIDDEN, TAKEN_DOWN, RESTRICTED
+	}
+}
