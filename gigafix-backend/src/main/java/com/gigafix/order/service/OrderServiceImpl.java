@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import com.gigafix.cart.entity.CartItem;
 import com.gigafix.cart.repository.CartItemRepository;
 import com.gigafix.member.repository.MemberRepository;
+import com.gigafix.member.entity.Member;
 import com.gigafix.order.dto.CreateOrderRequest;
 import com.gigafix.order.dto.OrderResponse;
 import com.gigafix.order.dto.PaymentSuccessRequest;
@@ -52,13 +53,12 @@ public class OrderServiceImpl implements OrderService {
             CreateOrderRequest request) {
 
         // 檢查會員是否存在
-        if (!memberRepository.existsById(memberId)) {
-            throw new IllegalArgumentException(
-                    "會員不存在，memberId：" + memberId);
-        }
-        // 查詢會員購物車內全部商品
-        List<CartItem> cartItems = cartItemRepository.findByMemberId(memberId);
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "會員不存在，memberId：" + memberId));
 
+        // 查詢會員購物車內全部商品
+        List<CartItem> cartItems = cartItemRepository.findByMember_Id(memberId);
         // 檢查購物車是否為空
         if (cartItems.isEmpty()) {
             throw new IllegalStateException("購物車是空的，無法建立訂單");
@@ -82,7 +82,7 @@ public class OrderServiceImpl implements OrderService {
         // 建立訂單主表
         Order order = new Order();
 
-        order.setMemberId(memberId);
+        order.setMember(member);
         order.setTotalAmount(totalAmount);
         order.setOrderStatus(OrderStatus.PENDING.name());
         order.setPaymentMethod(request.getPaymentMethod());
@@ -134,7 +134,7 @@ public class OrderServiceImpl implements OrderService {
         }
 
         // 查詢會員所有訂單
-        List<Order> orders = orderRepository.findByMemberId(memberId);
+        List<Order> orders = orderRepository.findByMember_Id(memberId);
 
         // 準備回傳清單
         List<OrderResponse> responseList = new ArrayList<>();
@@ -164,7 +164,7 @@ public class OrderServiceImpl implements OrderService {
                         "訂單不存在，orderId：" + orderId));
 
         // 檢查訂單是否屬於該會員
-        if (!order.getMemberId().equals(memberId)) {
+        if (!order.getMember().getId().equals(memberId)) {
             throw new IllegalArgumentException(
                     "訂單不屬於該會員，memberId：" + memberId + ", orderId：" + orderId);
         }
@@ -192,7 +192,7 @@ public class OrderServiceImpl implements OrderService {
                         "訂單不存在，orderId：" + orderId));
 
         // 確認訂單屬於此會員
-        if (!order.getMemberId().equals(memberId)) {
+        if (!order.getMember().getId().equals(memberId)) {
             throw new IllegalStateException("無權操作此訂單");
         }
         // 已取消訂單不能付款
@@ -242,7 +242,7 @@ public class OrderServiceImpl implements OrderService {
                         "訂單不存在，orderId：" + orderId));
 
         // 確認訂單屬於此會員
-        if (!order.getMemberId().equals(memberId)) {
+        if (!order.getMember().getId().equals(memberId)) {
             throw new IllegalStateException("無權操作此訂單");
         }
         // 已付款訂單不能直接取消
@@ -312,7 +312,7 @@ public class OrderServiceImpl implements OrderService {
                         "訂單不存在，orderId：" + orderId));
 
         // 確認訂單屬於會員
-        if (!order.getMemberId().equals(memberId)) {
+        if (!order.getMember().getId().equals(memberId)) {
             throw new IllegalStateException("無權操作此訂單");
         }
 
@@ -357,7 +357,7 @@ public class OrderServiceImpl implements OrderService {
                         "訂單不存在，orderId：" + orderId));
 
         // ③ 確認訂單屬於會員
-        if (!order.getMemberId().equals(memberId)) {
+        if (!order.getMember().getId().equals(memberId)) {
             throw new IllegalStateException("無權操作此訂單");
         }
 

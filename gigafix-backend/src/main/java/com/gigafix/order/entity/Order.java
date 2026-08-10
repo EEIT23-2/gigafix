@@ -1,7 +1,7 @@
 package com.gigafix.order.entity;
 
 import java.time.LocalDateTime;
-
+import com.gigafix.member.entity.Member;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -20,8 +20,10 @@ public class Order {
     @GeneratedValue(strategy = GenerationType.IDENTITY) // 自動生成主鍵
     @Column(name = "order_id")
     private Long orderId; // 訂單ID
-    @Column(name = "member_id", nullable = false)
-    private Long memberId; // 會員ID
+    
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "member_id", nullable = false)
+    private Member member;
 
     @Column(name = "total_amount", nullable = false)
     private Integer totalAmount; // 訂單總金額
@@ -40,7 +42,7 @@ public class Order {
 
     @Column(name = "paid_at")
     private LocalDateTime paidAt; // 付款時間
-    
+
     @Column(name = "receiver_name", nullable = false)
     private String receiverName; // 收件人姓名
 
@@ -74,6 +76,7 @@ public class Order {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt; // 更新時間
     // 新增資料前自動執行 建立createdAt、updatedAt
+
     @PrePersist
     public void prePersist() {
         LocalDateTime now = LocalDateTime.now();

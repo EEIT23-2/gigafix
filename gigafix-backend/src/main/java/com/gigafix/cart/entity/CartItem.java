@@ -5,7 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
+import com.gigafix.member.entity.Member;
 import java.time.LocalDateTime;
 
 @Entity
@@ -21,8 +21,9 @@ public class CartItem {
     @Column(name = "cart_item_id")
     private Long cartItemId; //購物車明細
 
-    @Column(name = "member_id", nullable = false)
-    private Long memberId;  //會員ID
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "member_id", nullable = false)
+    private Member member;
 
     @Column(name = "product_id", nullable = false)
     private Long productId;  //產品ID

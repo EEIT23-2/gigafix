@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
     // 查詢指定會員的所有訂單
-    List<Order> findByMemberId(Long memberId);
+    List<Order> findByMember_Id(Long memberId);
     
 
 }

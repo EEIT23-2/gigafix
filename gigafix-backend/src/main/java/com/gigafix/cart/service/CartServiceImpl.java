@@ -2,14 +2,19 @@ package com.gigafix.cart.service;
 
 import java.util.ArrayList;
 import java.util.List;
+
 import com.gigafix.cart.dto.AddCartItemRequest;
 import com.gigafix.cart.dto.CartItemResponse;
 import com.gigafix.cart.entity.CartItem;
 import com.gigafix.cart.repository.CartItemRepository;
+
 import com.gigafix.member.repository.MemberRepository;
+import com.gigafix.member.entity.Member;
+
 import com.gigafix.product.constant.ProductSaleStatus;
 import com.gigafix.product.entity.Product;
 import com.gigafix.product.repository.ProductDao;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -29,10 +34,10 @@ public class CartServiceImpl implements CartService {
     @Override
     public CartItemResponse addItem(Long memberId, AddCartItemRequest request) {
 
-        // 檢查會員是否存在
-        if (!memberRepository.existsById(memberId)) {
-            throw new IllegalArgumentException("會員不存在，memberId：" + memberId);
-        }
+        // 檢查會員是否存在，並取得 Member
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "會員不存在，memberId：" + memberId));
 
         // 檢查商品是否存在
         Product product = productDao.findById(request.getProductId())
@@ -47,14 +52,14 @@ public class CartServiceImpl implements CartService {
 
         // 檢查商品是否已存在購物車
         if (cartItemRepository
-                .findByMemberIdAndProductId(memberId, request.getProductId())
+                .findByMember_IdAndProductId(memberId, request.getProductId())
                 .isPresent()) { // =Optional裡面有值，表示商品已存在購物車
 
             throw new IllegalStateException("商品已存在購物車");
         }
-        // 建立購物車明細
+           // 建立購物車明細
         CartItem cartItem = new CartItem();
-        cartItem.setMemberId(memberId);
+        cartItem.setMember(member);
         cartItem.setProductId(request.getProductId());
 
         // 儲存購物車明細
@@ -82,7 +87,7 @@ public class CartServiceImpl implements CartService {
         }
 
         // 查詢會員購物車內全部商品
-        List<CartItem> cartItems = cartItemRepository.findByMemberId(memberId);
+        List<CartItem> cartItems = cartItemRepository.findByMember_Id(memberId);
 
         // 準備回傳給前端的資料
         List<CartItemResponse> responseList = new ArrayList<>();
@@ -123,7 +128,7 @@ public class CartServiceImpl implements CartService {
 
         // 查詢購物車商品
         CartItem cartItem = cartItemRepository
-                .findByCartItemIdAndMemberId(
+                .findByCartItemIdAndMember_Id(
                         cartItemId,
                         memberId)
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -143,7 +148,7 @@ public class CartServiceImpl implements CartService {
         }
 
         // 查詢會員購物車內全部商品
-        List<CartItem> cartItems = cartItemRepository.findByMemberId(memberId);
+        List<CartItem> cartItems = cartItemRepository.findByMember_Id(memberId);
 
         // 刪除購物車內全部商品
         cartItemRepository.deleteAll(cartItems);
