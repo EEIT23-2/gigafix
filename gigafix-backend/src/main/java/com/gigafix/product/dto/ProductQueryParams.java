@@ -21,6 +21,10 @@ public class ProductQueryParams {
     private Integer minPrice;//取低價參數
     private Integer maxPrice;//取高價參數
 
+    //分頁功能 所需參數
+    private Integer limit;
+    private Integer offset;
+
 
     public ProductCategory getCategory() {
         return category;
@@ -92,5 +96,21 @@ public class ProductQueryParams {
 
     public void setMaxPrice(Integer maxPrice) {
         this.maxPrice = maxPrice;
+    }
+
+    public Integer getLimit() {
+        return limit;
+    }
+
+    public void setLimit(Integer limit) {
+        this.limit = limit;
+    }
+
+    public Integer getOffset() {
+        return offset;
+    }
+
+    public void setOffset(Integer offset) {
+        this.offset = offset;
     }
 }

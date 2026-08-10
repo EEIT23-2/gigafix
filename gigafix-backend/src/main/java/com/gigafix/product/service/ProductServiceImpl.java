@@ -9,6 +9,9 @@ import com.gigafix.product.entity.Product;
 import com.gigafix.product.repository.ProductDao;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +34,7 @@ public class ProductServiceImpl implements ProductService   {
 
     //實作查詢全部商品列表
     @Override
-    public List<Product> getProducts(ProductQueryParams productQueryParams) {
+    public Page<Product> getProducts(ProductQueryParams productQueryParams) {
         ProductCategory category = productQueryParams.getCategory();
         String search = Utils.blankToNull(productQueryParams.getSearch());
         String modelName = Utils.blankToNull(productQueryParams.getModelName());
@@ -41,6 +44,15 @@ public class ProductServiceImpl implements ProductService   {
         String sortParam = Utils.blankToNull(productQueryParams.getSort());
         Integer minPrice = productQueryParams.getMinPrice();
         Integer maxPrice = productQueryParams.getMaxPrice();
+        Integer limit = productQueryParams.getLimit();
+        Integer offset = productQueryParams.getOffset();
+
+        if (limit == null) {
+            limit = 48; //給予分頁預設值 設定一頁48筆
+        }
+        if (offset == null) {
+            offset = 0;
+        }
 
         if (orderBy == null) {
             orderBy = "createdDate"; // 預設依建立時間排序
@@ -53,7 +65,13 @@ public class ProductServiceImpl implements ProductService   {
                 Sort.by(orderBy).ascending() ://昇羃
                 Sort.by(orderBy).descending();//降冪
 
-        return productDao.findByConditions(category,search,modelName,color,storage,minPrice,maxPrice,sort);
+        //轉化為jpa頁數
+        int page = offset / limit;
+        //結合為Pageable物件  參數為 頁數 ,pagesize, 排序
+        Pageable pageable = PageRequest.of(page,limit,sort);
+
+
+        return productDao.findByConditions(category,search,modelName,color,storage,minPrice,maxPrice,pageable);
     }
 
     //實作以id查詢商品
