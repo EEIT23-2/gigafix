@@ -29,7 +29,9 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "reports", check = @CheckConstraint(name = "CK_reports_target", constraint = "([article_id] IS NULL) <> ([comment_id] IS NULL)"))
+// CK_reports_target：強制 article_id / comment_id 恰好一個有值（互斥弧）
+// 寫成 AND/OR 而非 (x IS NULL) <> (y IS NULL)，因為 T-SQL 的 IS NULL 是述詞不是布林值，不能直接用 <> 比較，SQL Server 會語法錯誤
+@Table(name = "reports", check = @CheckConstraint(name = "CK_reports_target", constraint = "(article_id IS NULL AND comment_id IS NOT NULL) OR (article_id IS NOT NULL AND comment_id IS NULL)"))
 public class Report {
 
 	@Id
@@ -51,11 +53,14 @@ public class Report {
 	private Comment comment;
 
 	// 狀態代碼：0=待處理 1=已處理 2=關閉，用宣告順序對應 TINYINT，新增狀態只能加在最後面
+	// CK_reports_status：資料庫端再擋一次，避免非法數值繞過應用層直接寫進 TINYINT 欄位
 	@Enumerated(EnumType.ORDINAL)
 	@Column(name = "status", nullable = false, columnDefinition = "TINYINT", check = @CheckConstraint(name = "CK_reports_status", constraint = "status IN (0,1,2)"))
 	private ReportStatus status;
 
-	@Column(name = "reason", nullable = false, columnDefinition = "VARCHAR(500) COLLATE Chinese_Taiwan_Stroke_100_CI_AS")
+	// COLLATE Chinese_Taiwan_Stroke_CI_AS：指定繁體中文筆畫排序定序（不分大小寫、不分腔調），確保檢舉原因文字排序/比較符合中文筆畫順序
+	// 注意：SQL Server 沒有 Chinese_Taiwan_Stroke_100_CI_AS 這個定序名稱，帶 _100_ 版本的筆畫排序定序全名是 Chinese_Traditional_Stroke_Order_100_CI_AS，寫錯會導致建表失敗
+	@Column(name = "reason", nullable = false, columnDefinition = "VARCHAR(500) COLLATE Chinese_Taiwan_Stroke_CI_AS")
 	private String reason;
 
 	@Column(name = "report_created_time", nullable = false, updatable = false)

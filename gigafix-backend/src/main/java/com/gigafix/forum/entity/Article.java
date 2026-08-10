@@ -65,6 +65,7 @@ public class Article {
 	private String coverImage;
 
 	// 狀態代碼：0=草稿 1=發布 2=隱藏 3=下架 4=限制，用宣告順序對應 TINYINT，新增狀態只能加在最後面
+	// CK_articles_status：資料庫端再擋一次，避免非法數值繞過應用層直接寫進 TINYINT 欄位
 	@Enumerated(EnumType.ORDINAL)
 	@Column(name = "status", nullable = false, columnDefinition = "TINYINT", check = @CheckConstraint(name = "CK_articles_status", constraint = "status IN (0,1,2,3,4)"))
 	private ArticleStatus status;

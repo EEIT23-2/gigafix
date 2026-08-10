@@ -28,8 +28,13 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 @Entity
+// UK_likes：(member_id, article_id, comment_id) 唯一約束，防止同一會員對同一篇文章/留言重複按讚
+// 注意：SQL Server 的唯一約束比較整組 key 時會把 NULL 視為彼此相等（跟 PostgreSQL/ANSI 的「NULL 互不相等」不同），
+// 所以即使 article_id/comment_id 互斥、一定有一個是 NULL，例如 (member_id=1, article_id=NULL, comment_id=1) 這組值仍然只能存在一筆，約束是有效的
+// CK_likes_target：強制 article_id / comment_id 恰好一個有值（互斥弧）
+// 寫成 AND/OR 而非 (x IS NULL) <> (y IS NULL)，因為 T-SQL 的 IS NULL 是述詞不是布林值，不能直接用 <> 比較，SQL Server 會語法錯誤
 @Table(name = "likes", uniqueConstraints = @UniqueConstraint(name = "UK_likes", columnNames = { "member_id",
-		"article_id", "comment_id" }), check = @CheckConstraint(name = "CK_likes_target", constraint = "([article_id] IS NULL) <> ([comment_id] IS NULL)"))
+		"article_id", "comment_id" }), check = @CheckConstraint(name = "CK_likes_target", constraint = "(article_id IS NULL AND comment_id IS NOT NULL) OR (article_id IS NOT NULL AND comment_id IS NULL)"))
 public class Like {
 
 	@Id

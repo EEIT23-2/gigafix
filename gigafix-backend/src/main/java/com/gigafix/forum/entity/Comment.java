@@ -52,6 +52,7 @@ public class Comment {
 	private Integer likeCount;
 
 	// 狀態代碼：0=可見 1=隱藏 2=下架，用宣告順序對應 TINYINT，新增狀態只能加在最後面
+	// CK_comments_status：資料庫端再擋一次，避免非法數值繞過應用層直接寫進 TINYINT 欄位
 	@Enumerated(EnumType.ORDINAL)
 	@Column(name = "status", nullable = false, columnDefinition = "TINYINT", check = @CheckConstraint(name = "CK_comments_status", constraint = "status IN (0,1,2)"))
 	private CommentStatus status;

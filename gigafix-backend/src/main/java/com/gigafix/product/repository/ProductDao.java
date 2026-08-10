@@ -1,6 +1,8 @@
 package com.gigafix.product.repository;
 
 import com.gigafix.product.constant.ProductCategory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -21,13 +23,13 @@ public interface ProductDao extends JpaRepository<Product,Long> {
             "(:storage IS NULL OR p.productName LIKE %:storage%) AND " +
             "(:minPrice IS NULL OR p.price >= :minPrice) AND " + // 💡 新增最低價判斷
             "(:maxPrice IS NULL OR p.price <= :maxPrice)")
-    List<Product> findByConditions(@Param("category") ProductCategory category,
+    Page<Product> findByConditions(@Param("category") ProductCategory category,
                                    @Param("search") String search,
                                    @Param("modelName") String modelName,
                                    @Param("color") String color,
                                    @Param("storage") String storage,
                                    @Param("minPrice") Integer minPrice,
                                    @Param("maxPrice") Integer maxPrice,
-                                   Sort sort);
+                                   Pageable page); //新增分頁功能
 }
 

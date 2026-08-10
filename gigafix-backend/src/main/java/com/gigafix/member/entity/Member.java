@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
-import com.gigafix.cart.entity.Cart;
+import com.gigafix.cart.entity.CartItem;
 import com.gigafix.forum.entity.Article;
 import com.gigafix.forum.entity.Bookmark;
 import com.gigafix.forum.entity.Comment;
@@ -25,6 +25,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.Email;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -43,6 +44,7 @@ public class Member {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 	
+	@Email 
 	@Column(name = "email", nullable = false, unique = true)
 	private String email;
 	
@@ -78,7 +80,7 @@ public class Member {
 	
 	@Builder.Default
 	@OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "member")
-	private Set<Cart> carts = new HashSet<>();
+	private Set<CartItem> cartItems = new HashSet<>();
 	
 	@Builder.Default
 	@OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "member")
