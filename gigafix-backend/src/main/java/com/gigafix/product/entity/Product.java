@@ -48,6 +48,10 @@ public class Product {
     private LocalDateTime createdDate; //創建時間
     @Column(name = "last_modified_date" ,nullable = false)
     private LocalDateTime lastModifiedDate; //最後更新時間
+    @Transient //不對應資料庫欄位 以下兩屬性用作轉換幣別
+    private Double priceUSD;
+    @Transient
+    private Double priceJPY;
 
 //	//關聯的外建FK,資料型別待組員建立後更改
 //	@OneToOne(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
