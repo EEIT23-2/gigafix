@@ -12,7 +12,7 @@ import com.gigafix.forum.entity.Likes;
 import com.gigafix.forum.entity.Reports;
 import com.gigafix.order.entity.Order;
 import com.gigafix.product.entity.RecycleApplication;
-import com.gigafix.repair.entity.RepairAppointments;
+import com.gigafix.repair.entity.Repairs;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -86,7 +86,7 @@ public class Member {
 	
 	@Builder.Default
 	@OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "member")
-	private Set<RepairAppointments> fixOrdersObject = new HashSet<>();
+	private Set<Repairs> fixOrdersObject = new HashSet<>();
 	
 	@Builder.Default
 	@OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "author")
