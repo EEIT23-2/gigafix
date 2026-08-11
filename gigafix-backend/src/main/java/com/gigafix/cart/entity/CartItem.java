@@ -1,81 +1,50 @@
 package com.gigafix.cart.entity;
 
-import java.time.LocalDateTime;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import com.gigafix.member.entity.Member;
+import java.time.LocalDateTime;
 
-/**
- * 購物車商品明細 Entity，對應 {@code cart_item} 資料表。
- * 每筆資料隸屬一個 Cart，並由 CartItem Repository 提供給 Cart Service 查詢與更新。
- */
 @Entity
-@Table(
-		name = "cart_item",
-		uniqueConstraints = {
-				@UniqueConstraint(
-						name = "uk_cart_item_cart_product",
-						columnNames = {"cart_id", "product_id"}
-				)
-		}
-)
+@Table(name = "cart_items")
 @Getter
 @Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+@NoArgsConstructor // JPA必須要有無參數建構子
+@AllArgsConstructor // 自動生成有參數建構子
 public class CartItem {
+    
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "cart_item_id")
+    private Long cartItemId; //購物車明細
 
-	/** 購物車項目主鍵。 */
-	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	@Column(name = "cart_item_id")
-	private Long cartItemId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "member_id", nullable = false)
+    private Member member;
 
-	/** 此項目所屬的購物車，多筆項目可關聯同一個 Cart。 */
-	@ManyToOne(fetch = jakarta.persistence.FetchType.LAZY, optional = false)
-	@JoinColumn(name = "cart_id", nullable = false)
-	private Cart cart;
+    @Column(name = "product_id", nullable = false)
+    private Long productId;  //產品ID
 
-	/** 商品模組中的商品識別碼。 */
-	@Column(name = "product_id", nullable = false)
-	private Long productId;
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;  //建立時間
 
-	/** 購物車項目建立時間，首次寫入後不再更新。 */
-	@Column(name = "created_at", nullable = false, updatable = false)
-	private LocalDateTime createdAt;
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;  //更新時間
 
-	/** 購物車項目最近更新時間。 */
-	@Column(name = "updated_at", nullable = false)
-	private LocalDateTime updatedAt;
+    // 新增資料前自動執行 建立createdAt、updatedAt
+    @PrePersist
+    public void prePersist() {
+        LocalDateTime now = LocalDateTime.now();
+        createdAt = now;
+        updatedAt = now;
+    }
 
-	@PrePersist
-	private void prePersist() {
-		LocalDateTime now = LocalDateTime.now();
-		if (createdAt == null) {
-			createdAt = now;
-		}
-		if (updatedAt == null) {
-			updatedAt = now;
-		}
-	}
-
-	@PreUpdate
-	private void preUpdate() {
-		updatedAt = LocalDateTime.now();
-	}
+    // 更新資料前自動執行 更新updatedAt
+    @PreUpdate
+    public void preUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 }
