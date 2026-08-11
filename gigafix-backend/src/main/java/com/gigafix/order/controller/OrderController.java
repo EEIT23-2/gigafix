@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.gigafix.order.dto.PaymentSuccessRequest;
 import com.gigafix.order.dto.ShipOrderRequest;
+import com.gigafix.order.dto.UpdateOrderRequest;
 import com.gigafix.order.dto.CreateOrderRequest;
 import com.gigafix.order.dto.OrderResponse;
 import com.gigafix.order.service.OrderService;
@@ -81,26 +82,4 @@ public class OrderController {
         return ResponseEntity.ok(response);
     }
 
-    // 訂單出貨
-    @PostMapping("/{orderId}/ship")
-    public ResponseEntity<OrderResponse> shipOrder(
-            @PathVariable Long memberId,
-            @PathVariable Long orderId,
-            @Valid @RequestBody ShipOrderRequest request) {
-
-        OrderResponse response = orderService.shipOrder(memberId, orderId, request);
-
-        return ResponseEntity.ok(response);
-    }
-
-    // 訂單送達
-    @PostMapping("/{orderId}/deliver")
-    public ResponseEntity<OrderResponse> deliverOrder(
-            @PathVariable Long memberId,
-            @PathVariable Long orderId) {
-
-        OrderResponse response = orderService.deliverOrder(memberId, orderId);
-
-        return ResponseEntity.ok(response);
-    }
 }
