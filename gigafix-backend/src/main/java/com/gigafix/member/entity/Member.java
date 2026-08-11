@@ -5,11 +5,11 @@ import java.util.HashSet;
 import java.util.Set;
 
 import com.gigafix.cart.entity.CartItem;
-import com.gigafix.forum.entity.Articles;
-import com.gigafix.forum.entity.Bookmarks;
-import com.gigafix.forum.entity.Comments;
-import com.gigafix.forum.entity.Likes;
-import com.gigafix.forum.entity.Reports;
+import com.gigafix.forum.entity.Article;
+import com.gigafix.forum.entity.Bookmark;
+import com.gigafix.forum.entity.Comment;
+import com.gigafix.forum.entity.Like;
+import com.gigafix.forum.entity.Report;
 import com.gigafix.order.entity.Order;
 import com.gigafix.product.entity.RecycleApplication;
 import com.gigafix.repair.entity.RepairAppointments;
@@ -92,23 +92,23 @@ public class Member {
 	
 	@Builder.Default
 	@OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "author")
-	private Set<Articles> articles = new HashSet<>();
+	private Set<Article> articles = new HashSet<>();
 	
 	@Builder.Default
 	@OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "author")
-	private Set<Comments> comments = new HashSet<>();
+	private Set<Comment> comments = new HashSet<>();
 	
 	@Builder.Default
 	@OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "reporter")
-	private Set<Reports> reports = new HashSet<>();
+	private Set<Report> reports = new HashSet<>();
 	
 	@Builder.Default
 	@OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "member")
-	private Set<Likes> likes = new HashSet<>();
+	private Set<Like> likes = new HashSet<>();
 	
 	@Builder.Default
 	@OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, mappedBy = "member")
-	private Set<Bookmarks> bookmarks = new HashSet<>();
+	private Set<Bookmark> bookmarks = new HashSet<>();
 	
 	public enum Gender {
         MALE, FEMALE
