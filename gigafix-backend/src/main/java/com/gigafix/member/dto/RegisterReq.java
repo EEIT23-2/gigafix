@@ -8,10 +8,12 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 
 
 public record RegisterReq(
 		@NotBlank(message = "password不可為空")
+		@Size(min = 8, message = "密碼長度不可低於8個字元")
 		String password,
 		@NotBlank(message = "真實姓名不可為空")
 		String realName,

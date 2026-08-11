@@ -35,7 +35,6 @@ public class JwtUtils {
 	//創建JWT
 	public String createToken(@Valid CreateJwtDto createJwtDto) { //在給前端時id要是String避免前端的number把long搞爛
 		return Jwts.builder().
-				claim("memberName", createJwtDto.membername()).
 				claim("memberId", createJwtDto.subject()).
 				issuedAt(Date.from(Instant.now())).
 				expiration(Date.from(Instant.now().plus(expireTime,ChronoUnit.SECONDS))).
@@ -65,15 +64,11 @@ public class JwtUtils {
 				parseSignedClaims(token).getPayload();
 	}
 	
-	//從 JWT 的Claims取出裡面的使用者的 member name
-	public String extractMemberName(String token) {
-		return extractAllClaims(token).get("memberName",String.class);
-	}
 	//從 JWT 的Claims取出裡面的使用者的 member id(進來的token是String要轉回Long)
-		public Long extractMemberId(String token) {
+	public Long extractMemberId(String token) {
 			String stringId = extractAllClaims(token).get("memberId",String.class);
 			return Long.parseLong(stringId);
-		}
+	}
 	
 	
 }

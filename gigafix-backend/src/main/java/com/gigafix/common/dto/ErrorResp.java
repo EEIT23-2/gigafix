@@ -8,8 +8,8 @@ import lombok.Builder;
 public record ErrorResp(
 		String errorCode,
         String message,
-//        int status, //找步道欄位本來就是400
+//        int status, //前端需要的話再加
 //        LocalDateTime timestamp,
 //        String path,   //我沒有寫錯誤監控所以不需要
-        List<FieldErrorDetail> errors
+        List<FieldErrorDetail> errors //只給MethodArgumentNotValidException
 		) {}

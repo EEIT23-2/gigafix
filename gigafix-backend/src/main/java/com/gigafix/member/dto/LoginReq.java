@@ -12,6 +12,5 @@ public record LoginReq(
 		String email,
 		@NotBlank(message = "password不可為空")
 	    @Size(min = 8, message = "密碼長度不可低於8個字元")
-		String password) {
-
-}
+		String password
+		) {}
