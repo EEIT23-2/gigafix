@@ -5,6 +5,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 import com.gigafix.common.util.JwtUtils;
 
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -22,23 +23,30 @@ public class AuthInterceptor implements HandlerInterceptor {
             return true;
         }
         
-        //前端的請求中找到Authorization Header 然後取出JWT
-        String authHeader = request.getHeader("Authorization");
-
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        Cookie[] cookies = request.getCookies();
+        
+        String token = null;
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if ("token".equals(cookie.getName())) {
+                    token = cookie.getValue();
+                    break;  // 加這個，找到就跳出，不用整個陣列跑完
+                }
+            }
+        }
+        
+        if (token == null) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // 401
             return false;
-        }
-
-        // 裁切掉 "Bearer " 前綴取得純 Token
-        String token = authHeader.substring(7);
-		
-		if (!jwtUtils.validateToken(token)) {
-			response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);//401
+        } //怕空指標
+        
+        if (!jwtUtils.validateToken(token)) {
+			response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // 401
 			return false;
 		}
-		request.setAttribute("memberName", jwtUtils.extractMemberName(token));
-		request.setAttribute("memberId", jwtUtils.extractMemberId(token)); //從網頁取得的jwt為字串
+        
+        
+		request.setAttribute("memberId", jwtUtils.extractMemberId(token)); //從網頁取得的jwt為字串透過這個方法會轉回去Long
 		return true;
 	}
 	

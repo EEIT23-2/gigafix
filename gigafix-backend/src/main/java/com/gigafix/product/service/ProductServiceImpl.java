@@ -1,5 +1,6 @@
 package com.gigafix.product.service;
 
+import com.gigafix.common.util.ExchangeRateUtils;
 import com.gigafix.product.Utils;
 import com.gigafix.product.constant.ProductCategory;
 import com.gigafix.product.constant.ProductSaleStatus;
@@ -22,6 +23,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Transactional
@@ -29,8 +31,10 @@ import java.util.Optional;
 public class ProductServiceImpl implements ProductService   {
     @Autowired
     private ProductDao productDao;
-    @Autowired
+    @Autowired //注入jackson 反序列化需要的介面
     private ObjectMapper objectMapper;
+    @Autowired //注入改匯率工具
+    private ExchangeRateUtils exchangeRateUtils;
 
     //實作查詢全部商品列表
     @Override
@@ -69,9 +73,23 @@ public class ProductServiceImpl implements ProductService   {
         int page = offset / limit;
         //結合為Pageable物件  參數為 頁數 ,pagesize, 排序
         Pageable pageable = PageRequest.of(page,limit,sort);
-
-
-        return productDao.findByConditions(category,search,modelName,color,storage,minPrice,maxPrice,pageable);
+        //封裝商品列表
+        Page<Product> productList = productDao.findByConditions(category,search,modelName,color,storage,minPrice,maxPrice,pageable);
+        //呼叫api獲取最新匯率
+        Map<String, Double> rates = exchangeRateUtils.getLatestRatesFromTWD();
+        //以下兩段為防段往機制  三元運算設定預設安全匯率
+        final double usdRate = (rates != null) ? rates.getOrDefault("USD", 0.031) : 0.031;
+        final double jpyRate = (rates != null) ? rates.getOrDefault("JPY", 4.65) : 4.65;
+        //使用 page.map() 為分頁的48筆商品注入外幣價格
+        return productList.map(product -> {
+            if (product.getPrice() != null) {
+                product.setPriceUSD(product.getPrice() * usdRate);
+                product.setPriceJPY(product.getPrice() * jpyRate);
+            }
+            return product;
+            //這邊的lambda是 org.springframework.core.convert.converter.Converter<S, T>
+            //S為傳入,T為傳出 把一個只有台幣價格的商品，轉換成一個擁有美金、日幣價格的商品
+        });
     }
 
     //實作以id查詢商品
@@ -133,7 +151,7 @@ public class ProductServiceImpl implements ProductService   {
         productDao.deleteById(productId);
 
     }
-    //實作所有商品
+    //實作刪除所有商品
     @Override
     public void deleteAllProducts() {
         productDao.deleteAll();

@@ -1,6 +1,7 @@
 package com.gigafix.product.entity;
 
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.gigafix.product.constant.ProductCategory;
 import com.gigafix.product.constant.ProductSaleStatus;
@@ -45,9 +46,15 @@ public class Product {
     @JsonProperty("sale_status")
     private ProductSaleStatus saleStatus; //銷售(庫存)狀況 之後用enum常數列舉
     @Column(name = "created_date" ,nullable = false)
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss",timezone = "GMT+8")
     private LocalDateTime createdDate; //創建時間
     @Column(name = "last_modified_date" ,nullable = false)
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss",timezone = "GMT+8")
     private LocalDateTime lastModifiedDate; //最後更新時間
+    @Transient //不對應資料庫欄位 以下兩屬性用作轉換幣別
+    private Double priceUSD;
+    @Transient
+    private Double priceJPY;
 
 //	//關聯的外建FK,資料型別待組員建立後更改
 //	@OneToOne(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
