@@ -19,6 +19,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
@@ -30,6 +31,7 @@ import lombok.ToString;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Repairs {
 	
 	@Id@Column(name = "repair_id")
@@ -72,6 +74,7 @@ public class Repairs {
 	@Column(name = "dropoff_type", nullable = false)
 	private Byte dropoffType;
 	
+	@Builder.Default //加上 Default，避免預設值被 null 蓋掉
 	@Column(name = "repair_status", nullable = false, columnDefinition = "tinyint default 0")
 	private Byte repairStatus = 0;
 	
@@ -84,12 +87,14 @@ public class Repairs {
 	@Column(name = "repair_items", length = 500)
 	private String repairItems;
 	
+	@Builder.Default
 	@Column(name = "estimated_cost", columnDefinition = "int default 0")
 	private Integer estimatedCost = 0;
 	
 	@Column(name = "approval_status")
 	private Byte approvalStatus;
 	
+	@Builder.Default 
 	@Column(name = "final_cost", columnDefinition = "int default 0")
 	private Integer finalCost = 0;
 	
