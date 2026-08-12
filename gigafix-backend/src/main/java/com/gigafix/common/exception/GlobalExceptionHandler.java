@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 
 import com.gigafix.common.dto.ErrorResp;
 import com.gigafix.common.dto.FieldErrorDetail;
+import com.gigafix.member.exception.MemberException;
 
 @ControllerAdvice
 @Order(Ordered.LOWEST_PRECEDENCE)
@@ -36,5 +37,14 @@ public class GlobalExceptionHandler {
 	/*ConstraintViolationException是@Valid使用在非controller時(非controller必須在class上方加上@Validated)，如果驗證失敗會throw這個錯誤
 	 * 但目前使用@Validated的Bean是JwtUtils，而使用@Valid檢查的method會是工程師自己發出去的內容，如果報錯表示程式有漏洞，不該使用ExceptionHandler catch起來*/
 	
+	@ExceptionHandler
+	public ResponseEntity<ErrorResp> handleMemberException(MemberException e){
+		return ResponseEntity
+				.status(e.getHttpStatus())
+				.body(ErrorResp.builder()
+						.errorCode(e.getErrorCode())
+						.message(e.getMessage())
+						.build());
+	}
 	
 }
