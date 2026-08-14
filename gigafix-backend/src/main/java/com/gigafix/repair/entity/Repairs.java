@@ -4,6 +4,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
 import com.gigafix.member.entity.Member;
 
 import jakarta.persistence.Column;
@@ -16,8 +19,11 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 
 
@@ -25,31 +31,38 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Repairs {
 	
 	@Id@Column(name = "repair_id")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 	
-	@ManyToOne(fetch = FetchType.LAZY)
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
 	@JoinColumn(name = "member_id", nullable = false)
+	@ToString.Exclude
+    @EqualsAndHashCode.Exclude
 	private Member member;
 	
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "technician_id")
+	@ToString.Exclude
+    @EqualsAndHashCode.Exclude
 	private RepairTechnicians repairTechnicians; 
 	
-	@ManyToOne(fetch = FetchType.LAZY)
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
 	@JoinColumn(name = "store_id", nullable = false)
+	@ToString.Exclude
+    @EqualsAndHashCode.Exclude
 	private Stores store;
 	
-	@Column(name = "repair_brand", nullable = false)
+	@Column(name = "repair_brand", nullable = false, length = 20)
 	private String repairBrand;
 	
-	@Column(name = "repair_model", nullable = false)
+	@Column(name = "repair_model", nullable = false, length = 50)
 	private String repairModel;
 	
-	@Column(name = "issue_description", nullable = false)
+	@Column(name = "issue_description", nullable = false, length = 200)
 	private String issueDescription;
 	
 	@Column(name = "booking_date", nullable = false)
@@ -61,27 +74,29 @@ public class Repairs {
 	@Column(name = "dropoff_type", nullable = false)
 	private Byte dropoffType;
 	
-	@Column(name = "repair_status", nullable = false)
-	private Byte repairStatus;
+	@Builder.Default //加上 Default，避免預設值被 null 蓋掉
+	@Column(name = "repair_status", nullable = false, columnDefinition = "tinyint default 0")
+	private Byte repairStatus = 0;
 	
-	
-	@Column(name = "serial_number")
+	@Column(name = "serial_number", columnDefinition = "varchar(50)")
 	private String serialNumber;
 	
-	@Column(name = "inspection_result")
+	@Column(name = "inspection_result", length = 500)
 	private String inspectionResult;
 	
-	@Column(name = "repair_items")
+	@Column(name = "repair_items", length = 500)
 	private String repairItems;
 	
-	@Column(name = "estimated_cost")
-	private Integer estimatedCost;
+	@Builder.Default
+	@Column(name = "estimated_cost", columnDefinition = "int default 0")
+	private Integer estimatedCost = 0;
 	
 	@Column(name = "approval_status")
 	private Byte approvalStatus;
 	
-	@Column(name = "final_cost")
-	private Integer finalCost;
+	@Builder.Default 
+	@Column(name = "final_cost", columnDefinition = "int default 0")
+	private Integer finalCost = 0;
 	
 	@Column(name = "repair_pay")
 	private Byte repairPay;
@@ -92,18 +107,20 @@ public class Repairs {
 	@Column(name = "pickup_type")
 	private Byte pickupType;
 	
-	@Column(name = "recipient_name")
+	@Column(name = "recipient_name", length = 50)
 	private String recipientName;
 	
-	@Column(name = "recipient_phone")
+	@Column(name = "recipient_phone", columnDefinition = "varchar(20)")
 	private String recipientPhone;
 	
-	@Column(name = "recipient_address")
+	@Column(name = "recipient_address", length = 200)
 	private String recipientAddress;
 	
-	@Column(name = "repair_created_time", nullable = false)
+	@CreationTimestamp
+	@Column(name = "repair_created_time", nullable = false, updatable = false)
 	private LocalDateTime repairCreatedTime;
 	
+	@UpdateTimestamp
 	@Column(name = "repair_updated_time", nullable = false)
 	private LocalDateTime repairUpdatedTime;
 	
