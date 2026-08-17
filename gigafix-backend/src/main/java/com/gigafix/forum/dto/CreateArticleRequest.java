@@ -1,0 +1,25 @@
+package com.gigafix.forum.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.Setter;
+
+// Request：發文所需要的資訊
+@Getter
+@Setter
+public class CreateArticleRequest {
+
+	@NotNull(message = "分類不能為空")
+	private Integer categoryId;
+
+	@NotBlank(message = "標題不能為空")
+	@Size(max = 255, message = "標題不能超過255字")
+	private String title;
+
+	@NotBlank(message = "內文不能為空")
+	private String content;
+
+	private String coverImage; // 封面圖網址，允許 NULL
+}
