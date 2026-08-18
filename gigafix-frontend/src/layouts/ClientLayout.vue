@@ -7,7 +7,7 @@ import ClientNavBar from '@/components/ClientNavBar.vue';
     <!-- 引入導覽列 -->
     <ClientNavBar />
 
-    <<!-- main 負責 flex: 1，會自動把 footer 往下推 -->
+    <!-- main 負責 flex: 1，會自動把 footer 往下推 -->
     <main class="main-content">
       <RouterView />
     </main>
