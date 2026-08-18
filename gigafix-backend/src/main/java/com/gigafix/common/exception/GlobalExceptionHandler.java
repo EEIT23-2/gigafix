@@ -2,8 +2,11 @@ package com.gigafix.common.exception;
 
 import java.util.List;
 
+import javax.naming.AuthenticationException;
+
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -27,8 +30,8 @@ public class GlobalExceptionHandler {
 					.message(fieldError.getDefaultMessage())
 					.rejectedValue(fieldError.getRejectedValue())
 					.build())
-				.toList();
-		
+				.toList();  //這一段是因為MethodArgumentNotValidException可能會有多個認證錯誤的欄位，因此必須多一個List
+		//badRequest() 等同於status(HttpStatus.BAD_REQUEST) 也就是status code400
 		return ResponseEntity.badRequest().body(ErrorResp.builder()
 										.errorCode("VALIDATION_FAILED")
 										.message("參數驗證失敗")
@@ -44,6 +47,15 @@ public class GlobalExceptionHandler {
 				.body(ErrorResp.builder()
 						.errorCode(e.getErrorCode())
 						.message(e.getMessage())
+						.build());
+	}
+	
+	@ExceptionHandler(AuthenticationException.class)
+	public ResponseEntity<ErrorResp> handleAuthenticationException(ArithmeticException e){
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+				.body(ErrorResp.builder()
+						.errorCode("AUTH_FAILED")
+						.message("帳號或密碼錯誤")
 						.build());
 	}
 	

@@ -49,7 +49,7 @@ public class MemberService {
 				.phone(registerReq.phone())
 				.address(registerReq.address())
 				.gender(registerReq.gender())
-				.createDateTime(LocalDateTime.now()).build();
+				.memberCreateDateTime(LocalDateTime.now()).build();
 		memberRepository.save(member);
 	}
 	//登入

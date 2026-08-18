@@ -1,0 +1,60 @@
+package com.gigafix.admin.controller;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.gigafix.admin.dto.AdminLoginReq;
+import com.gigafix.admin.dto.AdminLoginResp;
+import com.gigafix.admin.security.AdminUserDetails;
+import com.gigafix.admin.security.AdminSecurityUtils;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+import lombok.RequiredArgsConstructor;
+
+@RestController
+@RequiredArgsConstructor
+public class AdminUserDetailsController {
+	private final AuthenticationManager authenticationManager;
+	private final SecurityContextRepository securityContextRepository;
+	
+	@PostMapping("/adminlogin")
+	public ResponseEntity<AdminLoginResp> adminLogin(@RequestBody AdminLoginReq adminLoginReq, HttpServletRequest req, HttpServletResponse resp) {
+		//Spring security的方法會做登入認證，自動呼叫我自己在AdminUserDetailsService寫的loadUserByUsername() + 密碼比對
+		//這裡回傳的authenticate裡面有包著我在loadUserByUsername()回傳的AdminUserDetails物件，所以自帶admin所有的資訊
+		Authentication authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(adminLoginReq.userName(), adminLoginReq.password()));
+		//回傳的Authentication裡面包含→Principal(可以拿到UserDetails物件)、Authorities(權限)、Credentials密碼、認證後結果
+		
+		SecurityContext context = SecurityContextHolder.createEmptyContext(); //創建一個SecurityContext，該物件專們用來裝Authentication
+		context.setAuthentication(authentication); //把登入驗證後使用者所有資訊放進這個context內
+//		SecurityContextHolder.setContext(context);  //把這個context掛在SecurityContextHolder，如果這次的請求期間有其他人要用使用者資訊可以從SecurityContextHolder抓
+		securityContextRepository.saveContext(context, req, resp);
+		//把context物件(裡面裝使用者資訊)設在session內  (HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY : context)
+		
+		AdminUserDetails userDetails = AdminSecurityUtils.getCurrentAdmin(authentication);
+		return ResponseEntity.ok(AdminLoginResp.builder()
+				.name(userDetails.getName())
+				.roleName(userDetails.getRoleName())
+				.build());
+	}
+	
+	@PostMapping("/adminlogout")
+	public ResponseEntity<?> logout(HttpServletRequest request) {
+	    HttpSession session = request.getSession(false);
+	    if (session != null) {
+	        session.invalidate();
+	    }
+	    SecurityContextHolder.clearContext();
+	    return ResponseEntity.ok().build();
+	}
+	
+}

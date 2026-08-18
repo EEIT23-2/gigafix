@@ -24,7 +24,6 @@ import com.gigafix.member.dto.UpdateMemberInfoReq;
 import com.gigafix.member.dto.UpdatedMemberInfoResp;
 import com.gigafix.member.service.MemberService;
 
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
