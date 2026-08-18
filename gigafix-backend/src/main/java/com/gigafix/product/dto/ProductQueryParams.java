@@ -1,6 +1,7 @@
 package com.gigafix.product.dto;
 
 import com.gigafix.product.constant.ProductCategory;
+import com.gigafix.product.constant.ProductSaleStatus;
 import org.springframework.stereotype.Component;
 //此class用做統整 條件查詢參數
 
@@ -13,6 +14,7 @@ public class ProductQueryParams {
     private String modelName; //型號查詢
     private String color; //顏色查詢
     private String storage; //容量查詢
+    private ProductSaleStatus saleStatus; //依販售狀態查詢
     //排序條件
     private String orderBy;//依 初始值建立時間排列查詢
     private String sort;//依降冪排列查詢
@@ -112,5 +114,13 @@ public class ProductQueryParams {
 
     public void setOffset(Integer offset) {
         this.offset = offset;
+    }
+
+    public ProductSaleStatus getSaleStatus() {
+        return saleStatus;
+    }
+
+    public void setSaleStatus(ProductSaleStatus saleStatus) {
+        this.saleStatus = saleStatus;
     }
 }
