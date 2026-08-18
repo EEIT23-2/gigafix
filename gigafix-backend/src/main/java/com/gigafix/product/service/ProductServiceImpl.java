@@ -40,6 +40,7 @@ public class ProductServiceImpl implements ProductService   {
     @Override
     public Page<Product> getProducts(ProductQueryParams productQueryParams) {
         ProductCategory category = productQueryParams.getCategory();
+        ProductSaleStatus saleStatus = productQueryParams.getSaleStatus();
         String search = Utils.blankToNull(productQueryParams.getSearch());
         String modelName = Utils.blankToNull(productQueryParams.getModelName());
         String color = Utils.blankToNull(productQueryParams.getColor());
@@ -74,7 +75,7 @@ public class ProductServiceImpl implements ProductService   {
         //結合為Pageable物件  參數為 頁數 ,pagesize, 排序
         Pageable pageable = PageRequest.of(page,limit,sort);
         //封裝商品列表
-        Page<Product> productList = productDao.findByConditions(category,search,modelName,color,storage,minPrice,maxPrice,pageable);
+        Page<Product> productList = productDao.findByConditions(category,saleStatus,search,modelName,color,storage,minPrice,maxPrice,pageable);
         //呼叫api獲取最新匯率
         Map<String, Double> rates = exchangeRateUtils.getLatestRatesFromTWD();
         //以下兩段為防段往機制  三元運算設定預設安全匯率
