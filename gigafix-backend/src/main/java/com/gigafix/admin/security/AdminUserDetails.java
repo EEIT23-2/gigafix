@@ -14,7 +14,7 @@ import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 @Getter
-public class AdminUserDetails implements UserDetails {
+public class AdminUserDetails implements UserDetails { //不想繼承AdminAccount，怕有人拿去用JPA操作
 	private final AdminAccount adminAccount;
 	
 	//把AdminAccount常用(id,name)或要包很多層(role name)的屬性抓出來方便呼叫
