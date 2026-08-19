@@ -86,6 +86,12 @@ public class BookmarkServiceImpl implements BookmarkService {
 				.toList();
 	}
 
+	// 查詢會員是否已收藏某篇文章
+	@Override
+	public boolean hasBookmarked(Long memberId, Long articleId) {
+		return bookmarkRepository.findByMember_IdAndArticle_ArticleId(memberId, articleId).isPresent();
+	}
+
 	// 將 Bookmark Entity 轉成 BookmarkResponse DTO
 	private BookmarkResponse toBookmarkResponse(Bookmark bookmark) {
 

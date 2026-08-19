@@ -62,4 +62,22 @@ public class LikeController {
 
 		return ResponseEntity.noContent().build();
 	}
+
+	// 查詢會員是否已對某篇文章按讚
+	@GetMapping("/api/members/{memberId}/articles/{articleId}/like")
+	public ResponseEntity<Boolean> hasLikedArticle(
+			@PathVariable Long memberId,
+			@PathVariable Long articleId) {
+
+		return ResponseEntity.ok(likeService.hasLikedArticle(memberId, articleId));
+	}
+
+	// 查詢會員是否已對某則留言按讚
+	@GetMapping("/api/members/{memberId}/comments/{commentId}/like")
+	public ResponseEntity<Boolean> hasLikedComment(
+			@PathVariable Long memberId,
+			@PathVariable Long commentId) {
+
+		return ResponseEntity.ok(likeService.hasLikedComment(memberId, commentId));
+	}
 }

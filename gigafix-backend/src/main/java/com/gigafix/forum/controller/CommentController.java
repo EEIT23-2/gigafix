@@ -23,11 +23,13 @@ public class CommentController {
 	// 留言 Service
 	private final CommentService commentService;
 
-	// 查詢文章底下所有留言（公開）
+	// 查詢文章底下所有留言（公開；memberId 選填，帶了會附上每則留言是否已被該會員按讚）
 	@GetMapping("/api/articles/{articleId}/comments")
-	public ResponseEntity<List<CommentResponse>> getComments(@PathVariable Long articleId) {
+	public ResponseEntity<List<CommentResponse>> getComments(
+			@PathVariable Long articleId,
+			@RequestParam(required = false) Long memberId) {
 
-		List<CommentResponse> responses = commentService.getComments(articleId);
+		List<CommentResponse> responses = commentService.getComments(articleId, memberId);
 
 		return ResponseEntity.ok(responses);
 	}

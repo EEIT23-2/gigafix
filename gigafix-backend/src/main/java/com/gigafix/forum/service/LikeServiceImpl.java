@@ -136,4 +136,16 @@ public class LikeServiceImpl implements LikeService {
 		comment.setLikeCount(comment.getLikeCount() - 1);
 		commentRepository.save(comment);
 	}
+
+	// 查詢會員是否已對某篇文章按讚
+	@Override
+	public boolean hasLikedArticle(Long memberId, Long articleId) {
+		return likeRepository.findByMember_IdAndArticle_ArticleId(memberId, articleId).isPresent();
+	}
+
+	// 查詢會員是否已對某則留言按讚
+	@Override
+	public boolean hasLikedComment(Long memberId, Long commentId) {
+		return likeRepository.findByMember_IdAndComment_CommentId(memberId, commentId).isPresent();
+	}
 }

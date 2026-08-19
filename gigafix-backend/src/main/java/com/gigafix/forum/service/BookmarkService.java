@@ -18,4 +18,7 @@ public interface BookmarkService {
 
 	// 查詢自己收藏的文章列表
 	List<BookmarkResponse> getBookmarks(Long memberId);
+
+	// 查詢會員是否已收藏某篇文章
+	boolean hasBookmarked(Long memberId, Long articleId);
 }

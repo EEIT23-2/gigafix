@@ -48,6 +48,11 @@ public class ReportServiceImpl implements ReportService {
 		Article article = articleRepository.findById(articleId)
 				.orElseThrow(() -> new IllegalArgumentException("文章不存在，articleId：" + articleId));
 
+		// 不能檢舉自己的文章
+		if (article.getAuthor().getId().equals(memberId)) {
+			throw new IllegalStateException("不能檢舉自己的文章");
+		}
+
 		// 建立檢舉
 		Report report = new Report();
 		report.setReporter(reporter);
@@ -72,6 +77,11 @@ public class ReportServiceImpl implements ReportService {
 		// 檢查留言是否存在（不限狀態）
 		Comment comment = commentRepository.findById(commentId)
 				.orElseThrow(() -> new IllegalArgumentException("留言不存在，commentId：" + commentId));
+
+		// 不能檢舉自己的留言
+		if (comment.getAuthor().getId().equals(memberId)) {
+			throw new IllegalStateException("不能檢舉自己的留言");
+		}
 
 		// 建立檢舉
 		Report report = new Report();

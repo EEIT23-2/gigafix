@@ -11,6 +11,7 @@ import com.gigafix.forum.entity.Article;
 import com.gigafix.forum.entity.Comment;
 import com.gigafix.forum.repository.ArticleRepository;
 import com.gigafix.forum.repository.CommentRepository;
+import com.gigafix.forum.repository.LikeRepository;
 import com.gigafix.member.entity.Member;
 import com.gigafix.member.repository.MemberRepository;
 
@@ -28,6 +29,9 @@ public class CommentServiceImpl implements CommentService {
 
 	// 會員 Repository
 	private final MemberRepository memberRepository;
+
+	// 讚 Repository（查詢呼叫者是否已對某則留言按讚用）
+	private final LikeRepository likeRepository;
 
 	// 留言
 	@Override
@@ -60,12 +64,13 @@ public class CommentServiceImpl implements CommentService {
 		article.setCommentCount(article.getCommentCount() + 1);
 		articleRepository.save(article);
 
-		return toCommentResponse(savedComment);
+		// 剛建立的留言不可能已經被讚過，不用查
+		return toCommentResponse(savedComment, null);
 	}
 
 	// 查詢文章底下所有留言
 	@Override
-	public List<CommentResponse> getComments(Long articleId) {
+	public List<CommentResponse> getComments(Long articleId, Long memberId) {
 
 		// 檢查文章是否存在
 		if (!articleRepository.existsById(articleId)) {
@@ -77,7 +82,7 @@ public class CommentServiceImpl implements CommentService {
 
 		return comments.stream()
 				.filter(comment -> comment.getStatus() != Comment.CommentStatus.TAKEN_DOWN)
-				.map(this::toCommentResponse)
+				.map(comment -> toCommentResponse(comment, memberId))
 				.toList();
 	}
 
@@ -116,7 +121,11 @@ public class CommentServiceImpl implements CommentService {
 	}
 
 	// 將 Comment Entity 轉成 CommentResponse DTO
-	private CommentResponse toCommentResponse(Comment comment) {
+	// memberId 為 null 時 likedByCurrentMember 固定回傳 false
+	private CommentResponse toCommentResponse(Comment comment, Long memberId) {
+
+		boolean likedByCurrentMember = memberId != null
+				&& likeRepository.findByMember_IdAndComment_CommentId(memberId, comment.getCommentId()).isPresent();
 
 		return CommentResponse.builder()
 				.commentId(comment.getCommentId())
@@ -125,6 +134,7 @@ public class CommentServiceImpl implements CommentService {
 				.authorNickName(comment.getAuthor().getNickName())
 				.content(comment.getContent())
 				.likeCount(comment.getLikeCount())
+				.likedByCurrentMember(likedByCurrentMember)
 				.status(comment.getStatus().name())
 				.commentCreatedTime(comment.getCommentCreatedTime())
 				.build();

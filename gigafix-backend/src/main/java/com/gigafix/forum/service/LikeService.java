@@ -19,4 +19,10 @@ public interface LikeService {
 
 	// 取消對留言的讚
 	void unlikeComment(Long memberId, Long commentId);
+
+	// 查詢會員是否已對某篇文章按讚
+	boolean hasLikedArticle(Long memberId, Long articleId);
+
+	// 查詢會員是否已對某則留言按讚
+	boolean hasLikedComment(Long memberId, Long commentId);
 }

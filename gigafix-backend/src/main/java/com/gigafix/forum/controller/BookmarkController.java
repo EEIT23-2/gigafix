@@ -51,4 +51,13 @@ public class BookmarkController {
 
 		return ResponseEntity.ok(responses);
 	}
+
+	// 查詢會員是否已收藏某篇文章
+	@GetMapping("/api/members/{memberId}/articles/{articleId}/bookmark")
+	public ResponseEntity<Boolean> hasBookmarked(
+			@PathVariable Long memberId,
+			@PathVariable Long articleId) {
+
+		return ResponseEntity.ok(bookmarkService.hasBookmarked(memberId, articleId));
+	}
 }
