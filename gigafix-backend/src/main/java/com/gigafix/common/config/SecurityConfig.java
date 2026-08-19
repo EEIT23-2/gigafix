@@ -17,7 +17,6 @@ import com.gigafix.admin.service.AdminUserDetailsService;
 import com.gigafix.common.security.RestAccessDeniedHandler;
 import com.gigafix.common.security.RestAuthEntryPoint;
 
-import jakarta.websocket.Session;
 import lombok.RequiredArgsConstructor;
 
 @Configuration
@@ -31,12 +30,13 @@ public class SecurityConfig {
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity)throws Exception{
 		return httpSecurity
-				.securityMatcher("/admin/manager/**", "/adminlogin","/adminlogout") //只針對某些請求路徑作用，之後要把/manager拿掉改成/admin/**
+				.securityMatcher("/admin/account/**", "/adminlogin","/adminlogout") //只針對某些請求路徑作用，之後要把/manager拿掉改成/admin/**
 //				.cors(null) //因為前端先用vite做反向代理，所以根本不會觸發cros因此先不寫
 				.csrf(csrf -> csrf.disable())
 				.authorizeHttpRequests(requests -> requests
 						.requestMatchers("/adminlogin","/adminlogout").permitAll()  // 不需要登入，但享有Security的保護
-//						.requestMatchers("/admin/manager/**").hasAuthority("ROLE_SUPER_ADMIN")
+						.requestMatchers("/admin/account/me/**").hasAnyAuthority("ROLE_DEPUTY_ADMIN", "ROLE_SUPER_ADMIN")
+						.requestMatchers("/admin/account/**").hasAuthority("ROLE_SUPER_ADMIN")
 						.requestMatchers("/admin/**").hasAnyAuthority("ROLE_DEPUTY_ADMIN","ROLE_SUPER_ADMIN")
 //						.requestMatchers("/admin/product/**","/admin/order/**").hasAnyAuthority("ROLE_ECOMMERCE_ADMIN")
 //						.requestMatchers("/admin/forum/**").hasAuthority("ROLE_FORUM_ADMIN")

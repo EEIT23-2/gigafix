@@ -27,7 +27,7 @@ import lombok.Setter;
 public class AdminAccount {
 	@Id @Column(name = "admin_account_id")
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Integer id;
+	private Integer adminAccountId;
 	@Column(name = "admin_account_password", nullable = false)
 	private String adminAccountPassword;
 	@Column(name = "admin_account_name", nullable = false)

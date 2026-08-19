@@ -1,5 +1,6 @@
 package com.gigafix.admin.security;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -19,13 +20,16 @@ public class AdminUserDetails implements UserDetails { //不想繼承AdminAccoun
 	
 	//把AdminAccount常用(id,name)或要包很多層(role name)的屬性抓出來方便呼叫
 	public Integer getId() {
-        return adminAccount.getId();
+        return adminAccount.getAdminAccountId();
     }
 	public String getName() {
         return adminAccount.getAdminAccountName();
     }
 	public String getRoleName() {
         return adminAccount.getAdminRole().getRoleName().name();
+    }
+	public LocalDateTime getCreatedTime() {
+        return adminAccount.getAdminAccountCreateTime();
     }
 
 	@Override
