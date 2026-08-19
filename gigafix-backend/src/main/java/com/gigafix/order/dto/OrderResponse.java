@@ -13,6 +13,7 @@ import lombok.Setter;
 @Builder
 public class OrderResponse {
     private Long orderId; // 訂單 ID
+    private Long memberId; // 會員 ID
     private Integer totalAmount; // 訂單總金額
     private String orderStatus; // 訂單狀態
     private String paymentMethod; // 付款方式
