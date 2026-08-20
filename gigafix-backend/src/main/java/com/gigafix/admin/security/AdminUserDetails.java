@@ -29,7 +29,7 @@ public class AdminUserDetails implements UserDetails { //不想繼承AdminAccoun
         return adminAccount.getRole().getRoleName().name();
     }
 	public LocalDateTime getCreatedTime() {
-        return adminAccount.getCreateDateTime();
+        return adminAccount.getCreateTime();
     }
 
 	@Override

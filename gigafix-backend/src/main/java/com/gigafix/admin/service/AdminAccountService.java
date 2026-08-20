@@ -38,12 +38,12 @@ public class AdminAccountService {
 				.name(req.adminName())
 				.password(passwordEncoder.encode(req.password())) //要編碼才可以儲存
 				.role(req.adminRole())
-				.createDateTime(LocalDateTime.now()).build());
+				.createTime(LocalDateTime.now()).build());
 		return AdminInfoDto.builder()
 				.adminId(adminCreated.getId())
 				.adminName(adminCreated.getName())
 				.adminRole(adminCreated.getRole().getRoleName().name())
-				.createDateTime(adminCreated.getCreateDateTime()).build();
+				.createDateTime(adminCreated.getCreateTime()).build();
 	}
 	
 	//查全部
@@ -111,7 +111,7 @@ public class AdminAccountService {
         		.adminId(account.getId())
                 .adminName(account.getName())
                 .adminRole(account.getRole().getRoleName().name())
-                .createDateTime(account.getCreateDateTime())
+                .createDateTime(account.getCreateTime())
                 .build();
     }
 	
