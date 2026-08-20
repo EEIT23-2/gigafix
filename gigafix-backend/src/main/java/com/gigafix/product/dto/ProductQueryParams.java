@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 
 
 
-public class ProductQueryParams {
+    public class ProductQueryParams {
     //查詢條件
     private ProductCategory category; //類別查詢
     private String search; //品名查詢
