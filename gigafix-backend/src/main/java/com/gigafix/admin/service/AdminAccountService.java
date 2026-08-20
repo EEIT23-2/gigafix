@@ -35,15 +35,15 @@ public class AdminAccountService {
 	
 	public AdminInfoDto createAdmin(AdminCreateReq req) {
 		AdminAccount adminCreated = adminRepository.save(AdminAccount.builder()
-				.adminAccountName(req.adminName())
-				.adminAccountPassword(passwordEncoder.encode(req.password())) //要編碼才可以儲存
-				.adminRole(req.adminRole())
-				.adminAccountCreateTime(LocalDateTime.now()).build());
+				.name(req.adminName())
+				.password(passwordEncoder.encode(req.password())) //要編碼才可以儲存
+				.role(req.adminRole())
+				.createDateTime(LocalDateTime.now()).build());
 		return AdminInfoDto.builder()
-				.adminId(adminCreated.getAdminAccountId())
-				.adminName(adminCreated.getAdminAccountName())
-				.adminRole(adminCreated.getAdminRole().getRoleName().name())
-				.createDateTime(adminCreated.getAdminAccountCreateTime()).build();
+				.adminId(adminCreated.getId())
+				.adminName(adminCreated.getName())
+				.adminRole(adminCreated.getRole().getRoleName().name())
+				.createDateTime(adminCreated.getCreateDateTime()).build();
 	}
 	
 	//查全部
@@ -58,7 +58,7 @@ public class AdminAccountService {
             HttpServletRequest request, HttpServletResponse response) {
         AdminAccount account = adminRepository.findById(id).orElseThrow(() -> new RuntimeException(""));
 
-        account.setAdminAccountName(adminName);
+        account.setName(adminName);
         AdminAccount saved = adminRepository.save(account);
         
         UserDetails updatedUserDetails = new AdminUserDetails(saved);
@@ -76,24 +76,24 @@ public class AdminAccountService {
     public void updateOwnPassword(Integer adminId, UpdateOwnPasswordReq req) {
         AdminAccount account = adminRepository.findById(adminId).orElseThrow(() ->new RuntimeException(""));
 
-        if (!passwordEncoder.matches(req.oldPassword(), account.getAdminAccountPassword())) {
+        if (!passwordEncoder.matches(req.oldPassword(), account.getPassword())) {
             throw new RuntimeException("舊密碼錯誤"); //自訂錯誤
         }
-        account.setAdminAccountPassword(passwordEncoder.encode(req.newPassword()));
+        account.setPassword(passwordEncoder.encode(req.newPassword()));
         adminRepository.save(account);
     }
 
     public void resetPassword(Integer id, String newPassword) {
         AdminAccount account = adminRepository.findById(id).orElseThrow(() -> new RuntimeException(""));
         // 這裡不用驗證舊密碼——因為是「總管理員幫別人重設」，不是「使用者自己改」
-        account.setAdminAccountPassword(passwordEncoder.encode(newPassword));
+        account.setPassword(passwordEncoder.encode(newPassword));
         adminRepository.save(account);
     }
     
     public AdminInfoDto updateRole(Integer id, Role role) {
         AdminAccount account = adminRepository.findById(id).orElseThrow(() -> new RuntimeException(""));
         
-        account.setAdminRole(role);
+        account.setRole(role);
         AdminAccount saved = adminRepository.save(account);
         return toResp(saved);
     }
@@ -108,10 +108,10 @@ public class AdminAccountService {
     //把admin物件轉成可以給前端顯示的info
     private AdminInfoDto toResp(AdminAccount account) {
         return AdminInfoDto.builder()
-        		.adminId(account.getAdminAccountId())
-                .adminName(account.getAdminAccountName())
-                .adminRole(account.getAdminRole().getRoleName().name())
-                .createDateTime(account.getAdminAccountCreateTime())
+        		.adminId(account.getId())
+                .adminName(account.getName())
+                .adminRole(account.getRole().getRoleName().name())
+                .createDateTime(account.getCreateDateTime())
                 .build();
     }
 	

@@ -20,31 +20,31 @@ public class AdminUserDetails implements UserDetails { //不想繼承AdminAccoun
 	
 	//把AdminAccount常用(id,name)或要包很多層(role name)的屬性抓出來方便呼叫
 	public Integer getId() {
-        return adminAccount.getAdminAccountId();
+        return adminAccount.getId();
     }
 	public String getName() {
-        return adminAccount.getAdminAccountName();
+        return adminAccount.getName();
     }
 	public String getRoleName() {
-        return adminAccount.getAdminRole().getRoleName().name();
+        return adminAccount.getRole().getRoleName().name();
     }
 	public LocalDateTime getCreatedTime() {
-        return adminAccount.getAdminAccountCreateTime();
+        return adminAccount.getCreateDateTime();
     }
 
 	@Override
 	public Collection<? extends GrantedAuthority> getAuthorities() {
-		return List.of(new SimpleGrantedAuthority(adminAccount.getAdminRole().getRoleName().name()));
+		return List.of(new SimpleGrantedAuthority(adminAccount.getRole().getRoleName().name()));
 	}
 
 	@Override
 	public String getPassword() {
-		return adminAccount.getAdminAccountPassword();
+		return adminAccount.getPassword();
 	}
 
 	@Override
 	public String getUsername() {
-		return adminAccount.getAdminAccountName();
+		return adminAccount.getName();
 	}
 
 	@Override

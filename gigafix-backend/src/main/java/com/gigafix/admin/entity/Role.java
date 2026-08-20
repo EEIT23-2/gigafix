@@ -16,7 +16,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "role")
+@Table(name = "roles")
 @Getter
 //不設定@Setter因為Role寫死不給新增，也不使用@buider因為不會new自訂義的role
 @AllArgsConstructor

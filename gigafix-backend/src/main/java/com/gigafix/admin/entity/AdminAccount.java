@@ -18,7 +18,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "admin_account")
+@Table(name = "admin_accounts")
 @Getter
 @Setter
 @AllArgsConstructor
@@ -27,14 +27,14 @@ import lombok.Setter;
 public class AdminAccount {
 	@Id @Column(name = "admin_account_id")
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Integer adminAccountId;
+	private Integer id;
 	@Column(name = "admin_account_password", nullable = false)
-	private String adminAccountPassword;
+	private String password;
 	@Column(name = "admin_account_name", nullable = false)
-	private String adminAccountName;
+	private String name;
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "admin_role")
-	private Role adminRole;
-	@Column(name = "admin_account_create_time", nullable = false)
-	private LocalDateTime adminAccountCreateTime;
+	private Role role;
+	@Column(name = "admin_account_created_datetime", nullable = false)
+	private LocalDateTime createDateTime;
 }

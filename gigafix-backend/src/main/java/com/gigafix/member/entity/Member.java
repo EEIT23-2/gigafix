@@ -33,7 +33,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "member")
+@Table(name = "members")
 @Getter
 @Setter
 @AllArgsConstructor
@@ -68,7 +68,7 @@ public class Member {
 	private Gender gender; //限定男女所以用inner class(enum)，變數無法放入男或女以外的內容
 	
 	@Column(name = "member_created_datetime", nullable = false, updatable = false)
-	private LocalDateTime memberCreateDateTime;
+	private LocalDateTime createDateTime;
 	
 	@Column(name = "profile_image_url")
 	private String profileImageUrl;
