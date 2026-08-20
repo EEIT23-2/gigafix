@@ -242,104 +242,261 @@ const formatPrice = (price) => {
 </script>
 
 <template>
-    <div>
-        <h1>訂單管理</h1>
-        <button @click="createOrder">
-            新增訂單
-        </button>
-        <div>
-            <label>會員：</label>
+    <main class="container-fluid px-3 px-lg-4 py-4 order-admin-page">
+        <div class="mx-auto order-content-width">
 
-            <select v-model="selectedMemberId">
-                <option value="">請選擇會員</option>
+            <!-- 頁面標題 -->
+            <header class="d-flex flex-column flex-md-row align-items-md-end justify-content-between gap-3 mb-4">
+                <div>
+                    <div class="d-flex align-items-center gap-3">
+                        <h1 class="fw-bold mb-0">訂單管理</h1>
 
-                <option v-for="member in members" :key="member.memberId" :value="member.memberId">
-                    {{ member.memberName }}
-                    （ID：{{ member.memberId }}）
-                </option>
-            </select>
+                        <span class="badge rounded-pill text-bg-light border">
+                            Total: {{ orders.length }}
+                        </span>
+                    </div>
 
-            <button @click="searchByMember">
-                查詢該會員訂單
-            </button>
+                    <p class="text-secondary mb-0 mt-1">
+                        Manage customer orders, payments and shipping status.
+                    </p>
+                </div>
 
-            <button @click="showAllOrders">
-                返回全部訂單
-            </button>
+                <button class="btn btn-primary" type="button" @click="createOrder">
+                    ＋ 新增訂單
+                </button>
+            </header>
+
+            <!-- 會員篩選 -->
+            <section class="card shadow-sm border-0 mb-4">
+                <div class="card-body">
+                    <div class="d-flex flex-column flex-lg-row align-items-lg-end gap-3">
+                        <div class="flex-grow-1">
+                            <label class="form-label fw-semibold">
+                                會員
+                            </label>
+
+                            <select v-model="selectedMemberId" class="form-select">
+                                <option value="">請選擇會員</option>
+
+                                <option v-for="member in members" :key="member.memberId" :value="member.memberId">
+                                    {{ member.memberName }}
+                                    （ID：{{ member.memberId }}）
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2">
+                            <button class="btn btn-outline-primary" type="button" @click="searchByMember">
+                                查詢會員訂單
+                            </button>
+
+                            <button class="btn btn-outline-secondary" type="button" @click="showAllOrders">
+                                顯示全部
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 訂單表格 -->
+            <section class="card shadow-sm border-0">
+                <div class="card-header bg-white border-bottom py-3">
+                    <h2 class="h5 fw-bold mb-0">
+                        訂單列表
+                    </h2>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 order-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th>訂單 ID</th>
+                                <th class="text-end">總金額</th>
+                                <th>訂單狀態</th>
+                                <th>付款狀態</th>
+                                <th>收件人</th>
+                                <th>物流狀態</th>
+                                <th class="text-end">操作</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            <tr v-for="order in orders" :key="order.orderId">
+                                <!-- 訂單 ID -->
+                                <td>
+                                    <span class="fw-semibold">
+                                        #{{ order.orderId }}
+                                    </span>
+                                </td>
+
+                                <!-- 金額 -->
+                                <td class="text-end font-monospace fw-semibold">
+                                    NT$ {{ formatPrice(order.totalAmount) }}
+                                </td>
+
+                                <!-- 訂單狀態 -->
+                                <td>
+                                    <span class="badge" :class="{
+                                        'text-bg-warning':
+                                            order.orderStatus === 'PENDING',
+
+                                        'text-bg-danger':
+                                            order.orderStatus === 'CANCELLED',
+
+                                        'text-bg-success':
+                                            order.orderStatus === 'COMPLETED'
+                                    }">
+                                        {{ orderStatusText(order.orderStatus) }}
+                                    </span>
+                                </td>
+
+                                <!-- 付款狀態 -->
+                                <td>
+                                    <span class="badge" :class="{
+                                        'text-bg-secondary':
+                                            order.paymentStatus === 'UNPAID',
+
+                                        'text-bg-success':
+                                            order.paymentStatus === 'PAID',
+
+                                        'text-bg-danger':
+                                            order.paymentStatus === 'FAILED',
+
+                                        'text-bg-info':
+                                            order.paymentStatus === 'REFUNDED'
+                                    }">
+                                        {{ paymentStatusText(order.paymentStatus) }}
+                                    </span>
+                                </td>
+
+                                <!-- 收件人 -->
+                                <td>
+                                    {{ order.receiverName }}
+                                </td>
+
+                                <!-- 物流狀態 -->
+                                <td>
+                                    <span class="badge" :class="{
+                                        'text-bg-secondary':
+                                            order.shippingStatus === 'PENDING',
+
+                                        'text-bg-primary':
+                                            order.shippingStatus === 'SHIPPED',
+
+                                        'text-bg-success':
+                                            order.shippingStatus === 'DELIVERED',
+
+                                        'text-bg-danger':
+                                            order.shippingStatus === 'CANCELLED'
+                                    }">
+                                        {{ shippingStatusText(order.shippingStatus) }}
+                                    </span>
+                                </td>
+
+                                <!-- 操作 -->
+                                <td class="text-end">
+                                    <div class="d-flex justify-content-end flex-wrap gap-1 order-actions">
+
+                                        <!-- 所有訂單都可查看 -->
+                                        <button class="btn btn-sm btn-outline-secondary" type="button"
+                                            @click="viewOrder(order.orderId)">
+                                            查看
+                                        </button>
+
+                                        <!-- 未付款、尚未出貨才可以修改 -->
+                                        <button v-if="
+                                            order.orderStatus !== 'CANCELLED' &&
+                                            order.paymentStatus === 'UNPAID' &&
+                                            order.shippingStatus === 'PENDING'
+                                        " class="btn btn-sm btn-outline-primary" type="button" @click="editOrder(order.orderId)">
+                                            編輯
+                                        </button>
+
+                                        <!-- 已取消、未付款、尚未出貨才可以刪除 -->
+                                        <button v-if="
+                                            order.orderStatus === 'CANCELLED' &&
+                                            order.paymentStatus === 'UNPAID' &&
+                                            order.shippingStatus === 'PENDING'
+                                        " class="btn btn-sm btn-outline-danger" type="button" @click="deleteOrder(order.orderId)">
+                                            刪除
+                                        </button>
+
+                                        <!-- 付款完成、尚未出貨才可以出貨 -->
+                                        <button v-if="
+                                            order.paymentStatus === 'PAID' &&
+                                            order.shippingStatus === 'PENDING' &&
+                                            order.orderStatus !== 'CANCELLED'
+                                        " class="btn btn-sm btn-primary" type="button" @click="shipOrder(order.orderId)">
+                                            出貨
+                                        </button>
+
+                                        <!-- 已出貨才可以確認送達 -->
+                                        <button v-if="order.shippingStatus === 'SHIPPED'" class="btn btn-sm btn-success"
+                                            type="button" @click="deliverOrder(order.orderId)">
+                                            確認送達
+                                        </button>
+
+                                        <!-- 待處理、未付款、未出貨才可以取消 -->
+                                        <button v-if="
+                                            order.orderStatus === 'PENDING' &&
+                                            order.paymentStatus === 'UNPAID' &&
+                                            order.shippingStatus === 'PENDING'
+                                        " class="btn btn-sm btn-outline-danger" type="button" @click="cancelOrder(order.orderId)">
+                                            取消訂單
+                                        </button>
+
+                                        <!-- Demo：模擬付款 -->
+                                        <button v-if="
+                                            order.orderStatus === 'PENDING' &&
+                                            order.paymentStatus === 'UNPAID' &&
+                                            order.shippingStatus === 'PENDING'
+                                        " class="btn btn-sm btn-success" type="button" @click="demoPayOrder(order)">
+                                            模擬付款
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <!-- 沒有訂單 -->
+                            <tr v-if="orders.length === 0">
+                                <td colspan="7" class="text-center text-secondary py-5">
+                                    目前沒有訂單資料
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
         </div>
-        <table border="1">
-            <thead>
-                <tr>
-                    <th>訂單 ID</th>
-                    <th>總金額</th>
-                    <th>訂單狀態</th>
-                    <th>付款狀態</th>
-                    <th>收件人</th>
-                    <th>物流狀態</th>
-                    <th>操作</th>
-                </tr>
-            </thead>
-
-            <tbody>
-                <tr v-for="order in orders" :key="order.orderId">
-                    <td>{{ order.orderId }}</td>
-                    <td>{{ formatPrice(order.totalAmount) }}</td>
-                    <td>{{ orderStatusText(order.orderStatus) }}</td>
-                    <td>{{ paymentStatusText(order.paymentStatus) }}</td>
-                    <td>{{ order.receiverName }}</td>
-                    <td>{{ shippingStatusText(order.shippingStatus) }}</td>
-                    <td>
-                        <!-- 所有訂單都可查看 -->
-                        <button @click="viewOrder(order.orderId)">
-                            查看
-                        </button>
-                        <!-- 未付款、尚未出貨才可以修改 -->
-                        <button v-if="
-                            order.orderStatus !== 'CANCELLED' &&
-                            order.paymentStatus === 'UNPAID' &&
-                            order.shippingStatus === 'PENDING'
-                        " @click="editOrder(order.orderId)">
-                            編輯
-                        </button>
-
-                        <!-- 已取消、未付款、尚未出貨才可以刪除 -->
-                        <button v-if="
-                            order.orderStatus === 'CANCELLED' &&
-                            order.paymentStatus === 'UNPAID' &&
-                            order.shippingStatus === 'PENDING'
-                        " @click="deleteOrder(order.orderId)">
-                            刪除
-                        </button>
-                        <!-- 付款完成、尚未出貨才可以出貨 -->
-                        <button v-if="
-                            order.paymentStatus === 'PAID' &&
-                            order.shippingStatus === 'PENDING' &&
-                            order.orderStatus !== 'CANCELLED'
-                        " @click="shipOrder(order.orderId)">
-                            出貨
-                        </button>
-                        <button v-if="order.shippingStatus === 'SHIPPED'" @click="deliverOrder(order.orderId)">
-                            確認送達
-                        </button>
-                        <button v-if="
-                            order.orderStatus === 'PENDING' &&
-                            order.paymentStatus === 'UNPAID' &&
-                            order.shippingStatus === 'PENDING'
-                        " @click="cancelOrder(order.orderId)">
-                            取消訂單
-                        </button>
-                        <button v-if="
-                            order.orderStatus === 'PENDING' &&
-                            order.paymentStatus === 'UNPAID' &&
-                            order.shippingStatus === 'PENDING'
-                        " @click="demoPayOrder(order)">
-                            模擬付款
-                        </button>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
+    </main>
 </template>
 
-<style scoped></style>
+<style scoped>
+.order-admin-page {
+    min-height: 100vh;
+    background: #f8f9ff;
+}
+
+.order-content-width {
+    max-width: 1600px;
+}
+
+.order-table th {
+    white-space: nowrap;
+    font-size: 0.8rem;
+    letter-spacing: 0.03em;
+}
+
+.order-table td {
+    font-size: 0.875rem;
+}
+
+.order-actions {
+    min-width: 230px;
+}
+
+.card {
+    border-radius: 0.75rem;
+}
+</style>

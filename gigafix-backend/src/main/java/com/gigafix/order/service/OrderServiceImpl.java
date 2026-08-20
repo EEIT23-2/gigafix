@@ -617,6 +617,8 @@ public class OrderServiceImpl implements OrderService {
                 .map(member -> AdminOrderCreateOptionsResponse.MemberOption.builder()
                         .memberId(member.getId())
                         .memberName(member.getRealName())
+                        .phone(member.getPhone())
+                        .address(member.getAddress())
                         .build())
                 .toList();
 

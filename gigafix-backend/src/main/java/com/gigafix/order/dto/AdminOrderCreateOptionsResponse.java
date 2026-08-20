@@ -25,6 +25,8 @@ public class AdminOrderCreateOptionsResponse {
 
         private Long memberId;
         private String memberName;
+        private String phone;
+        private String address;
     }
 
     // 商品選項
