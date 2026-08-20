@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 
@@ -7,6 +7,8 @@ import axios from 'axios'
 const router = useRouter()
 // 存放後端回傳的訂單資料
 const orders = ref([])
+// 訂單狀態篩選
+const selectedOrderStatus = ref('')
 // 進入頁面時自動查詢訂單
 const createOrder = () => {
     router.push('/admin/orders/create')
@@ -100,6 +102,19 @@ const viewOrder = (orderId) => {
 onMounted(() => {
     loadOrders()
     loadMembers()
+})
+// 依訂單狀態篩選列表
+const filteredOrders = computed(() => {
+
+    // 沒有選擇狀態時顯示全部
+    if (!selectedOrderStatus.value) {
+        return orders.value
+    }
+
+    // 顯示指定狀態的訂單
+    return orders.value.filter(
+        order => order.orderStatus === selectedOrderStatus.value
+    )
 })
 // 訂單狀態中文顯示
 const orderStatusText = (status) => {
@@ -269,8 +284,10 @@ const formatPrice = (price) => {
             <!-- 會員篩選 -->
             <section class="card shadow-sm border-0 mb-4">
                 <div class="card-body">
-                    <div class="d-flex flex-column flex-lg-row align-items-lg-end gap-3">
-                        <div class="flex-grow-1">
+                    <div class="row g-3 align-items-end">
+
+                        <!-- 會員 -->
+                        <div class="col-12 col-lg">
                             <label class="form-label fw-semibold">
                                 會員
                             </label>
@@ -285,15 +302,33 @@ const formatPrice = (price) => {
                             </select>
                         </div>
 
-                        <div class="d-flex flex-wrap gap-2">
-                            <button class="btn btn-outline-primary" type="button" @click="searchByMember">
-                                查詢會員訂單
-                            </button>
+                        <!-- 訂單狀態 -->
+                        <div class="col-12 col-md-4 col-lg-3">
+                            <label class="form-label fw-semibold">
+                                訂單狀態
+                            </label>
 
-                            <button class="btn btn-outline-secondary" type="button" @click="showAllOrders">
-                                顯示全部
-                            </button>
+                            <select v-model="selectedOrderStatus" class="form-select">
+                                <option value="">所有訂單狀態</option>
+                                <option value="PENDING">待處理</option>
+                                <option value="COMPLETED">已完成</option>
+                                <option value="CANCELLED">已取消</option>
+                            </select>
                         </div>
+
+                        <!-- 按鈕 -->
+                        <div class="col-12 col-lg-auto">
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-outline-primary" type="button" @click="searchByMember">
+                                    查詢會員訂單
+                                </button>
+
+                                <button class="btn btn-outline-secondary" type="button" @click="showAllOrders">
+                                    顯示全部
+                                </button>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </section>
@@ -311,6 +346,7 @@ const formatPrice = (price) => {
                         <thead class="table-light">
                             <tr>
                                 <th>訂單 ID</th>
+                                <th>商品</th>
                                 <th class="text-end">總金額</th>
                                 <th>訂單狀態</th>
                                 <th>付款狀態</th>
@@ -321,14 +357,23 @@ const formatPrice = (price) => {
                         </thead>
 
                         <tbody>
-                            <tr v-for="order in orders" :key="order.orderId">
+                            <tr v-for="order in filteredOrders" :key="order.orderId">
                                 <!-- 訂單 ID -->
                                 <td>
                                     <span class="fw-semibold">
                                         #{{ order.orderId }}
                                     </span>
                                 </td>
+                                <!-- 商品 -->
+                                <td>
+                                    <span v-if="order.orderItems && order.orderItems.length > 0" class="fw-semibold">
+                                        {{ order.orderItems[0].productName }}
+                                    </span>
 
+                                    <span v-else class="text-secondary">
+                                        -
+                                    </span>
+                                </td>
                                 <!-- 金額 -->
                                 <td class="text-end font-monospace fw-semibold">
                                     NT$ {{ formatPrice(order.totalAmount) }}
@@ -408,7 +453,8 @@ const formatPrice = (price) => {
                                             order.orderStatus !== 'CANCELLED' &&
                                             order.paymentStatus === 'UNPAID' &&
                                             order.shippingStatus === 'PENDING'
-                                        " class="btn btn-sm btn-outline-primary" type="button" @click="editOrder(order.orderId)">
+                                        " class="btn btn-sm btn-outline-primary" type="button"
+                                            @click="editOrder(order.orderId)">
                                             編輯
                                         </button>
 
@@ -417,7 +463,8 @@ const formatPrice = (price) => {
                                             order.orderStatus === 'CANCELLED' &&
                                             order.paymentStatus === 'UNPAID' &&
                                             order.shippingStatus === 'PENDING'
-                                        " class="btn btn-sm btn-outline-danger" type="button" @click="deleteOrder(order.orderId)">
+                                        " class="btn btn-sm btn-outline-danger" type="button"
+                                            @click="deleteOrder(order.orderId)">
                                             刪除
                                         </button>
 
@@ -426,7 +473,8 @@ const formatPrice = (price) => {
                                             order.paymentStatus === 'PAID' &&
                                             order.shippingStatus === 'PENDING' &&
                                             order.orderStatus !== 'CANCELLED'
-                                        " class="btn btn-sm btn-primary" type="button" @click="shipOrder(order.orderId)">
+                                        " class="btn btn-sm btn-primary" type="button"
+                                            @click="shipOrder(order.orderId)">
                                             出貨
                                         </button>
 
@@ -441,7 +489,8 @@ const formatPrice = (price) => {
                                             order.orderStatus === 'PENDING' &&
                                             order.paymentStatus === 'UNPAID' &&
                                             order.shippingStatus === 'PENDING'
-                                        " class="btn btn-sm btn-outline-danger" type="button" @click="cancelOrder(order.orderId)">
+                                        " class="btn btn-sm btn-outline-danger" type="button"
+                                            @click="cancelOrder(order.orderId)">
                                             取消訂單
                                         </button>
 
@@ -458,8 +507,8 @@ const formatPrice = (price) => {
                             </tr>
 
                             <!-- 沒有訂單 -->
-                            <tr v-if="orders.length === 0">
-                                <td colspan="7" class="text-center text-secondary py-5">
+                            <tr v-if="filteredOrders.length === 0">
+                                <td colspan="8" class="text-center text-secondary py-5">
                                     目前沒有訂單資料
                                 </td>
                             </tr>
