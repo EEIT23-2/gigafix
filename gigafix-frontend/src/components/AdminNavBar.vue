@@ -1,5 +1,5 @@
 <script>
-import { RouterLink } from 'vue-router'
+import { RouterLink } from "vue-router";
 </script>
 
 <template>
@@ -10,7 +10,7 @@ import { RouterLink } from 'vue-router'
     </RouterLink>
 
     <div class="nav-heading">商品訂單相關</div>
-    <RouterLink class="nav-item" to="">
+    <RouterLink class="nav-item" to="/admin/products">
       <span class="nav-title"><span class="icon">⚙️</span> 商品管理</span>
       <span class="arrow">›</span>
     </RouterLink>
@@ -53,7 +53,9 @@ import { RouterLink } from 'vue-router'
   text-decoration: none;
   font-size: 13px;
   border-radius: 6px;
-  transition: background-color 0.2s, color 0.2s;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
 }
 
 .nav-item:hover,
