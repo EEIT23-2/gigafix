@@ -3,30 +3,34 @@ package com.gigafix.order.service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
-import org.springframework.transaction.annotation.Transactional;
+
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.gigafix.cart.entity.CartItem;
 import com.gigafix.cart.repository.CartItemRepository;
-import com.gigafix.member.repository.MemberRepository;
 import com.gigafix.member.entity.Member;
+import com.gigafix.member.repository.MemberRepository;
+import com.gigafix.order.constant.OrderStatus;
+import com.gigafix.order.constant.PaymentStatus;
+import com.gigafix.order.constant.ShippingStatus;
 import com.gigafix.order.dto.AdminCreateOrderRequest;
+import com.gigafix.order.dto.AdminOrderCreateOptionsResponse;
 import com.gigafix.order.dto.CreateOrderRequest;
 import com.gigafix.order.dto.OrderResponse;
 import com.gigafix.order.dto.PaymentSuccessRequest;
 import com.gigafix.order.dto.ShipOrderRequest;
 import com.gigafix.order.dto.UpdateOrderRequest;
+import com.gigafix.order.entity.Order;
+import com.gigafix.order.entity.OrderItem;
 import com.gigafix.order.repository.OrderItemRepository;
 import com.gigafix.order.repository.OrderRepository;
 import com.gigafix.product.constant.ProductSaleStatus;
 import com.gigafix.product.entity.Product;
-import com.gigafix.order.entity.Order;
-import com.gigafix.order.entity.OrderItem;
 import com.gigafix.product.repository.ProductDao;
 import com.gigafix.product.service.ProductService;
-import com.gigafix.order.constant.OrderStatus;
-import com.gigafix.order.constant.PaymentStatus;
-import com.gigafix.order.constant.ShippingStatus;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -434,6 +438,20 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new IllegalArgumentException(
                         "訂單不存在，orderId：" + orderId));
 
+        // 已取消訂單不可修改
+        if (OrderStatus.CANCELLED.name()
+                .equals(order.getOrderStatus())) {
+
+            throw new IllegalStateException(
+                    "已取消訂單不可修改");
+        }
+        // 已付款訂單不能修改
+        if (PaymentStatus.PAID.name()
+                .equals(order.getPaymentStatus())) {
+
+            throw new IllegalStateException(
+                    "已付款訂單不可修改");
+        }
         // 只有尚未出貨的訂單可以修改
         if (!ShippingStatus.PENDING.name()
                 .equals(order.getShippingStatus())) {
@@ -441,7 +459,6 @@ public class OrderServiceImpl implements OrderService {
             throw new IllegalStateException(
                     "只有尚未出貨的訂單可以修改");
         }
-
         // 修改會員下單時輸入的資料
         order.setReceiverName(request.getReceiverName());
         order.setReceiverPhone(request.getReceiverPhone());
@@ -509,6 +526,11 @@ public class OrderServiceImpl implements OrderService {
 
         // 更新物流狀態
         order.setShippingStatus(ShippingStatus.DELIVERED.name());
+
+        // 訂單完成
+        order.setOrderStatus(OrderStatus.COMPLETED.name());
+
+        // 記錄送達時間
         order.setDeliveredAt(LocalDateTime.now());
 
         // 儲存並回傳
@@ -566,10 +588,12 @@ public class OrderServiceImpl implements OrderService {
 
         return OrderResponse.builder()
                 .orderId(order.getOrderId())
+                .memberId(order.getMember().getId())
                 .totalAmount(order.getTotalAmount())
                 .orderStatus(order.getOrderStatus())
                 .paymentMethod(order.getPaymentMethod())
                 .paymentStatus(order.getPaymentStatus())
+                .transactionId(order.getTransactionId())
                 .receiverName(order.getReceiverName())
                 .receiverPhone(order.getReceiverPhone())
                 .receiverAddress(order.getReceiverAddress())
@@ -582,5 +606,74 @@ public class OrderServiceImpl implements OrderService {
                 .deliveredAt(order.getDeliveredAt())
                 .createdAt(order.getCreatedAt())
                 .build();
+    }
+
+    @Override
+    public AdminOrderCreateOptionsResponse getAdminCreateOptions() {
+
+        // 查詢所有會員，轉成下拉選單需要的資料
+        List<AdminOrderCreateOptionsResponse.MemberOption> members = memberRepository.findAll()
+                .stream()
+                .map(member -> AdminOrderCreateOptionsResponse.MemberOption.builder()
+                        .memberId(member.getId())
+                        .memberName(member.getRealName())
+                        .build())
+                .toList();
+
+        // 查詢商品，只保留 AVAILABLE
+        List<AdminOrderCreateOptionsResponse.ProductOption> products = productDao.findAll()
+                .stream()
+                .filter(product -> product.getSaleStatus() == ProductSaleStatus.AVAILABLE)
+                .map(product -> AdminOrderCreateOptionsResponse.ProductOption.builder()
+                        .productId(product.getProductId())
+                        .productName(product.getProductName())
+                        .price(product.getPrice())
+                        .build())
+                .toList();
+
+        return AdminOrderCreateOptionsResponse.builder()
+                .members(members)
+                .products(products)
+                .build();
+    }
+
+    // 管理員取消未付款訂單
+    @Transactional
+    @Override
+    public OrderResponse adminCancelOrder(Long orderId) {
+
+        // 查詢訂單
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "訂單不存在，orderId：" + orderId));
+
+        // 已付款訂單不能直接取消
+        if (PaymentStatus.PAID.name().equals(order.getPaymentStatus())) {
+            throw new IllegalStateException(
+                    "訂單已付款，無法直接取消");
+        }
+
+        // 只有待處理訂單可以取消
+        if (!OrderStatus.PENDING.name().equals(order.getOrderStatus())) {
+            throw new IllegalStateException(
+                    "只有待處理訂單可以取消");
+        }
+
+        // 修改訂單狀態
+        order.setOrderStatus(OrderStatus.CANCELLED.name());
+
+        Order savedOrder = orderRepository.save(order);
+
+        // 查詢訂單內商品
+        List<OrderItem> orderItems = orderItemRepository.findByOrderId(orderId);
+
+        // 商品 RESERVED → AVAILABLE
+        for (OrderItem orderItem : orderItems) {
+            productService.releaseProduct(
+                    orderItem.getProductId());
+        }
+
+        // 回傳取消後的訂單
+        return toOrderResponse(savedOrder);
     }
 }
