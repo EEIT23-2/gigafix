@@ -9,6 +9,20 @@ const router = useRouter()
 const orders = ref([])
 // 訂單狀態篩選
 const selectedOrderStatus = ref('')
+// 付款狀態篩選
+const selectedPaymentStatus = ref('')
+
+// 物流狀態篩選
+const selectedShippingStatus = ref('')
+
+// 關鍵字搜尋
+const searchKeyword = ref('')
+
+// 快速篩選
+const quickUnpaid = ref(false)
+const quickPendingShipping = ref(false)
+const quickShipped = ref(false)
+const quickCancelled = ref(false)
 // 進入頁面時自動查詢訂單
 const createOrder = () => {
     router.push('/admin/orders/create')
@@ -103,19 +117,96 @@ onMounted(() => {
     loadOrders()
     loadMembers()
 })
-// 依訂單狀態篩選列表
+// 訂單列表篩選
 const filteredOrders = computed(() => {
 
-    // 沒有選擇狀態時顯示全部
-    if (!selectedOrderStatus.value) {
-        return orders.value
-    }
+    const keyword = searchKeyword.value.trim().toLowerCase()
 
-    // 顯示指定狀態的訂單
-    return orders.value.filter(
-        order => order.orderStatus === selectedOrderStatus.value
-    )
+    return orders.value.filter(order => {
+
+        // 訂單狀態
+        const matchOrderStatus =
+            !selectedOrderStatus.value ||
+            order.orderStatus === selectedOrderStatus.value
+
+        // 付款狀態
+        const matchPaymentStatus =
+            !selectedPaymentStatus.value ||
+            order.paymentStatus === selectedPaymentStatus.value
+
+        // 物流狀態
+        const matchShippingStatus =
+            !selectedShippingStatus.value ||
+            order.shippingStatus === selectedShippingStatus.value
+
+        // 關鍵字：訂單 ID、商品名稱、收件人
+        const productName =
+            order.orderItems?.[0]?.productName || ''
+
+        const matchKeyword =
+            !keyword ||
+            String(order.orderId).includes(keyword) ||
+            productName.toLowerCase().includes(keyword) ||
+            (order.receiverName || '').toLowerCase().includes(keyword)
+
+        // 快速篩選
+        const quickFilters = []
+
+        if (quickUnpaid.value) {
+            quickFilters.push(
+                order.paymentStatus === 'UNPAID'
+            )
+        }
+
+        if (quickPendingShipping.value) {
+            quickFilters.push(
+                order.paymentStatus === 'PAID' &&
+                order.shippingStatus === 'PENDING'
+            )
+        }
+
+        if (quickShipped.value) {
+            quickFilters.push(
+                order.shippingStatus === 'SHIPPED'
+            )
+        }
+
+        if (quickCancelled.value) {
+            quickFilters.push(
+                order.orderStatus === 'CANCELLED'
+            )
+        }
+
+        // 沒勾快速篩選 = 不限制
+        // 有勾 = 符合其中一項即可
+        const matchQuickFilter =
+            quickFilters.length === 0 ||
+            quickFilters.some(Boolean)
+
+        return (
+            matchOrderStatus &&
+            matchPaymentStatus &&
+            matchShippingStatus &&
+            matchKeyword &&
+            matchQuickFilter
+        )
+    })
 })
+// 重設所有篩選條件
+const resetFilters = () => {
+    selectedMemberId.value = ''
+    selectedOrderStatus.value = ''
+    selectedPaymentStatus.value = ''
+    selectedShippingStatus.value = ''
+    searchKeyword.value = ''
+
+    quickUnpaid.value = false
+    quickPendingShipping.value = false
+    quickShipped.value = false
+    quickCancelled.value = false
+
+    loadOrders()
+}
 // 訂單狀態中文顯示
 const orderStatusText = (status) => {
     const statusMap = {
@@ -281,13 +372,15 @@ const formatPrice = (price) => {
                 </button>
             </header>
 
-            <!-- 會員篩選 -->
-            <section class="card shadow-sm border-0 mb-4">
-                <div class="card-body">
-                    <div class="row g-3 align-items-end">
+            <!-- 訂單篩選 -->
+            <section class="card shadow-sm border-0 mb-4 filter-card">
+                <div class="card-body p-4">
+
+                    <!-- 第一排 -->
+                    <div class="row g-3">
 
                         <!-- 會員 -->
-                        <div class="col-12 col-lg">
+                        <div class="col-12 col-md-6 col-xl-3">
                             <label class="form-label fw-semibold">
                                 會員
                             </label>
@@ -303,7 +396,7 @@ const formatPrice = (price) => {
                         </div>
 
                         <!-- 訂單狀態 -->
-                        <div class="col-12 col-md-4 col-lg-3">
+                        <div class="col-12 col-md-6 col-xl-3">
                             <label class="form-label fw-semibold">
                                 訂單狀態
                             </label>
@@ -316,20 +409,128 @@ const formatPrice = (price) => {
                             </select>
                         </div>
 
+                        <!-- 付款狀態 -->
+                        <div class="col-12 col-md-6 col-xl-3">
+                            <label class="form-label fw-semibold">
+                                付款狀態
+                            </label>
+
+                            <select v-model="selectedPaymentStatus" class="form-select">
+                                <option value="">所有付款狀態</option>
+                                <option value="UNPAID">未付款</option>
+                                <option value="PAID">已付款</option>
+                                <option value="FAILED">付款失敗</option>
+                                <option value="REFUNDED">已退款</option>
+                            </select>
+                        </div>
+
+                        <!-- 物流狀態 -->
+                        <div class="col-12 col-md-6 col-xl-3">
+                            <label class="form-label fw-semibold">
+                                物流狀態
+                            </label>
+
+                            <select v-model="selectedShippingStatus" class="form-select">
+                                <option value="">所有物流狀態</option>
+                                <option value="PENDING">待出貨</option>
+                                <option value="SHIPPED">已出貨</option>
+                                <option value="DELIVERED">已送達</option>
+                                <option value="CANCELLED">已取消</option>
+                            </select>
+                        </div>
+
+                    </div>
+
+
+                    <!-- 第二排 -->
+                    <div class="row g-3 mt-1 align-items-end">
+
+                        <!-- 關鍵字 -->
+                        <div class="col-12 col-lg-8">
+                            <label class="form-label fw-semibold">
+                                關鍵字搜尋
+                            </label>
+
+                            <div class="input-group">
+                                <span class="input-group-text bg-white">
+                                    🔍
+                                </span>
+
+                                <input v-model="searchKeyword" type="text" class="form-control"
+                                    placeholder="搜尋訂單 ID、商品名稱、收件人">
+                            </div>
+                        </div>
+
                         <!-- 按鈕 -->
-                        <div class="col-12 col-lg-auto">
+                        <div class="col-12 col-lg-4">
                             <div class="d-flex gap-2">
-                                <button class="btn btn-outline-primary" type="button" @click="searchByMember">
-                                    查詢會員訂單
+
+                                <button class="btn btn-outline-secondary flex-fill" type="button" @click="resetFilters">
+                                    重設條件
                                 </button>
 
-                                <button class="btn btn-outline-secondary" type="button" @click="showAllOrders">
-                                    顯示全部
+                                <button class="btn btn-primary flex-fill" type="button"
+                                    @click="selectedMemberId ? searchByMember() : loadOrders()">
+                                    查詢
                                 </button>
+
                             </div>
                         </div>
 
                     </div>
+
+
+                    <!-- 快速篩選 -->
+                    <div class="quick-filter-area mt-4 pt-3 border-top">
+
+                        <div class="fw-semibold mb-3">
+                            快速查看
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-4">
+
+                            <!-- 未付款 -->
+                            <div class="form-check">
+                                <input id="quickUnpaid" v-model="quickUnpaid" class="form-check-input" type="checkbox">
+
+                                <label class="form-check-label" for="quickUnpaid">
+                                    未付款
+                                </label>
+                            </div>
+
+                            <!-- 待出貨 -->
+                            <div class="form-check">
+                                <input id="quickPendingShipping" v-model="quickPendingShipping" class="form-check-input"
+                                    type="checkbox">
+
+                                <label class="form-check-label" for="quickPendingShipping">
+                                    待出貨
+                                </label>
+                            </div>
+
+                            <!-- 已出貨 -->
+                            <div class="form-check">
+                                <input id="quickShipped" v-model="quickShipped" class="form-check-input"
+                                    type="checkbox">
+
+                                <label class="form-check-label" for="quickShipped">
+                                    已出貨待確認
+                                </label>
+                            </div>
+
+                            <!-- 已取消 -->
+                            <div class="form-check">
+                                <input id="quickCancelled" v-model="quickCancelled" class="form-check-input"
+                                    type="checkbox">
+
+                                <label class="form-check-label" for="quickCancelled">
+                                    已取消
+                                </label>
+                            </div>
+
+                        </div>
+                    </div>
+
                 </div>
             </section>
 
@@ -547,5 +748,33 @@ const formatPrice = (price) => {
 
 .card {
     border-radius: 0.75rem;
+}
+
+
+.filter-card {
+    border-radius: 0.85rem;
+}
+
+.filter-card .form-select,
+.filter-card .form-control,
+.filter-card .input-group-text {
+    min-height: 42px;
+}
+
+.quick-filter-area {
+    font-size: 0.9rem;
+}
+
+.quick-filter-area .form-check {
+    margin-bottom: 0;
+}
+
+.quick-filter-area .form-check-input {
+    cursor: pointer;
+}
+
+.quick-filter-area .form-check-label {
+    cursor: pointer;
+    user-select: none;
 }
 </style>
