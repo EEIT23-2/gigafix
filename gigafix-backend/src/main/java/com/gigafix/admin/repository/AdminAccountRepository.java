@@ -6,6 +6,6 @@ import com.gigafix.admin.entity.AdminAccount;
 
 public interface AdminAccountRepository extends JpaRepository<AdminAccount, Integer> {
 	
-	AdminAccount findByAdminAccountName(String name);
+	AdminAccount findByName(String name);
 
 }

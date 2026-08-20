@@ -9,22 +9,21 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import com.gigafix.admin.dto.AdminCreateReq;
 import com.gigafix.admin.dto.AdminInfoDto;
+import com.gigafix.admin.dto.DeleteAdminReq;
+import com.gigafix.admin.dto.ResetPasswordReq;
+import com.gigafix.admin.dto.UpdateMeNameReq;
 import com.gigafix.admin.dto.UpdateOwnPasswordReq;
-import com.gigafix.admin.entity.Role;
+import com.gigafix.admin.dto.UpdateRoleReq;
 import com.gigafix.admin.security.AdminSecurityUtils;
 import com.gigafix.admin.security.AdminUserDetails;
 import com.gigafix.admin.service.AdminAccountService;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 @Controller
@@ -34,7 +33,7 @@ public class AdminAccountController {
 	private final AdminAccountService accountService;
 	
 	@PostMapping 
-	public ResponseEntity<AdminInfoDto> creatAdmin(AdminCreateReq req){
+	public ResponseEntity<AdminInfoDto> creatAdmin(@RequestBody AdminCreateReq req){
 		return ResponseEntity.status(HttpStatus.CREATED).body(accountService.createAdmin(req)); //201
 	}
 	
@@ -51,33 +50,31 @@ public class AdminAccountController {
         return ResponseEntity.ok(AdminInfoDto.builder()
         		.adminId(currentAdmin.getId())
         		.adminName(currentAdmin.getName())
-        		.adminRole(currentAdmin.getRoleName())
+        		.role(currentAdmin.getRole())
         		.createDateTime(currentAdmin.getCreatedTime())
         		.build());
     }
 	
 	//總管理員幫某個管理員重設的帳密(被改的人要重新登入才會變)
-	@PatchMapping("/{id}/password")
-	public ResponseEntity<Void> resetPassword(@PathVariable Integer id, @RequestBody String newPassword) {
-		accountService.resetPassword(id, newPassword);
-	    return ResponseEntity.ok().build();
+	@PatchMapping("/password")
+	public ResponseEntity<AdminInfoDto> resetPassword(@RequestBody ResetPasswordReq resetPasswordReq) {
+	    return ResponseEntity.ok(accountService.resetPassword(resetPasswordReq.id(), resetPasswordReq.newPassword()));
 	}
 	
-	//總管理員改某個管理員的權限→PUT
-	@PatchMapping("/{id}/role")
-	public ResponseEntity<AdminInfoDto> updateRole(@PathVariable Integer id, @RequestBody Role newRole) {
-	    return ResponseEntity.ok(accountService.updateRole(id, newRole));
+	//總管理員改某個管理員的權限(權限只有總管理員可以改)
+	@PatchMapping("/role")
+	public ResponseEntity<AdminInfoDto> updateRole(@RequestBody UpdateRoleReq updateRoleReq) {
+	    return ResponseEntity.ok(accountService.updateRole(updateRoleReq.id(), updateRoleReq.role()));
 	}
 	
-	//自己的名稱(只有名稱可以改，權限只有總管理員可以改，創建時間跟id不能改)
-	@PatchMapping("/name")
-    public ResponseEntity<AdminInfoDto> updateMeName(Authentication authentication, @RequestBody String adminName
-    		, HttpServletRequest request, HttpServletResponse response) {
+	//自己的名稱(只有名稱可以改，創建時間跟id不能改)
+	@PatchMapping("/me/name")
+    public ResponseEntity<AdminInfoDto> updateMeName(Authentication authentication, @RequestBody UpdateMeNameReq updateMeNameReq) {
 		Integer userId = AdminSecurityUtils.getCurrentAdmin(authentication).getId();
-        return ResponseEntity.ok(accountService.updateupdateMyName(userId, adminName, request ,response));
+        return ResponseEntity.ok(accountService.updateupdateMyName(userId, updateMeNameReq.newName()));
     }
 	
-	//me/password → 改自己密碼
+	//→ 改自己密碼
 	@PatchMapping("/me/password")
     public ResponseEntity<Void> updateMyPassword(Authentication authentication, @RequestBody UpdateOwnPasswordReq req) {
         Integer userId = AdminSecurityUtils.getCurrentAdmin(authentication).getId();
@@ -85,9 +82,10 @@ public class AdminAccountController {
         return ResponseEntity.ok().build(); //200
     }
 	
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Integer id) {
-    	accountService.deleteAccount(id);
+    @DeleteMapping
+    public ResponseEntity<Void> deleteAdmin(@RequestBody DeleteAdminReq deleteAdminReq) {
+    	System.out.println(deleteAdminReq.adminId());
+    	accountService.deleteAccount(deleteAdminReq.adminId());
         return ResponseEntity.noContent().build(); //204
     }
 	

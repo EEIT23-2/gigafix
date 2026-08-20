@@ -20,11 +20,12 @@ public class AdminUserDetailsService implements UserDetailsService {
 	
 	@Override
 	public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-		AdminAccount adminAccount = accountRepository.findByAdminAccountName(username);
+		AdminAccount adminAccount = accountRepository.findByName(username);
 		if (adminAccount == null) {
 			throw new UsernameNotFoundException(""); 
 			//這個錯誤會被spring security的DaoAuthenticationProvider攔截並轉成拋回來adCredentialsException("Bad credentials")
 		}
+		System.out.println("role: " + adminAccount.getRole()); 
 		
 		return new AdminUserDetails(adminAccount);
 	}

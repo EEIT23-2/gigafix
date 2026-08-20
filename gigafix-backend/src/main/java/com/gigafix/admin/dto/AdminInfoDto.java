@@ -3,6 +3,7 @@ package com.gigafix.admin.dto;
 
 import java.time.LocalDateTime;
 
+import com.gigafix.admin.entity.AdminAccount.Role;
 
 import lombok.Builder;
 
@@ -10,7 +11,7 @@ import lombok.Builder;
 public record AdminInfoDto(
 		Integer adminId,
 		String adminName,
-		String adminRole,
+		Role role,
 		LocalDateTime createDateTime
 		) {
 

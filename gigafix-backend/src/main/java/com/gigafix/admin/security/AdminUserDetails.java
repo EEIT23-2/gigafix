@@ -9,6 +9,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import com.gigafix.admin.entity.AdminAccount;
+import com.gigafix.admin.entity.AdminAccount.Role;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -25,8 +26,8 @@ public class AdminUserDetails implements UserDetails { //不想繼承AdminAccoun
 	public String getName() {
         return adminAccount.getName();
     }
-	public String getRoleName() {
-        return adminAccount.getRole().getRoleName().name();
+	public Role getRole() {
+        return adminAccount.getRole();
     }
 	public LocalDateTime getCreatedTime() {
         return adminAccount.getCreateTime();
@@ -34,7 +35,7 @@ public class AdminUserDetails implements UserDetails { //不想繼承AdminAccoun
 
 	@Override
 	public Collection<? extends GrantedAuthority> getAuthorities() {
-		return List.of(new SimpleGrantedAuthority(adminAccount.getRole().getRoleName().name()));
+		return List.of(new SimpleGrantedAuthority(adminAccount.getRole().name()));
 	}
 
 	@Override

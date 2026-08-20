@@ -12,6 +12,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
+import com.gigafix.admin.exception.AdminAccountException;
 import com.gigafix.common.dto.ErrorResp;
 import com.gigafix.common.dto.FieldErrorDetail;
 import com.gigafix.member.exception.MemberException;
@@ -42,6 +43,16 @@ public class GlobalExceptionHandler {
 	
 	@ExceptionHandler(MemberException.class)
 	public ResponseEntity<ErrorResp> handleMemberException(MemberException e){
+		return ResponseEntity
+				.status(e.getHttpStatus())
+				.body(ErrorResp.builder()
+						.errorCode(e.getErrorCode())
+						.message(e.getMessage())
+						.build());
+	}
+	
+	@ExceptionHandler(AdminAccountException.class)
+	public ResponseEntity<ErrorResp> handleAdminAccountException(AdminAccountException e){
 		return ResponseEntity
 				.status(e.getHttpStatus())
 				.body(ErrorResp.builder()

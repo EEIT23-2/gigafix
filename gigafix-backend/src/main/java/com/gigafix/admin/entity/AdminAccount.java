@@ -4,12 +4,11 @@ import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -32,9 +31,17 @@ public class AdminAccount {
 	private String password;
 	@Column(name = "admin_account_name", nullable = false)
 	private String name;
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "admin_role")
+	@Enumerated(EnumType.STRING)//把Enum的值用字串名稱存到database，因為Enum的內容在底層是array
+	@Column(name = "admin_role", nullable = false)
 	private Role role;
 	@Column(name = "admin_account_created_time", nullable = false)
 	private LocalDateTime createTime;
+	
+	public enum Role{
+		ROLE_SUPER_ADMIN, //總管理員
+		ROLE_DEPUTY_ADMIN, //副管理員
+		ROLE_FORUM_ADMIN, //論壇管理員
+		ROLE_ECOMMERCE_ADMIN, //訂單商品管理員
+		ROLE_REPAIR_ADMIN //修繕管理員
+	}
 }

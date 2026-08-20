@@ -35,8 +35,8 @@ public class SecurityConfig {
 				.csrf(csrf -> csrf.disable())
 				.authorizeHttpRequests(requests -> requests
 						.requestMatchers("/adminlogin","/adminlogout").permitAll()  // 不需要登入，但享有Security的保護
-						.requestMatchers("/admin/account/me/**").hasAnyAuthority("ROLE_DEPUTY_ADMIN", "ROLE_SUPER_ADMIN")
 						.requestMatchers("/admin/account/**").hasAuthority("ROLE_SUPER_ADMIN")
+						.requestMatchers("/admin/account/me/**").hasAnyAuthority("ROLE_REPAIR_ADMIN","ROLE_FORUM_ADMIN","ROLE_ECOMMERCE_ADMIN","ROLE_DEPUTY_ADMIN","ROLE_SUPER_ADMIN")
 						.requestMatchers("/admin/**").hasAnyAuthority("ROLE_DEPUTY_ADMIN","ROLE_SUPER_ADMIN")
 //						.requestMatchers("/admin/product/**","/admin/order/**").hasAnyAuthority("ROLE_ECOMMERCE_ADMIN")
 //						.requestMatchers("/admin/forum/**").hasAuthority("ROLE_FORUM_ADMIN")
