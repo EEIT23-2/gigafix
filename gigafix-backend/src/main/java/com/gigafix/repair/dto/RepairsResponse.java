@@ -12,16 +12,16 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class RepairsResponse<Localtime> {
+public class RepairsResponse{
 	
 	private Long id;
 	private String repairBrand;
 	private String repairModel;
 	private String issueDescription;
 	private LocalDate bookingDate;
-	private LocalTime timeslot;
+	private LocalTime timeSlot;
 	private Byte repairStatus; //（已收件/檢測中）
-	private String StoreName;
+	private String storeName;
 	
 
 }
