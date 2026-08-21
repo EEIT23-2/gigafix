@@ -70,7 +70,7 @@ public class Order {
     @Column(name = "customer_remark")
     private String customerRemark; // 客戶備註
 
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "order_created_time", nullable = false)
     private LocalDateTime createdAt; // 建立時間
 
     @Column(name = "updated_at", nullable = false)

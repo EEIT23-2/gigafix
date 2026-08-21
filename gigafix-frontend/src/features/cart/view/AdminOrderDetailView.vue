@@ -1,7 +1,19 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import { getOrder } from '../api'
+import {
+    orderStatusText,
+    paymentStatusText,
+    shippingStatusText,
+    paymentMethodText,
+    shippingMethodText,
+    orderStatusClass,
+    paymentStatusClass,
+    shippingStatusClass
+} from '../status'
+
+//******訂單詳情頁面******
 
 const props = defineProps({
     orderId: String
@@ -15,9 +27,7 @@ const order = ref(null)
 // 查詢指定訂單
 const loadOrder = async () => {
     try {
-        const response = await axios.get(
-            `/api/admin/orders/${props.orderId}`
-        )
+        const response = await getOrder(props.orderId)
 
         order.value = response.data
 
@@ -38,60 +48,7 @@ const goBack = () => {
 onMounted(() => {
     loadOrder()
 })
-// 訂單狀態中文
-const orderStatusText = (status) => {
-    const statusMap = {
-        PENDING: '待處理',
-        CANCELLED: '已取消',
-        COMPLETED: '已完成'
-    }
 
-    return statusMap[status] || status
-}
-
-// 付款狀態中文
-const paymentStatusText = (status) => {
-    const statusMap = {
-        UNPAID: '未付款',
-        PAID: '已付款',
-        FAILED: '付款失敗',
-        REFUNDED: '已退款'
-    }
-
-    return statusMap[status] || status
-}
-
-// 物流狀態中文
-const shippingStatusText = (status) => {
-    const statusMap = {
-        PENDING: '待出貨',
-        SHIPPED: '已出貨',
-        DELIVERED: '已送達',
-        CANCELLED: '已取消'
-    }
-
-    return statusMap[status] || status
-}
-
-// 付款方式中文
-const paymentMethodText = (method) => {
-    const methodMap = {
-        CREDIT_CARD: '信用卡',
-        CASH_ON_DELIVERY: '貨到付款'
-    }
-
-    return methodMap[method] || method
-}
-
-// 配送方式中文
-const shippingMethodText = (method) => {
-    const methodMap = {
-        HOME: '宅配',
-        STORE: '超商取貨'
-    }
-
-    return methodMap[method] || method
-}
 const formatDateTime = (dateTime) => {
     if (!dateTime) {
         return '尚無'
@@ -117,46 +74,360 @@ const formatPrice = (price) => {
 }
 </script>
 <template>
-    <div>
-        <h1>訂單詳情</h1>
+    <main class="container-fluid px-3 px-lg-4 py-4 order-admin-page">
+        <div class="mx-auto order-detail-width">
 
-        <div v-if="order">
+            <!-- 頁面標題 -->
+            <header class="d-flex flex-column flex-md-row align-items-md-end justify-content-between gap-3 mb-4">
+                <div>
+                    <h1 class="fw-bold mb-1">訂單詳情</h1>
 
-            <p>訂單 ID：{{ order.orderId }}</p>
-            <p>會員 ID：{{ order.memberId }}</p>
-            <p>總金額：${{ formatPrice(order.totalAmount) }}</p>
-            <hr>
-            <h3>訂單狀態</h3>
-            <p>訂單狀態：{{ orderStatusText(order.orderStatus) }}</p>
-            <p>付款方式：{{ paymentMethodText(order.paymentMethod) }}</p>
-            <p>付款狀態：{{ paymentStatusText(order.paymentStatus) }}</p>
-            <p>交易編號：{{ order.transactionId || '尚無' }}</p>
-            <p>付款時間：{{ order.paidAt ? formatDateTime(order.paidAt) : '尚未付款' }}</p>
-            <hr>
-            <h3>收件資訊</h3>
-            <p>收件人：{{ order.receiverName }}</p>
-            <p>電話：{{ order.receiverPhone }}</p>
-            <p>地址：{{ order.receiverAddress }}</p>
-            <hr>
-            <h3>物流資訊</h3>
-            <p>配送方式：{{ shippingMethodText(order.shippingMethod) }}</p>
-            <p>物流狀態：{{ shippingStatusText(order.shippingStatus) }}</p>
-            <p>物流單號：{{ order.trackingNumber || '尚無' }}</p>
-            <p>出貨時間：{{ order.shippedAt ? formatDateTime(order.shippedAt) : '尚未出貨' }}</p>
-            <p>送達時間：{{ order.deliveredAt ? formatDateTime(order.deliveredAt) : '尚未送達' }}</p>
+                    <p class="text-secondary mb-0">
+                        View complete order, payment and shipping information.
+                    </p>
+                </div>
 
-            <hr>
-            <p>備註：{{ order.customerRemark || '無' }}</p>
-            <p>建立時間：{{ order.createdAt ? formatDateTime(order.createdAt) : '尚無' }}</p>
+                <button class="btn btn-outline-secondary" type="button" @click="goBack">
+                    返回訂單列表
+                </button>
+            </header>
+
+            <!-- 訂單資料 -->
+            <div v-if="order">
+
+                <!-- 訂單摘要 -->
+                <section class="card shadow-sm border-0 mb-4">
+                    <div class="card-body">
+                        <div class="d-flex flex-column flex-md-row justify-content-between gap-4">
+                            <div>
+                                <div class="text-secondary small mb-1">
+                                    訂單編號
+                                </div>
+
+                                <div class="fs-4 fw-bold">
+                                    #{{ order.orderId }}
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="text-secondary small mb-1">
+                                    會員 ID
+                                </div>
+
+                                <div class="fw-semibold">
+                                    {{ order.memberId }}
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="text-secondary small mb-1">
+                                    訂單金額
+                                </div>
+
+                                <div class="fs-4 fw-bold text-primary">
+                                    NT$ {{ formatPrice(order.totalAmount) }}
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="text-secondary small mb-1">
+                                    建立時間
+                                </div>
+
+                                <div class="fw-semibold">
+                                    {{
+                                        order.createdAt
+                                            ? formatDateTime(order.createdAt)
+                                            : '尚無'
+                                    }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                <!-- 商品資訊 -->
+                <section class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h2 class="h5 fw-bold mb-0">
+                            商品資訊
+                        </h2>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>商品 ID</th>
+                                    <th>商品名稱</th>
+                                    <th class="text-end">成交單價</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                <tr v-for="item in order.orderItems" :key="item.productId">
+                                    <td>
+                                        #{{ item.productId }}
+                                    </td>
+
+                                    <td class="fw-semibold">
+                                        {{ item.productName }}
+                                    </td>
+
+                                    <td class="text-end font-monospace fw-semibold">
+                                        NT$ {{ formatPrice(item.unitPrice) }}
+                                    </td>
+                                </tr>
+
+                                <tr v-if="!order.orderItems || order.orderItems.length === 0">
+                                    <td colspan="3" class="text-center text-secondary py-4">
+                                        此訂單沒有商品明細
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+                <!-- 訂單與付款資訊 -->
+                <section class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h2 class="h5 fw-bold mb-0">
+                            訂單與付款資訊
+                        </h2>
+                    </div>
+
+                    <div class="card-body">
+                        <div class="row g-4">
+
+                            <div class="col-12 col-md-6">
+                                <div class="detail-label">
+                                    訂單狀態
+                                </div>
+
+                                <span class="badge" :class="orderStatusClass(order.orderStatus)">
+                                    {{ orderStatusText(order.orderStatus) }}
+                                </span>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <div class="detail-label">
+                                    付款狀態
+                                </div>
+
+                                <span class="badge" :class="paymentStatusClass(order.paymentStatus)">
+                                    {{ paymentStatusText(order.paymentStatus) }}
+                                </span>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <div class="detail-label">
+                                    付款方式
+                                </div>
+
+                                <div class="detail-value">
+                                    {{ paymentMethodText(order.paymentMethod) }}
+                                </div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <div class="detail-label">
+                                    付款時間
+                                </div>
+
+                                <div class="detail-value">
+                                    {{
+                                        order.paidAt
+                                            ? formatDateTime(order.paidAt)
+                                            : '尚未付款'
+                                    }}
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="detail-label">
+                                    交易編號
+                                </div>
+
+                                <div class="detail-value font-monospace">
+                                    {{ order.transactionId || '尚無' }}
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 收件資訊 -->
+                <section class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h2 class="h5 fw-bold mb-0">
+                            收件資訊
+                        </h2>
+                    </div>
+
+                    <div class="card-body">
+                        <div class="row g-4">
+
+                            <div class="col-12 col-md-6">
+                                <div class="detail-label">
+                                    收件人
+                                </div>
+
+                                <div class="detail-value">
+                                    {{ order.receiverName }}
+                                </div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <div class="detail-label">
+                                    聯絡電話
+                                </div>
+
+                                <div class="detail-value">
+                                    {{ order.receiverPhone }}
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="detail-label">
+                                    收件地址
+                                </div>
+
+                                <div class="detail-value">
+                                    {{ order.receiverAddress }}
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 物流資訊 -->
+                <section class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h2 class="h5 fw-bold mb-0">
+                            物流資訊
+                        </h2>
+                    </div>
+
+                    <div class="card-body">
+                        <div class="row g-4">
+
+                            <div class="col-12 col-md-6">
+                                <div class="detail-label">
+                                    配送方式
+                                </div>
+
+                                <div class="detail-value">
+                                    {{ shippingMethodText(order.shippingMethod) }}
+                                </div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <div class="detail-label">
+                                    物流狀態
+                                </div>
+
+                                <span class="badge" :class="shippingStatusClass(order.shippingStatus)">
+                                    {{ shippingStatusText(order.shippingStatus) }}
+                                </span>
+                            </div>
+
+                            <div class="col-12">
+                                <div class="detail-label">
+                                    物流單號
+                                </div>
+
+                                <div class="detail-value font-monospace">
+                                    {{ order.trackingNumber || '尚無' }}
+                                </div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <div class="detail-label">
+                                    出貨時間
+                                </div>
+
+                                <div class="detail-value">
+                                    {{
+                                        order.shippedAt
+                                            ? formatDateTime(order.shippedAt)
+                                            : '尚未出貨'
+                                    }}
+                                </div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <div class="detail-label">
+                                    送達時間
+                                </div>
+
+                                <div class="detail-value">
+                                    {{
+                                        order.deliveredAt
+                                            ? formatDateTime(order.deliveredAt)
+                                            : '尚未送達'
+                                    }}
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 訂單備註 -->
+                <section class="card shadow-sm border-0">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h2 class="h5 fw-bold mb-0">
+                            訂單備註
+                        </h2>
+                    </div>
+
+                    <div class="card-body">
+                        <p class="mb-0">
+                            {{ order.customerRemark || '無' }}
+                        </p>
+                    </div>
+                </section>
+
+            </div>
+
+            <!-- Loading -->
+            <div v-else class="card shadow-sm border-0">
+                <div class="card-body text-center text-secondary py-5">
+                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+
+                    載入訂單資料中...
+                </div>
+            </div>
 
         </div>
-
-        <p v-else>
-            載入中...
-        </p>
-
-        <button @click="goBack">
-            返回訂單列表
-        </button>
-    </div>
+    </main>
 </template>
+
+<style scoped>
+.order-admin-page {
+    min-height: 100vh;
+    background: #f8f9ff;
+}
+
+.order-detail-width {
+    max-width: 1400px;
+}
+
+.card {
+    border-radius: 0.75rem;
+}
+
+.detail-label {
+    margin-bottom: 0.35rem;
+    color: #6c757d;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.detail-value {
+    color: #212529;
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+</style>
