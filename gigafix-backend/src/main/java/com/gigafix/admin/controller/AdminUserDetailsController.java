@@ -19,6 +19,7 @@ import com.gigafix.admin.security.AdminSecurityUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -28,11 +29,11 @@ public class AdminUserDetailsController {
 	private final SecurityContextRepository securityContextRepository;
 	
 	@PostMapping("/adminlogin") //因為是前後端分離專案，前端回傳Json，spring security的預設登入formLogin()不讀取Json，所以不寫Json轉換器的話只能自己寫login
-	public ResponseEntity<AdminLoginResp> adminLogin(@RequestBody AdminLoginReq adminLoginReq, HttpServletRequest req, HttpServletResponse resp) {
+	public ResponseEntity<AdminLoginResp> adminLogin(@Valid @RequestBody AdminLoginReq adminLoginReq, HttpServletRequest req, HttpServletResponse resp) {
 		//Spring security的方法會做登入認證，自動呼叫我自己在AdminUserDetailsService寫的loadUserByUsername() + 密碼比對
 		//這裡回傳的authenticate裡面有包著我在loadUserByUsername()回傳的AdminUserDetails物件，所以自帶admin所有的資訊
 		//尚未認證時new UsernamePasswordAuthenticationToken(使用者名稱, 使用者密碼)
-		Authentication authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(adminLoginReq.userName(), adminLoginReq.password()));
+		Authentication authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(adminLoginReq.adminName(), adminLoginReq.password()));
 		//回傳的Authentication裡面包含→Principal(可以拿到UserDetails物件)、Authorities(權限)、Credentials密碼、認證後結果
 		
 		if (req.getSession(false) == null) {

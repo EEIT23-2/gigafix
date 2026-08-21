@@ -6,12 +6,14 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.session.SessionRegistry;
+import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.security.web.session.HttpSessionEventPublisher;
 
 import com.gigafix.admin.service.AdminUserDetailsService;
 import com.gigafix.common.security.RestAccessDeniedHandler;
@@ -26,6 +28,7 @@ public class SecurityConfig {
 	private final AdminUserDetailsService adminUserDetailsService;
 	private final RestAccessDeniedHandler restAccessDeniedHandler;
 	private final RestAuthEntryPoint restAuthEntryPoint;
+	private final SessionRegistry sessionRegistry;
 	
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity)throws Exception{
@@ -34,7 +37,7 @@ public class SecurityConfig {
 //				.cors(null) //因為前端先用vite做反向代理，所以根本不會觸發cros因此先不寫
 				.csrf(csrf -> csrf.disable())
 				.authorizeHttpRequests(requests -> requests
-						.requestMatchers("/adminlogin","/adminlogout").permitAll()  // 不需要登入，但享有Security的保護
+						.requestMatchers("/adminlogin","/adminlogout","/admin/account/super-admin").permitAll()  // 不需要登入，但享有Security的保護
 						.requestMatchers("/admin/account/**").hasAuthority("ROLE_SUPER_ADMIN")
 						.requestMatchers("/admin/account/me/**").hasAnyAuthority("ROLE_REPAIR_ADMIN","ROLE_FORUM_ADMIN","ROLE_ECOMMERCE_ADMIN","ROLE_DEPUTY_ADMIN","ROLE_SUPER_ADMIN")
 						.requestMatchers("/admin/**").hasAnyAuthority("ROLE_DEPUTY_ADMIN","ROLE_SUPER_ADMIN")
@@ -43,8 +46,8 @@ public class SecurityConfig {
 //						.requestMatchers("/admin/repair/**").hasAuthority("ROLE_REPAIR_ADMIN")
 						)
 				.sessionManagement(session -> session //session-based 認證的核心設定
-						// IF_REQUIRED = 預設值，有需要時才建立 session（例如登入成功時)
-						.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+						.maximumSessions(1) // 可選：限制同一使用者同時只能有一個 session
+					 	.sessionRegistry(sessionRegistry)) // IF_REQUIRED = 預設值，有需要時才建立 session（例如登入成功時)
 				.exceptionHandling(ex -> ex //filter所拋出的兩大錯誤沒辦法用@ExceptionHandler抓，必須複寫他的兩個抓錯誤的介面
 						.authenticationEntryPoint(restAuthEntryPoint) // 未登入 → 401，在自訂一個EntryPoint裡面
 						.accessDeniedHandler(restAccessDeniedHandler)) // 已登入但權限不足 → 403
@@ -56,6 +59,17 @@ public class SecurityConfig {
 	public PasswordEncoder passwordEncoder() {
 	    return new BCryptPasswordEncoder(); // 先給一個預設能動的版本，晚點要換演算法再改
 	}
+	
+	@Bean
+	public SessionRegistry sessionRegistry() { //註冊spring secrity內建的session管理工具
+		return new SessionRegistryImpl();
+	}
+	 // 這個 Listener 是必要的，確保 session 銷毀時 SessionRegistry 也同步更新
+    @Bean
+    public HttpSessionEventPublisher httpSessionEventPublisher() {
+        return new HttpSessionEventPublisher();
+    }
+	
 	
 	@Bean
 	public SecurityContextRepository securityContextRepository() {

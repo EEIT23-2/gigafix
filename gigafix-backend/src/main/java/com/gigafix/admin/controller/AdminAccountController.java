@@ -17,6 +17,7 @@ import com.gigafix.admin.dto.AdminCreateReq;
 import com.gigafix.admin.dto.AdminInfoDto;
 import com.gigafix.admin.dto.DeleteAdminReq;
 import com.gigafix.admin.dto.ResetPasswordReq;
+import com.gigafix.admin.dto.SuperAdminSetupReq;
 import com.gigafix.admin.dto.UpdateMeNameReq;
 import com.gigafix.admin.dto.UpdateOwnPasswordReq;
 import com.gigafix.admin.dto.UpdateRoleReq;
@@ -24,6 +25,7 @@ import com.gigafix.admin.security.AdminSecurityUtils;
 import com.gigafix.admin.security.AdminUserDetails;
 import com.gigafix.admin.service.AdminAccountService;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @Controller
@@ -32,8 +34,13 @@ import lombok.RequiredArgsConstructor;
 public class AdminAccountController {
 	private final AdminAccountService accountService;
 	
+	@PostMapping("/super-admin")
+    public ResponseEntity<AdminInfoDto> setupSuperAdmin(@Valid @RequestBody SuperAdminSetupReq req) {
+        return ResponseEntity.ok(accountService.setupSuperAdmin(req));
+    }
+	
 	@PostMapping 
-	public ResponseEntity<AdminInfoDto> creatAdmin(@RequestBody AdminCreateReq req){
+	public ResponseEntity<AdminInfoDto> creatAdmin(@Valid @RequestBody AdminCreateReq req){
 		return ResponseEntity.status(HttpStatus.CREATED).body(accountService.createAdmin(req)); //201
 	}
 	
@@ -57,33 +64,33 @@ public class AdminAccountController {
 	
 	//總管理員幫某個管理員重設的帳密(被改的人要重新登入才會變)
 	@PatchMapping("/password")
-	public ResponseEntity<AdminInfoDto> resetPassword(@RequestBody ResetPasswordReq resetPasswordReq) {
+	public ResponseEntity<AdminInfoDto> resetPassword(@Valid @RequestBody ResetPasswordReq resetPasswordReq) {
 	    return ResponseEntity.ok(accountService.resetPassword(resetPasswordReq.id(), resetPasswordReq.newPassword()));
 	}
 	
 	//總管理員改某個管理員的權限(權限只有總管理員可以改)
 	@PatchMapping("/role")
-	public ResponseEntity<AdminInfoDto> updateRole(@RequestBody UpdateRoleReq updateRoleReq) {
+	public ResponseEntity<AdminInfoDto> updateRole(@Valid @RequestBody UpdateRoleReq updateRoleReq) {
 	    return ResponseEntity.ok(accountService.updateRole(updateRoleReq.id(), updateRoleReq.role()));
 	}
 	
 	//自己的名稱(只有名稱可以改，創建時間跟id不能改)
 	@PatchMapping("/me/name")
-    public ResponseEntity<AdminInfoDto> updateMeName(Authentication authentication, @RequestBody UpdateMeNameReq updateMeNameReq) {
+    public ResponseEntity<AdminInfoDto> updateMeName(Authentication authentication,@Valid @RequestBody UpdateMeNameReq updateMeNameReq) {
 		Integer userId = AdminSecurityUtils.getCurrentAdmin(authentication).getId();
         return ResponseEntity.ok(accountService.updateupdateMyName(userId, updateMeNameReq.newName()));
     }
 	
 	//→ 改自己密碼
 	@PatchMapping("/me/password")
-    public ResponseEntity<Void> updateMyPassword(Authentication authentication, @RequestBody UpdateOwnPasswordReq req) {
+    public ResponseEntity<Void> updateMyPassword(Authentication authentication,@Valid @RequestBody UpdateOwnPasswordReq req) {
         Integer userId = AdminSecurityUtils.getCurrentAdmin(authentication).getId();
         accountService.updateOwnPassword(userId, req);
         return ResponseEntity.ok().build(); //200
     }
 	
     @DeleteMapping
-    public ResponseEntity<Void> deleteAdmin(@RequestBody DeleteAdminReq deleteAdminReq) {
+    public ResponseEntity<Void> deleteAdmin(@Valid @RequestBody DeleteAdminReq deleteAdminReq) {
     	System.out.println(deleteAdminReq.adminId());
     	accountService.deleteAccount(deleteAdminReq.adminId());
         return ResponseEntity.noContent().build(); //204
