@@ -108,6 +108,16 @@ public class ReportServiceImpl implements ReportService {
 				.toList();
 	}
 
+	// 單筆檢舉詳情
+	// TODO: 角色系統做好後要加 moderator/admin 權限檢查，目前任何呼叫者都可以執行
+	@Override
+	public ReportResponse getReport(Long reportId) {
+
+		return reportRepository.findById(reportId)
+				.map(this::toReportResponse)
+				.orElseThrow(() -> new IllegalArgumentException("檢舉不存在，reportId：" + reportId));
+	}
+
 	// 處理／關閉檢舉
 	// TODO: 角色系統做好後要加 moderator/admin 權限檢查，目前任何呼叫者都可以執行
 	@Override

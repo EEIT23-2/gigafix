@@ -1,12 +1,15 @@
 package com.gigafix.forum.service;
 
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.gigafix.forum.dto.CommentResponse;
 import com.gigafix.forum.dto.CreateCommentRequest;
+import com.gigafix.forum.dto.UpdateCommentStatusRequest;
 import com.gigafix.forum.entity.Article;
 import com.gigafix.forum.entity.Comment;
 import com.gigafix.forum.repository.ArticleRepository;
@@ -33,6 +36,10 @@ public class CommentServiceImpl implements CommentService {
 	// 讚 Repository（查詢呼叫者是否已對某則留言按讚用）
 	private final LikeRepository likeRepository;
 
+	// 留言/蓋樓被鎖住的狀態（4=關閉 6=強制關閉）
+	private static final Set<Article.ArticleStatus> CLOSED_STATUSES = EnumSet.of(Article.ArticleStatus.CLOSED,
+			Article.ArticleStatus.FORCE_CLOSED);
+
 	// 留言
 	@Override
 	@Transactional
@@ -46,8 +53,8 @@ public class CommentServiceImpl implements CommentService {
 		Article article = articleRepository.findById(articleId)
 				.orElseThrow(() -> new IllegalArgumentException("文章不存在，articleId：" + articleId));
 
-		// 只有已發布的文章可以留言
-		if (article.getStatus() != Article.ArticleStatus.PUBLISHED) {
+		// 文章關閉（4）或強制關閉（6）時不能留言，其餘狀態皆可
+		if (CLOSED_STATUSES.contains(article.getStatus())) {
 			throw new IllegalStateException("文章目前無法留言");
 		}
 
@@ -118,6 +125,50 @@ public class CommentServiceImpl implements CommentService {
 		Article article = comment.getArticle();
 		article.setCommentCount(article.getCommentCount() - 1);
 		articleRepository.save(article);
+	}
+
+	// 會員自己的留言歷史（個人中心用，排除已下架留言）
+	@Override
+	public List<CommentResponse> getMyComments(Long memberId) {
+
+		if (!memberRepository.existsById(memberId)) {
+			throw new IllegalArgumentException("會員不存在，memberId：" + memberId);
+		}
+
+		return commentRepository.findByAuthor_IdOrderByCommentCreatedTimeDesc(memberId).stream()
+				.filter(comment -> comment.getStatus() != Comment.CommentStatus.TAKEN_DOWN)
+				.map(comment -> toCommentResponse(comment, memberId))
+				.toList();
+	}
+
+	// 後台直接設定留言狀態，並同步文章的留言數
+	// TODO: 角色系統做好後要加 moderator/admin 權限檢查，目前任何呼叫者都可以執行
+	@Override
+	@Transactional
+	public CommentResponse updateCommentStatus(Long commentId, UpdateCommentStatusRequest request) {
+
+		Comment comment = commentRepository.findById(commentId)
+				.orElseThrow(() -> new IllegalArgumentException("留言不存在，commentId：" + commentId));
+
+		Comment.CommentStatus oldStatus = comment.getStatus();
+		Comment.CommentStatus newStatus = request.getStatus();
+
+		if (oldStatus != newStatus) {
+			Article article = comment.getArticle();
+			if (newStatus == Comment.CommentStatus.TAKEN_DOWN) {
+				// 轉入下架：留言數 -1
+				article.setCommentCount(article.getCommentCount() - 1);
+				articleRepository.save(article);
+			} else if (oldStatus == Comment.CommentStatus.TAKEN_DOWN) {
+				// 從下架恢復：留言數 +1
+				article.setCommentCount(article.getCommentCount() + 1);
+				articleRepository.save(article);
+			}
+			comment.setStatus(newStatus);
+			commentRepository.save(comment);
+		}
+
+		return toCommentResponse(comment, null);
 	}
 
 	// 將 Comment Entity 轉成 CommentResponse DTO

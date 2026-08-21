@@ -29,4 +29,8 @@ public class ArticleResponse {
 	private Boolean isPinned; // 是否置頂
 	private LocalDateTime articleCreatedTime; // 文章建立時間
 	private LocalDateTime articleUpdatedTime; // 文章最後更新時間
+	private Boolean visible; // 呼叫者是否看得到完整內容；false 時 title/content/coverImage 為 null
+	private String visibilityMessage; // visible=false 時的說明文字；visible=true 時為 null
+	private Long parentArticleId; // 所屬根文章 id；一般文章/專欄為 null，樓層才有值
+	private Integer floorNumber; // 第幾樓；只有蓋樓相關 API（列表/建立）會填，其餘為 null
 }
