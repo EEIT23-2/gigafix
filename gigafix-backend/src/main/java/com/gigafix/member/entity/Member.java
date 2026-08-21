@@ -51,10 +51,10 @@ public class Member {
 	@Column(name = "password", nullable = false)
 	private String password;
 	
-	@Column(name = "real_name", nullable = false)
+	@Column(name = "real_name", nullable = false, length = 40)
 	private String realName;
 	
-	@Column(name = "nick_name", nullable = false)
+	@Column(name = "nick_name", nullable = false, length = 40)
 	private String nickName;
 	
 	@Column(name = "phone", nullable = false)
@@ -67,10 +67,10 @@ public class Member {
 	@Column(name = "gender", nullable = false)
 	private Gender gender; //限定男女所以用inner class(enum)，變數無法放入男或女以外的內容
 	
-	@Column(name = "member_created_time", nullable = false, updatable = false)
+	@Column(name = "member_created_time", nullable = false, updatable = false, length = 6)
 	private LocalDateTime createTime;
 	
-	@Column(name = "profile_image_url")
+	@Column(name = "profile_image_url", columnDefinition = "VARCHAR(MAX)")
 	private String profileImageUrl;
 	
 	//關聯的外建FK

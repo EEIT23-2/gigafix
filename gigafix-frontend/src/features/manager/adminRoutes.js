@@ -2,6 +2,6 @@ export default[
     {  //陣列裡設定網頁的path
         path:'manager',
         name:'manager',
-        component:() => import('@/features/manager/view/ManagerTest.vue')
+        component:() => import('@/features/manager/view/ManagerInfoView.vue')
     }
 ]

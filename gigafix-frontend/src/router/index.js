@@ -35,7 +35,7 @@ const router = createRouter({
     {
       path: "/admin",
       name: "gigafixadmin",
-      component: () => import("@/layouts/AdminLayout.vue"), //待寫
+      component: () => import("@/layouts/AdminLayout.vue"),
       children: [
         ...managerAdminRoutes,
         ...cartAdminRoutes,
@@ -44,6 +44,16 @@ const router = createRouter({
         ...repairAdminRoutes,
       ],
     }, //NotFound待寫
+    {
+      path: "/adminLogin",
+      name: "adminLogin",
+      component: () => import("@/features/manager/view/AdminLogin.vue")
+    },
+    {
+      path: "/creatSuperAdminView",
+      name: "creatSuperAdminView",
+      component: () => import("@/features/manager/view/CreatSuperAdminView.vue")
+    },
   ],
 });
 

@@ -28,26 +28,25 @@ public class SecurityConfig {
 	private final AdminUserDetailsService adminUserDetailsService;
 	private final RestAccessDeniedHandler restAccessDeniedHandler;
 	private final RestAuthEntryPoint restAuthEntryPoint;
-	private final SessionRegistry sessionRegistry;
 	
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity)throws Exception{
 		return httpSecurity
-				.securityMatcher("/admin/account/**", "/adminlogin","/adminlogout") //只針對某些請求路徑作用，之後要把/manager拿掉改成/admin/**
+				.securityMatcher("/api/admin/account/**", "/api/adminlogin","/api/adminlogout") //只針對某些請求路徑作用，之後要把/manager拿掉改成/admin/**
 //				.cors(null) //因為前端先用vite做反向代理，所以根本不會觸發cros因此先不寫
 				.csrf(csrf -> csrf.disable())
 				.authorizeHttpRequests(requests -> requests
-						.requestMatchers("/adminlogin","/adminlogout","/admin/account/super-admin").permitAll()  // 不需要登入，但享有Security的保護
-						.requestMatchers("/admin/account/**").hasAuthority("ROLE_SUPER_ADMIN")
-						.requestMatchers("/admin/account/me/**").hasAnyAuthority("ROLE_REPAIR_ADMIN","ROLE_FORUM_ADMIN","ROLE_ECOMMERCE_ADMIN","ROLE_DEPUTY_ADMIN","ROLE_SUPER_ADMIN")
-						.requestMatchers("/admin/**").hasAnyAuthority("ROLE_DEPUTY_ADMIN","ROLE_SUPER_ADMIN")
+						.requestMatchers("/api/adminlogin","/api/adminlogout","/api/admin/account/super-admin").permitAll()  // 不需要登入，但享有Security的保護
+						.requestMatchers("/api/admin/account/**").hasAuthority("ROLE_SUPER_ADMIN")
+						.requestMatchers("/api/admin/account/me/**").hasAnyAuthority("ROLE_REPAIR_ADMIN","ROLE_FORUM_ADMIN","ROLE_ECOMMERCE_ADMIN","ROLE_DEPUTY_ADMIN","ROLE_SUPER_ADMIN")
+						.requestMatchers("/api/admin/**").hasAnyAuthority("ROLE_DEPUTY_ADMIN","ROLE_SUPER_ADMIN")
 //						.requestMatchers("/admin/product/**","/admin/order/**").hasAnyAuthority("ROLE_ECOMMERCE_ADMIN")
 //						.requestMatchers("/admin/forum/**").hasAuthority("ROLE_FORUM_ADMIN")
 //						.requestMatchers("/admin/repair/**").hasAuthority("ROLE_REPAIR_ADMIN")
 						)
 				.sessionManagement(session -> session //session-based 認證的核心設定
 						.maximumSessions(1) // 可選：限制同一使用者同時只能有一個 session
-					 	.sessionRegistry(sessionRegistry)) // IF_REQUIRED = 預設值，有需要時才建立 session（例如登入成功時)
+					 	.sessionRegistry(sessionRegistry())) // IF_REQUIRED = 預設值，有需要時才建立 session（例如登入成功時)
 				.exceptionHandling(ex -> ex //filter所拋出的兩大錯誤沒辦法用@ExceptionHandler抓，必須複寫他的兩個抓錯誤的介面
 						.authenticationEntryPoint(restAuthEntryPoint) // 未登入 → 401，在自訂一個EntryPoint裡面
 						.accessDeniedHandler(restAccessDeniedHandler)) // 已登入但權限不足 → 403
