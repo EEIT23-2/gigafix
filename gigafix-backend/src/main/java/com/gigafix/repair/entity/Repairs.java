@@ -65,10 +65,10 @@ public class Repairs {
 	@Column(name = "issue_description", nullable = false, length = 200)
 	private String issueDescription;
 	
-	@Column(name = "booking_date", nullable = false)
+	@Column(name = "booking_date", nullable = true)
 	private LocalDate bookingDate;
 	
-	@Column(name = "time_slot", nullable = false)
+	@Column(name = "time_slot", nullable = true)
 	private LocalTime timeSlot;
 	
 	@Column(name = "dropoff_type", nullable = false)
