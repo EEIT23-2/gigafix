@@ -40,7 +40,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @Builder
 public class Member {
-	@Id @Column(name = "id")
+	@Id @Column(name = "member_id")
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 	
@@ -67,8 +67,8 @@ public class Member {
 	@Column(name = "gender", nullable = false)
 	private Gender gender; //限定男女所以用inner class(enum)，變數無法放入男或女以外的內容
 	
-	@Column(name = "create_date_time", nullable = false, updatable = false)
-	private LocalDateTime createDateTime;
+	@Column(name = "member_created_time", nullable = false, updatable = false)
+	private LocalDateTime createTime;
 	
 	@Column(name = "profile_image_url")
 	private String profileImageUrl;
