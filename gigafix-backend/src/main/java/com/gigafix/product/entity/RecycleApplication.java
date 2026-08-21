@@ -39,9 +39,9 @@ public class RecycleApplication {
 	private Integer estimatedPrice;    // 顧客自己期望的評估金額 (允許為空，現場檢測後再填入)
 	@Column(name="recycle_status" ,nullable = false)
 	private Integer recycleStatus;     // 回收進度狀態碼 之後要改成Enum型別改狀態
-	@Column(name ="created_date" ,nullable = false)
-	private LocalDateTime createdDate; // 申請時間
-	@Column(name ="last_modified_date" ,nullable = false)
-	private LocalDateTime lastModifiedDate; //狀態更新時間
+	@Column(name ="created_time" ,nullable = false)
+	private LocalDateTime createdTime; // 申請時間
+	@Column(name ="last_modified_time" ,nullable = false)
+	private LocalDateTime lastModifiedTime; //狀態更新時間
 	
 }

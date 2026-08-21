@@ -2,12 +2,14 @@ package com.gigafix.order.service;
 
 import java.util.List;
 
+import com.gigafix.order.dto.AdminOrderCreateOptionsResponse;
 import com.gigafix.order.dto.PaymentSuccessRequest;
 import com.gigafix.order.dto.CreateOrderRequest;
 import com.gigafix.order.dto.OrderResponse;
 import com.gigafix.order.dto.ShipOrderRequest;
 import com.gigafix.order.dto.UpdateOrderRequest;
 import com.gigafix.order.dto.AdminCreateOrderRequest;
+
 /**
  * 訂單 Service
  * 定義訂單相關商業功能
@@ -41,7 +43,7 @@ public interface OrderService {
                         Long orderId);
 
         // ---------------管理員後台功能------------------
-        
+
         // 管理員依會員及商品建立訂單
         OrderResponse createOrderByAdmin(
                         AdminCreateOrderRequest request);
@@ -72,4 +74,9 @@ public interface OrderService {
         // 刪除符合條件的訂單
         void deleteOrder(Long orderId);
 
+        // 後台新增訂單頁：取得會員與可購買商品選項
+        AdminOrderCreateOptionsResponse getAdminCreateOptions();
+
+        // 管理員取消訂單
+        OrderResponse adminCancelOrder(Long orderId);
 }
