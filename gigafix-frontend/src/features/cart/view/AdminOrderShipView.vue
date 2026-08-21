@@ -1,7 +1,15 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import {
+    getOrder,
+    shipOrder as shipOrderApi
+} from '../api'
+import {
+    shippingMethodText
+} from '../status'
+
+//******訂單出貨頁面******
 
 // 監聽組件掛載完成後，載入訂單資料
 const props = defineProps({
@@ -13,9 +21,7 @@ const order = ref(null)
 // 查詢目前訂單詳細資訊
 const loadOrder = async () => {
     try {
-        const response = await axios.get(
-            `/api/admin/orders/${props.orderId}`
-        )
+        const response = await getOrder(props.orderId)
 
         order.value = response.data
 
@@ -51,12 +57,9 @@ const submitShip = async () => {
 
     try {
 
-        const response = await axios.post(
-            `/api/admin/orders/${props.orderId}/ship`,
-            {
-                trackingNumber: trackingNumber.value
-            }
-        )
+        const response = await shipOrderApi(props.orderId, {
+            trackingNumber: trackingNumber.value
+        })
 
         console.log('出貨成功：', response.data)
 
@@ -71,15 +74,7 @@ const submitShip = async () => {
         alert('出貨失敗')
     }
 }
-// 物流方式轉換文字
-const shippingMethodText = (method) => {
-    const methodMap = {
-        HOME: '宅配',
-        STORE: '超商取貨'
-    }
 
-    return methodMap[method] || method
-}
 // 返回訂單列表
 const backToOrders = () => {
     router.push('/admin/orders')

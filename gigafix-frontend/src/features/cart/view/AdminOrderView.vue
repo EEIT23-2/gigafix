@@ -1,7 +1,25 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import {
+    getOrders,
+    getOrdersByMember,
+    getCreateOptions,
+    deleteOrder as deleteOrderApi,
+    deliverOrder as deliverOrderApi,
+    cancelOrder as cancelOrderApi,
+    payOrder
+} from '../api'
+import {
+    orderStatusText,
+    paymentStatusText,
+    shippingStatusText,
+    orderStatusClass,
+    paymentStatusClass,
+    shippingStatusClass
+} from '../status'
+
+//******訂單管理頁面******
 
 // 使用 Vue Router 的 useRouter 來導航
 const router = useRouter()
@@ -11,31 +29,22 @@ const orders = ref([])
 const selectedOrderStatus = ref('')
 // 付款狀態篩選
 const selectedPaymentStatus = ref('')
-
 // 物流狀態篩選
 const selectedShippingStatus = ref('')
-
 // 關鍵字搜尋
 const searchKeyword = ref('')
-
-// 快速篩選
-const quickUnpaid = ref(false)
-const quickPendingShipping = ref(false)
-const quickShipped = ref(false)
-const quickCancelled = ref(false)
 // 進入頁面時自動查詢訂單
 const createOrder = () => {
     router.push('/admin/orders/create')
 }
 // 會員下拉選單
 const members = ref([])
-
 // 目前選擇的會員 ID
 const selectedMemberId = ref('')
 // 查詢全部訂單
 const loadOrders = async () => {
     try {
-        const response = await axios.get('/api/admin/orders')
+        const response = await getOrders()
 
         orders.value = response.data
 
@@ -47,9 +56,7 @@ const loadOrders = async () => {
 // 取得會員下拉選單
 const loadMembers = async () => {
     try {
-        const response = await axios.get(
-            '/api/admin/orders/create-options'
-        )
+        const response = await getCreateOptions()
 
         members.value = response.data.members
 
@@ -57,17 +64,18 @@ const loadMembers = async () => {
         console.error('取得會員選項失敗：', error)
     }
 }
-// 依會員查詢訂單
+// 依目前會員篩選重新載入訂單
 const searchByMember = async () => {
 
+    // 全部會員
     if (!selectedMemberId.value) {
-        alert('請先選擇會員')
+        await loadOrders()
         return
     }
 
     try {
-        const response = await axios.get(
-            `/api/admin/orders/member/${selectedMemberId.value}`
+        const response = await getOrdersByMember(
+            selectedMemberId.value
         )
 
         orders.value = response.data
@@ -93,7 +101,7 @@ const deleteOrder = async (orderId) => {
     }
 
     try {
-        await axios.delete(`/api/admin/orders/${orderId}`)
+        await deleteOrderApi(orderId)
 
         alert('刪除成功')
 
@@ -149,46 +157,11 @@ const filteredOrders = computed(() => {
             productName.toLowerCase().includes(keyword) ||
             (order.receiverName || '').toLowerCase().includes(keyword)
 
-        // 快速篩選
-        const quickFilters = []
-
-        if (quickUnpaid.value) {
-            quickFilters.push(
-                order.paymentStatus === 'UNPAID'
-            )
-        }
-
-        if (quickPendingShipping.value) {
-            quickFilters.push(
-                order.paymentStatus === 'PAID' &&
-                order.shippingStatus === 'PENDING'
-            )
-        }
-
-        if (quickShipped.value) {
-            quickFilters.push(
-                order.shippingStatus === 'SHIPPED'
-            )
-        }
-
-        if (quickCancelled.value) {
-            quickFilters.push(
-                order.orderStatus === 'CANCELLED'
-            )
-        }
-
-        // 沒勾快速篩選 = 不限制
-        // 有勾 = 符合其中一項即可
-        const matchQuickFilter =
-            quickFilters.length === 0 ||
-            quickFilters.some(Boolean)
-
         return (
             matchOrderStatus &&
             matchPaymentStatus &&
             matchShippingStatus &&
-            matchKeyword &&
-            matchQuickFilter
+            matchKeyword
         )
     })
 })
@@ -200,47 +173,9 @@ const resetFilters = () => {
     selectedShippingStatus.value = ''
     searchKeyword.value = ''
 
-    quickUnpaid.value = false
-    quickPendingShipping.value = false
-    quickShipped.value = false
-    quickCancelled.value = false
-
     loadOrders()
 }
-// 訂單狀態中文顯示
-const orderStatusText = (status) => {
-    const statusMap = {
-        PENDING: '待處理',
-        CANCELLED: '已取消',
-        COMPLETED: '已完成'
-    }
 
-    return statusMap[status] || status
-}
-
-// 付款狀態中文顯示
-const paymentStatusText = (status) => {
-    const statusMap = {
-        UNPAID: '未付款',
-        PAID: '已付款',
-        FAILED: '付款失敗',
-        REFUNDED: '已退款'
-    }
-
-    return statusMap[status] || status
-}
-
-// 物流狀態中文顯示
-const shippingStatusText = (status) => {
-    const statusMap = {
-        PENDING: '待出貨',
-        SHIPPED: '已出貨',
-        DELIVERED: '已送達',
-        CANCELLED: '已取消'
-    }
-
-    return statusMap[status] || status
-}
 // 前往出貨頁
 const shipOrder = (orderId) => {
     router.push(`/admin/orders/${orderId}/ship`)
@@ -257,9 +192,7 @@ const deliverOrder = async (orderId) => {
 
     try {
 
-        await axios.post(
-            `/api/admin/orders/${orderId}/deliver`
-        )
+        await deliverOrderApi(orderId)
 
         alert('訂單已標記為送達')
 
@@ -286,9 +219,7 @@ const cancelOrder = async (orderId) => {
 
     try {
 
-        await axios.post(
-            `/api/admin/orders/${orderId}/cancel`
-        )
+        await cancelOrderApi(orderId)
 
         alert('訂單取消成功')
 
@@ -303,38 +234,34 @@ const cancelOrder = async (orderId) => {
     }
 }
 // Demo：模擬會員付款成功
+// 呼叫member-pay-api的payOrder，傳入交易編號
+// 假裝交易成功，並更新訂單的付款狀態為PAID
+// 交易編號使用時間戳記加上訂單編號，例如：DEMO-123456-1690000000000
+// 正式環境中，交易編號應該由支付平台回傳，而不是自己生成
 const demoPayOrder = async (order) => {
-
     const confirmed = confirm(
         `確定要模擬訂單 ${order.orderId} 付款成功嗎？`
     )
-
     if (!confirmed) {
         return
     }
-
     try {
-
         // Demo 用交易編號
         const transactionId =
             `DEMO-${order.orderId}-${Date.now()}`
 
-        await axios.post(
-            `/api/members/${order.memberId}/orders/${order.orderId}/payment`,
+        await payOrder(
+            order.memberId,
+            order.orderId,
             {
                 transactionId: transactionId
             }
         )
-
         alert('模擬付款成功')
-
         // 重新查詢訂單
         loadOrders()
-
     } catch (error) {
-
         console.error('模擬付款失敗：', error)
-
         alert('模擬付款失敗')
     }
 }
@@ -384,9 +311,8 @@ const formatPrice = (price) => {
                             <label class="form-label fw-semibold">
                                 會員
                             </label>
-
-                            <select v-model="selectedMemberId" class="form-select">
-                                <option value="">請選擇會員</option>
+                            <select v-model="selectedMemberId" class="form-select" @change="searchByMember">
+                                <option value="">全部會員</option>
 
                                 <option v-for="member in members" :key="member.memberId" :value="member.memberId">
                                     {{ member.memberName }}
@@ -400,7 +326,6 @@ const formatPrice = (price) => {
                             <label class="form-label fw-semibold">
                                 訂單狀態
                             </label>
-
                             <select v-model="selectedOrderStatus" class="form-select">
                                 <option value="">所有訂單狀態</option>
                                 <option value="PENDING">待處理</option>
@@ -414,7 +339,6 @@ const formatPrice = (price) => {
                             <label class="form-label fw-semibold">
                                 付款狀態
                             </label>
-
                             <select v-model="selectedPaymentStatus" class="form-select">
                                 <option value="">所有付款狀態</option>
                                 <option value="UNPAID">未付款</option>
@@ -429,7 +353,6 @@ const formatPrice = (price) => {
                             <label class="form-label fw-semibold">
                                 物流狀態
                             </label>
-
                             <select v-model="selectedShippingStatus" class="form-select">
                                 <option value="">所有物流狀態</option>
                                 <option value="PENDING">待出貨</option>
@@ -438,19 +361,17 @@ const formatPrice = (price) => {
                                 <option value="CANCELLED">已取消</option>
                             </select>
                         </div>
-
                     </div>
 
 
                     <!-- 第二排 -->
-                    <div class="row g-3 mt-1 align-items-end">
 
+                    <div class="row g-3 mt-1 align-items-end">
                         <!-- 關鍵字 -->
-                        <div class="col-12 col-lg-8">
+                        <div class="col-12 col-lg-3">
                             <label class="form-label fw-semibold">
                                 關鍵字搜尋
                             </label>
-
                             <div class="input-group">
                                 <span class="input-group-text bg-white">
                                     🔍
@@ -460,88 +381,26 @@ const formatPrice = (price) => {
                                     placeholder="搜尋訂單 ID、商品名稱、收件人">
                             </div>
                         </div>
-
                         <!-- 按鈕 -->
-                        <div class="col-12 col-lg-4">
+                        <div class="col-12 col-lg-1">
                             <div class="d-flex gap-2">
-
                                 <button class="btn btn-outline-secondary flex-fill" type="button" @click="resetFilters">
-                                    重設條件
+                                    重設
                                 </button>
-
-                                <button class="btn btn-primary flex-fill" type="button"
-                                    @click="selectedMemberId ? searchByMember() : loadOrders()">
-                                    查詢
-                                </button>
-
                             </div>
-                        </div>
-
-                    </div>
-
-
-                    <!-- 快速篩選 -->
-                    <div class="quick-filter-area mt-4 pt-3 border-top">
-
-                        <div class="fw-semibold mb-3">
-                            快速查看
-                        </div>
-
-                        <div class="d-flex flex-wrap gap-4">
-
-                            <!-- 未付款 -->
-                            <div class="form-check">
-                                <input id="quickUnpaid" v-model="quickUnpaid" class="form-check-input" type="checkbox">
-
-                                <label class="form-check-label" for="quickUnpaid">
-                                    未付款
-                                </label>
-                            </div>
-
-                            <!-- 待出貨 -->
-                            <div class="form-check">
-                                <input id="quickPendingShipping" v-model="quickPendingShipping" class="form-check-input"
-                                    type="checkbox">
-
-                                <label class="form-check-label" for="quickPendingShipping">
-                                    待出貨
-                                </label>
-                            </div>
-
-                            <!-- 已出貨 -->
-                            <div class="form-check">
-                                <input id="quickShipped" v-model="quickShipped" class="form-check-input"
-                                    type="checkbox">
-
-                                <label class="form-check-label" for="quickShipped">
-                                    已出貨待確認
-                                </label>
-                            </div>
-
-                            <!-- 已取消 -->
-                            <div class="form-check">
-                                <input id="quickCancelled" v-model="quickCancelled" class="form-check-input"
-                                    type="checkbox">
-
-                                <label class="form-check-label" for="quickCancelled">
-                                    已取消
-                                </label>
-                            </div>
-
                         </div>
                     </div>
-
                 </div>
             </section>
 
             <!-- 訂單表格 -->
+
             <section class="card shadow-sm border-0">
                 <div class="card-header bg-white border-bottom py-3">
                     <h2 class="h5 fw-bold mb-0">
                         訂單列表
                     </h2>
                 </div>
-
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0 order-table">
                         <thead class="table-light">
@@ -556,7 +415,6 @@ const formatPrice = (price) => {
                                 <th class="text-end">操作</th>
                             </tr>
                         </thead>
-
                         <tbody>
                             <tr v-for="order in filteredOrders" :key="order.orderId">
                                 <!-- 訂單 ID -->
@@ -579,66 +437,28 @@ const formatPrice = (price) => {
                                 <td class="text-end font-monospace fw-semibold">
                                     NT$ {{ formatPrice(order.totalAmount) }}
                                 </td>
-
                                 <!-- 訂單狀態 -->
                                 <td>
-                                    <span class="badge" :class="{
-                                        'text-bg-warning':
-                                            order.orderStatus === 'PENDING',
-
-                                        'text-bg-danger':
-                                            order.orderStatus === 'CANCELLED',
-
-                                        'text-bg-success':
-                                            order.orderStatus === 'COMPLETED'
-                                    }">
+                                    <span class="badge" :class="orderStatusClass(order.orderStatus)">
                                         {{ orderStatusText(order.orderStatus) }}
                                     </span>
                                 </td>
-
                                 <!-- 付款狀態 -->
                                 <td>
-                                    <span class="badge" :class="{
-                                        'text-bg-secondary':
-                                            order.paymentStatus === 'UNPAID',
-
-                                        'text-bg-success':
-                                            order.paymentStatus === 'PAID',
-
-                                        'text-bg-danger':
-                                            order.paymentStatus === 'FAILED',
-
-                                        'text-bg-info':
-                                            order.paymentStatus === 'REFUNDED'
-                                    }">
+                                    <span class="badge" :class="paymentStatusClass(order.paymentStatus)">
                                         {{ paymentStatusText(order.paymentStatus) }}
                                     </span>
                                 </td>
-
                                 <!-- 收件人 -->
                                 <td>
                                     {{ order.receiverName }}
                                 </td>
-
                                 <!-- 物流狀態 -->
                                 <td>
-                                    <span class="badge" :class="{
-                                        'text-bg-secondary':
-                                            order.shippingStatus === 'PENDING',
-
-                                        'text-bg-primary':
-                                            order.shippingStatus === 'SHIPPED',
-
-                                        'text-bg-success':
-                                            order.shippingStatus === 'DELIVERED',
-
-                                        'text-bg-danger':
-                                            order.shippingStatus === 'CANCELLED'
-                                    }">
+                                    <span class="badge" :class="shippingStatusClass(order.shippingStatus)">
                                         {{ shippingStatusText(order.shippingStatus) }}
                                     </span>
                                 </td>
-
                                 <!-- 操作 -->
                                 <td class="text-end">
                                     <div class="d-flex justify-content-end flex-wrap gap-1 order-actions">
@@ -750,7 +570,6 @@ const formatPrice = (price) => {
     border-radius: 0.75rem;
 }
 
-
 .filter-card {
     border-radius: 0.85rem;
 }
@@ -759,22 +578,5 @@ const formatPrice = (price) => {
 .filter-card .form-control,
 .filter-card .input-group-text {
     min-height: 42px;
-}
-
-.quick-filter-area {
-    font-size: 0.9rem;
-}
-
-.quick-filter-area .form-check {
-    margin-bottom: 0;
-}
-
-.quick-filter-area .form-check-input {
-    cursor: pointer;
-}
-
-.quick-filter-area .form-check-label {
-    cursor: pointer;
-    user-select: none;
 }
 </style>

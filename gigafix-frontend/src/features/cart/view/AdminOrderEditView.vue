@@ -1,7 +1,18 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import {
+    getOrder,
+    updateOrder as updateOrderApi
+} from '../api'
+import {
+    orderStatusText,
+    paymentStatusText,
+    orderStatusClass,
+    paymentStatusClass
+} from '../status'
+
+//******編輯訂單頁面******
 
 const props = defineProps({
     orderId: String
@@ -15,9 +26,7 @@ const order = ref({})
 // 查詢單筆訂單
 const loadOrder = async () => {
     try {
-        const response = await axios.get(
-            `/api/admin/orders/${props.orderId}`
-        )
+        const response = await getOrder(props.orderId)
 
         order.value = response.data
 
@@ -57,10 +66,7 @@ const updateOrder = async () => {
             return
         }
 
-        await axios.put(
-            `/api/admin/orders/${props.orderId}`,
-            request
-        )
+        await updateOrderApi(props.orderId, request)
 
         alert('訂單修改成功')
 
@@ -80,26 +86,7 @@ const goBack = () => {
 onMounted(() => {
     loadOrder()
 })
-// 訂單狀態中文
-const orderStatusText = (status) => {
-    const statusMap = {
-        PENDING: '待處理',
-        COMPLETED: '已完成',
-        CANCELLED: '已取消'
-    }
 
-    return statusMap[status] || status
-}
-
-// 付款狀態中文
-const paymentStatusText = (status) => {
-    const statusMap = {
-        UNPAID: '未付款',
-        PAID: '已付款'
-    }
-
-    return statusMap[status] || status
-}
 // 金額格式化
 const formatPrice = (price) => {
     if (price == null) {
@@ -155,16 +142,7 @@ const formatPrice = (price) => {
                                 訂單狀態
                             </div>
 
-                            <span class="badge" :class="{
-                                'text-bg-warning':
-                                    order.orderStatus === 'PENDING',
-
-                                'text-bg-success':
-                                    order.orderStatus === 'COMPLETED',
-
-                                'text-bg-danger':
-                                    order.orderStatus === 'CANCELLED'
-                            }">
+                            <span class="badge" :class="orderStatusClass(order.orderStatus)">
                                 {{ orderStatusText(order.orderStatus) }}
                             </span>
                         </div>
@@ -174,13 +152,7 @@ const formatPrice = (price) => {
                                 付款狀態
                             </div>
 
-                            <span class="badge" :class="{
-                                'text-bg-secondary':
-                                    order.paymentStatus === 'UNPAID',
-
-                                'text-bg-success':
-                                    order.paymentStatus === 'PAID'
-                            }">
+                            <span class="badge" :class="paymentStatusClass(order.paymentStatus)">
                                 {{ paymentStatusText(order.paymentStatus) }}
                             </span>
                         </div>

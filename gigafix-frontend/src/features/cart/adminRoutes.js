@@ -1,7 +1,7 @@
 export default [
     {  //陣列裡設定網頁的path
         path: 'orders',
-        name: 'admin-order',
+        name: 'Admin-Order',
         component: () => import('@/features/cart/view/AdminOrderView.vue'),
         props: true
     },

@@ -1,7 +1,19 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import { getOrder } from '../api'
+import {
+    orderStatusText,
+    paymentStatusText,
+    shippingStatusText,
+    paymentMethodText,
+    shippingMethodText,
+    orderStatusClass,
+    paymentStatusClass,
+    shippingStatusClass
+} from '../status'
+
+//******訂單詳情頁面******
 
 const props = defineProps({
     orderId: String
@@ -15,9 +27,7 @@ const order = ref(null)
 // 查詢指定訂單
 const loadOrder = async () => {
     try {
-        const response = await axios.get(
-            `/api/admin/orders/${props.orderId}`
-        )
+        const response = await getOrder(props.orderId)
 
         order.value = response.data
 
@@ -38,60 +48,7 @@ const goBack = () => {
 onMounted(() => {
     loadOrder()
 })
-// 訂單狀態中文
-const orderStatusText = (status) => {
-    const statusMap = {
-        PENDING: '待處理',
-        CANCELLED: '已取消',
-        COMPLETED: '已完成'
-    }
 
-    return statusMap[status] || status
-}
-
-// 付款狀態中文
-const paymentStatusText = (status) => {
-    const statusMap = {
-        UNPAID: '未付款',
-        PAID: '已付款',
-        FAILED: '付款失敗',
-        REFUNDED: '已退款'
-    }
-
-    return statusMap[status] || status
-}
-
-// 物流狀態中文
-const shippingStatusText = (status) => {
-    const statusMap = {
-        PENDING: '待出貨',
-        SHIPPED: '已出貨',
-        DELIVERED: '已送達',
-        CANCELLED: '已取消'
-    }
-
-    return statusMap[status] || status
-}
-
-// 付款方式中文
-const paymentMethodText = (method) => {
-    const methodMap = {
-        CREDIT_CARD: '信用卡',
-        CASH_ON_DELIVERY: '貨到付款'
-    }
-
-    return methodMap[method] || method
-}
-
-// 配送方式中文
-const shippingMethodText = (method) => {
-    const methodMap = {
-        HOME: '宅配',
-        STORE: '超商取貨'
-    }
-
-    return methodMap[method] || method
-}
 const formatDateTime = (dateTime) => {
     if (!dateTime) {
         return '尚無'
@@ -246,16 +203,7 @@ const formatPrice = (price) => {
                                     訂單狀態
                                 </div>
 
-                                <span class="badge" :class="{
-                                    'text-bg-warning':
-                                        order.orderStatus === 'PENDING',
-
-                                    'text-bg-success':
-                                        order.orderStatus === 'COMPLETED',
-
-                                    'text-bg-danger':
-                                        order.orderStatus === 'CANCELLED'
-                                }">
+                                <span class="badge" :class="orderStatusClass(order.orderStatus)">
                                     {{ orderStatusText(order.orderStatus) }}
                                 </span>
                             </div>
@@ -265,19 +213,7 @@ const formatPrice = (price) => {
                                     付款狀態
                                 </div>
 
-                                <span class="badge" :class="{
-                                    'text-bg-secondary':
-                                        order.paymentStatus === 'UNPAID',
-
-                                    'text-bg-success':
-                                        order.paymentStatus === 'PAID',
-
-                                    'text-bg-danger':
-                                        order.paymentStatus === 'FAILED',
-
-                                    'text-bg-info':
-                                        order.paymentStatus === 'REFUNDED'
-                                }">
+                                <span class="badge" :class="paymentStatusClass(order.paymentStatus)">
                                     {{ paymentStatusText(order.paymentStatus) }}
                                 </span>
                             </div>
@@ -391,19 +327,7 @@ const formatPrice = (price) => {
                                     物流狀態
                                 </div>
 
-                                <span class="badge" :class="{
-                                    'text-bg-secondary':
-                                        order.shippingStatus === 'PENDING',
-
-                                    'text-bg-primary':
-                                        order.shippingStatus === 'SHIPPED',
-
-                                    'text-bg-success':
-                                        order.shippingStatus === 'DELIVERED',
-
-                                    'text-bg-danger':
-                                        order.shippingStatus === 'CANCELLED'
-                                }">
+                                <span class="badge" :class="shippingStatusClass(order.shippingStatus)">
                                     {{ shippingStatusText(order.shippingStatus) }}
                                 </span>
                             </div>

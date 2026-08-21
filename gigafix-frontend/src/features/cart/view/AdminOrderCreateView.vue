@@ -1,7 +1,12 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import {
+    getCreateOptions,
+    createOrder as createOrderApi
+} from '../api'
+
+//******新增訂單頁面******
 
 const router = useRouter()
 
@@ -27,9 +32,7 @@ const productId = ref('')
 // 取得新增訂單需要的選項
 const loadCreateOptions = async () => {
     try {
-        const response = await axios.get(
-            '/api/admin/orders/create-options'
-        )
+        const response = await getCreateOptions()
 
         members.value = response.data.members
         products.value = response.data.products
@@ -88,10 +91,7 @@ const createOrder = async () => {
 
         console.log('建立訂單 Request：', form.value)
 
-        await axios.post(
-            '/api/admin/orders',
-            form.value
-        )
+        await createOrderApi(form.value)
 
         alert('新增訂單成功')
 
