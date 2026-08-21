@@ -1,11 +1,13 @@
 package com.gigafix.order.dto;
+
 import java.time.LocalDateTime;
+import java.util.List;
+
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
 import lombok.Setter;
-
 @Getter
 @Setter
 @NoArgsConstructor
@@ -15,6 +17,7 @@ public class OrderResponse {
     private Long orderId; // 訂單 ID
     private Long memberId; // 會員 ID
     private Integer totalAmount; // 訂單總金額
+    private List<OrderItemResponse> orderItems; // 訂單商品列表
     private String orderStatus; // 訂單狀態
     private String paymentMethod; // 付款方式
     private String paymentStatus; // 付款狀態
@@ -30,4 +33,5 @@ public class OrderResponse {
     private LocalDateTime paidAt; // 訂單付款時間
     private LocalDateTime shippedAt; // 訂單出貨時間
     private LocalDateTime deliveredAt; // 訂單送達時間
+   
 }

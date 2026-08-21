@@ -28,7 +28,7 @@ public class CartItem {
     @Column(name = "product_id", nullable = false)
     private Long productId;  //產品ID
 
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "cart_item_created_time", nullable = false)
     private LocalDateTime createdAt;  //建立時間
 
     @Column(name = "updated_at", nullable = false)
