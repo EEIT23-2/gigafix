@@ -60,7 +60,7 @@ public class ProductServiceImpl implements ProductService   {
         }
 
         if (orderBy == null) {
-            orderBy = "createdDate"; // 預設依建立時間排序
+            orderBy = "createdTime"; // 預設依建立時間排序
         }
         if (sortParam == null) {
             sortParam = "desc";           // 預設降冪（從新到舊） "desc"字串到時候寫在前端
@@ -113,8 +113,8 @@ public class ProductServiceImpl implements ProductService   {
         product.setSaleStatus(productRequest.getSaleStatus());
 
 
-        product.setCreatedDate(LocalDateTime.now());
-        product.setLastModifiedDate(LocalDateTime.now());
+        product.setCreatedTime(LocalDateTime.now());
+        product.setLastModifiedTime(LocalDateTime.now());
 
         Product savedProduct  = productDao.save(product);
         return savedProduct.getProductId();
@@ -137,7 +137,7 @@ public class ProductServiceImpl implements ProductService   {
             gotProduct.setPrice(productRequest.getPrice());
             gotProduct.setSaleStatus(productRequest.getSaleStatus());
 
-            gotProduct.setLastModifiedDate(LocalDateTime.now());
+            gotProduct.setLastModifiedTime(LocalDateTime.now());
 
             Product updatedProduct = productDao.save(gotProduct);
         }else{
@@ -168,8 +168,8 @@ public class ProductServiceImpl implements ProductService   {
             });
 
             for (Product product : productList) {
-                product.setCreatedDate(LocalDateTime.now());
-                product.setLastModifiedDate(LocalDateTime.now());
+                product.setCreatedTime(LocalDateTime.now());
+                product.setLastModifiedTime(LocalDateTime.now());
             }
 
             productDao.saveAll(productList);

@@ -428,8 +428,8 @@ onMounted(() => fetchProducts(page.value));
             @change="fetchProducts(0)"
           >
             <option value="">預設排序</option>
-            <option value="createdDate:desc">上架日期：新到舊</option>
-            <option value="createdDate:asc">上架日期：舊到新</option>
+            <option value="createdTime:desc">上架日期：新到舊</option>
+            <option value="createdTime:asc">上架日期：舊到新</option>
             <option value="price:asc">價格：低到高</option>
             <option value="price:desc">價格：高到低</option>
           </select>

@@ -203,10 +203,10 @@ onMounted(fetchProduct);
                 <dt class="col-sm-4">商品描述</dt>
                 <dd class="col-sm-8">{{ product.description || "-" }}</dd>
                 <dt class="col-sm-4">上架日期</dt>
-                <dd class="col-sm-8">{{ formatDate(product.createdDate) }}</dd>
+                <dd class="col-sm-8">{{ formatDate(product.createdTime) }}</dd>
                 <dt class="col-sm-4">最後修改</dt>
                 <dd class="col-sm-8">
-                  {{ formatDate(product.lastModifiedDate) }}
+                  {{ formatDate(product.lastModifiedTime) }}
                 </dd>
               </dl>
             </div>
