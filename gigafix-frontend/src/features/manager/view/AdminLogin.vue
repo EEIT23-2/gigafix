@@ -2,12 +2,15 @@
 import { useRouter, RouterLink } from 'vue-router'
 import { ref } from 'vue'
 import axios from 'axios';
+import { useFetchAdminInfoStore } from '@/stores/admin';
 
 const adminName = ref('')
 const password = ref('')
 
 const router = useRouter()
 const errorMsg = ref('')
+
+const fetchAdminInfoStore =useFetchAdminInfoStore()
 
 const adminLogin = async () => {
     errorMsg.value = ''
@@ -16,9 +19,11 @@ const adminLogin = async () => {
             adminName: adminName.value,
             password: password.value
         })
+        fetchAdminInfoStore.fetched = false   //登入後強制讓下一次載入頁面時guard重新抓
         
         router.push('/admin') //如果發出請求後回傳的物件不是空值的話就轉跳到管理者頁面
     } catch (err) {
+        console.error('真正的錯誤:', err)
         if (err.response) {
             alert(err.response.status)
             alert(err.response.data)
