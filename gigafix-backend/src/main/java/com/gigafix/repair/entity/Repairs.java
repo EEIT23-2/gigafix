@@ -8,9 +8,16 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import com.gigafix.member.entity.Member;
+import com.gigafix.repair.entity.status.ApprovalStatus;
+import com.gigafix.repair.entity.status.DropoffType;
+import com.gigafix.repair.entity.status.PickupType;
+import com.gigafix.repair.entity.status.RepairPay;
+import com.gigafix.repair.entity.status.RepairStatus;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -72,11 +79,13 @@ public class Repairs {
 	private LocalTime timeSlot;
 	
 	@Column(name = "dropoff_type", nullable = false)
-	private Byte dropoffType;
+	@Enumerated(EnumType.ORDINAL)
+	private DropoffType dropoffType;
 	
 	@Builder.Default //加上 Default，避免預設值被 null 蓋掉
 	@Column(name = "repair_status", nullable = false, columnDefinition = "tinyint default 0")
-	private Byte repairStatus = 0;
+	@Enumerated(EnumType.ORDINAL)
+	private RepairStatus repairStatus = RepairStatus.PENDING_QUOTE;
 	
 	@Column(name = "serial_number", columnDefinition = "varchar(50)")
 	private String serialNumber;
@@ -92,20 +101,23 @@ public class Repairs {
 	private Integer estimatedCost = 0;
 	
 	@Column(name = "approval_status")
-	private Byte approvalStatus;
+	@Enumerated(EnumType.ORDINAL)
+	private ApprovalStatus approvalStatus;
 	
 	@Builder.Default 
 	@Column(name = "final_cost", columnDefinition = "int default 0")
 	private Integer finalCost = 0;
 	
 	@Column(name = "repair_pay")
-	private Byte repairPay;
+	@Enumerated(EnumType.ORDINAL)
+	private RepairPay repairPay;
 	
 	@Column(name = "repair_pay_status")
 	private Byte repairPayStatus;
 	
 	@Column(name = "pickup_type")
-	private Byte pickupType;
+	@Enumerated(EnumType.ORDINAL)
+	private PickupType pickupType;
 	
 	@Column(name = "recipient_name", length = 50)
 	private String recipientName;

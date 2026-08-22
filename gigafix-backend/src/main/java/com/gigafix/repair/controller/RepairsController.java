@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.gigafix.repair.dto.RepairsRequest;
+import com.gigafix.repair.dto.AppointmentRequest;
 import com.gigafix.repair.dto.RepairsResponse;
 import com.gigafix.repair.service.RepairsService;
 
@@ -30,7 +30,7 @@ public class RepairsController {
 	
 //	新增
 	@PostMapping
-	public ResponseEntity<RepairsResponse> insert(@Valid @RequestBody RepairsRequest req){
+	public ResponseEntity<RepairsResponse> insert(@Valid @RequestBody AppointmentRequest req){
 		RepairsResponse res = rServ.insert(req);
 		return ResponseEntity.status(HttpStatus.CREATED).body(res);//201
 	}
@@ -38,7 +38,7 @@ public class RepairsController {
 	
 //	修改
 	@PutMapping("/{id}")
-	public ResponseEntity<RepairsResponse> updateById(@PathVariable Long id, @Valid @RequestBody RepairsRequest req) {
+	public ResponseEntity<RepairsResponse> updateById(@PathVariable Long id, @Valid @RequestBody AppointmentRequest req) {
 		return ResponseEntity.ok(rServ.updateById(id, req));//200
 	}
 	

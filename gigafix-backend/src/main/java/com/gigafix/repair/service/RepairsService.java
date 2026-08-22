@@ -10,11 +10,17 @@ import org.springframework.stereotype.Service;
 
 import com.gigafix.member.entity.Member;
 import com.gigafix.member.repository.MemberRepository;
-import com.gigafix.repair.dto.RepairsRequest;
+import com.gigafix.repair.dto.AppointmentRequest;
+import com.gigafix.repair.dto.QuatationRequest;
 import com.gigafix.repair.dto.RepairsResponse;
+import com.gigafix.repair.entity.RepairTechnicians;
 import com.gigafix.repair.entity.Repairs;
 import com.gigafix.repair.entity.Stores;
+import com.gigafix.repair.entity.status.ApprovalStatus;
+import com.gigafix.repair.entity.status.RepairStatus;
+import com.gigafix.repair.exception.InvalidRepairStatusException;
 import com.gigafix.repair.exception.TimeConflictException;
+import com.gigafix.repair.repository.RepairTechniciansRepository;
 import com.gigafix.repair.repository.RepairsRepository;
 import com.gigafix.repair.repository.StoresRepository;
 
@@ -30,6 +36,7 @@ public class RepairsService {
 	private final RepairsRepository rRepos;
 	private final StoresRepository sRepos;
 	private final MemberRepository mRepos;
+	private final RepairTechniciansRepository rtRepos;
 
 	
 	private RepairsResponse toResponse(Repairs r) {
@@ -42,6 +49,15 @@ public class RepairsService {
 				.timeSlot(r.getTimeSlot())
 				.repairStatus(r.getRepairStatus())
 				.storeName(r.getStore().getName())
+				.dropoffType(r.getDropoffType())
+//				可能是null的關聯物件」,要往下取欄位前要先判斷
+				.technicianId(r.getRepairTechnicians() == null ? null : r.getRepairTechnicians().getId())
+				.technicianName(r.getRepairTechnicians() == null ? null : r.getRepairTechnicians().getName())
+				.serialNumber(r.getSerialNumber())
+				.inspectionResult(r.getInspectionResult())
+				.repairItems(r.getRepairItems())
+				.estimatedCost(r.getEstimatedCost())
+				.approvalStatus(r.getApprovalStatus())
 				.build();
 	}
 	
@@ -76,7 +92,7 @@ public class RepairsService {
 	
 	
 //	新增 (查時段是否衝突)
-	public RepairsResponse insert(RepairsRequest req) {
+	public RepairsResponse insert(AppointmentRequest req) {
 //		查得到就代表已被預約
 //		使用者體驗：丟出錯誤訊息
 		checkTimeConflict(req.getStoreId(), req.getBookingDate(), req.getTimeSlot(), null);
@@ -103,7 +119,7 @@ public class RepairsService {
 	}
 	
 //	修改
-	public RepairsResponse updateById(Long id, RepairsRequest req) {
+	public RepairsResponse updateById(Long id, AppointmentRequest req) {
 		Repairs r = rRepos.findById(id).orElseThrow(() -> new EntityNotFoundException("找不到維修單，id=" + id));
 		
 		// 排除自己這一筆，不然會誤判成跟自己衝突
@@ -160,9 +176,105 @@ public class RepairsService {
 //				.collect(Collectors.toList());
 //	}
 	
+//	技師查詢：某分店「待估價」且尚未被認領的維修清單
+	public List<RepairsResponse> selectUnassigned(Byte storeId) {
+		List<Repairs> list = rRepos.findByStore_IdAndRepairStatusAndRepairTechniciansIsNull(storeId, RepairStatus.PENDING_QUOTE);
+		List<RepairsResponse> result = new ArrayList<RepairsResponse>();
+		for (Repairs r : list) {
+			result.add(toResponse(r));
+		}
+		return result;
+	}
 
-	
-	
+//	技師查詢：自己名下的維修單，status可不傳（查全部）或傳入指定狀態
+	public List<RepairsResponse> selectByTechnician(Integer technicianId, RepairStatus status) {
+		List<Repairs> list;
+		if (status != null) {
+			list = rRepos.findByRepairTechnicians_IdAndRepairStatus(technicianId, status);
+		} else {
+			list = rRepos.findByRepairTechnicians_Id(technicianId);
+		}
+		List<RepairsResponse> result = new ArrayList<RepairsResponse>();
+		for (Repairs r : list) {
+			result.add(toResponse(r));
+		}
+		return result;
+	}
+
+//	技師認領：維修單必須是「待估價」且尚未被任何技師認領
+	public RepairsResponse assign(Long id, Integer technicianId) {
+		Repairs r = rRepos.findById(id)
+				.orElseThrow(() -> new EntityNotFoundException("找不到維修單，id=" + id));
+
+		if (r.getRepairStatus() != RepairStatus.PENDING_QUOTE) {
+//			例如:還沒認領就被客戶退掉/未送檢
+			throw new InvalidRepairStatusException("此維修單目前狀態非待估價，無法認領");
+		}
+		if (r.getRepairTechnicians() != null) {
+			throw new InvalidRepairStatusException("此維修單已被其他技師認領");
+		}
+		
+		RepairTechnicians tech = rtRepos.findById(technicianId)
+				.orElseThrow(() -> new EntityNotFoundException("找不到技師，id=" + technicianId));
+
+		r.setRepairTechnicians(tech);
+
+		return toResponse(rRepos.save(r));
+	}
+
+//	技師填寫、修改檢測報價（可能部分更新）：要先認領，且狀態還是待估價才能修改
+	public RepairsResponse updateQuote(Long id, QuatationRequest req) {
+		Repairs r = rRepos.findById(id)
+				.orElseThrow(() -> new EntityNotFoundException("找不到維修單，id=" + id));
+
+//		null檢查:.getId() 對null呼叫會直接NPE噴錯
+		if (r.getRepairTechnicians() == null) {
+			throw new InvalidRepairStatusException("尚未有技師認領此維修單，請先認領");
+		}
+		if (!r.getRepairTechnicians().getId().equals(req.getTechnicianId())) {
+		    throw new InvalidRepairStatusException("此維修單不是你認領的，不能修改");
+		}
+		if (r.getRepairStatus() != RepairStatus.PENDING_QUOTE) {
+			throw new InvalidRepairStatusException("此階段無法報價");
+		}
+		
+//		都要判斷null，避免有些資訊沒更新到被null覆蓋
+		if (req.getInspectionResult() != null) {
+			r.setInspectionResult(req.getInspectionResult());
+		}
+		if (req.getRepairItems() != null) {
+			r.setRepairItems(req.getRepairItems());
+		}
+		if (req.getEstimatedCost() != null) {
+			r.setEstimatedCost(req.getEstimatedCost());
+		}
+
+		return toResponse(rRepos.save(r));
+	}
+
+//	技師送出報價：repairStatus 待估價->已報價，approvalStatus 無->待確認
+	public RepairsResponse submitQuote(Long id, Integer technicianId) {
+	    Repairs r = rRepos.findById(id)
+	    		.orElseThrow(() -> new EntityNotFoundException("找不到維修單，id=" + id));
+
+	    if (r.getRepairTechnicians() == null) {
+	        throw new InvalidRepairStatusException("尚未有技師認領此維修單，請先認領");
+	    }
+	    if (!r.getRepairTechnicians().getId().equals(technicianId)) {
+	        throw new InvalidRepairStatusException("此維修單不是你認領的，不能送出報價");
+	    }
+	    if (r.getRepairStatus() != RepairStatus.PENDING_QUOTE) {
+	        throw new InvalidRepairStatusException("此階段無法報價");
+	    }
+	    if (r.getInspectionResult() == null || r.getRepairItems() == null || r.getEstimatedCost() == null) {
+	        throw new InvalidRepairStatusException("檢測結果、維修項目、估價金額都要填寫完才能送出報價");
+	    }
+
+	    r.setRepairStatus(RepairStatus.QUOTED);
+	    r.setApprovalStatus(ApprovalStatus.PENDING);
+
+	    return toResponse(rRepos.save(r));
+	}
 	
 	
 }

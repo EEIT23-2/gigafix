@@ -3,14 +3,16 @@ package com.gigafix.repair.dto;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
+import com.gigafix.repair.entity.status.DropoffType;
+
 import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 @Data
-public class RepairsRequest {
-
+public class AppointmentRequest {
+// 客戶填寫預約單
 	@NotNull(message = "會員 ID 不可為空")
 	private Long memberId;
 	
@@ -37,5 +39,5 @@ public class RepairsRequest {
 	private LocalTime timeSlot;
 	
 	@NotNull(message = "請選擇送修方式")
-	private Byte dropoffType;// 例如 1=到店 2=郵寄
+	private DropoffType dropoffType;
 }
