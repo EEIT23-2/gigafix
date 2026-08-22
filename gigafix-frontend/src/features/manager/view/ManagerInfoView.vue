@@ -1,11 +1,16 @@
 <script setup>
-import { RouterView } from 'vue-router'
+import { RouterView } from 'vue-router';
 import axios from 'axios';
-import { ref } from 'vue'
+import { ref } from 'vue';
+import { useFetchAdminInfoStore } from '@/stores/admin';
+import { storeToRefs } from 'pinia'
 import { onMounted } from 'vue';
 import { Modal } from 'bootstrap'
 
-const adminInfo = ref(null)
+//====取得使用者資訊====
+const fetchAdminInfoStore = useFetchAdminInfoStore()
+const { adminInfo } = storeToRefs(fetchAdminInfoStore)
+
 // ===== 修改名稱相關 =====
 const nameModalRef = ref(null)
 let nameModalInstance = null
@@ -88,15 +93,10 @@ const handlePasswordSubmit = async () => {
 
 // ====掛元件時會初始化的動作====
 onMounted(()=>{
-    fetchAdminInfo()
     nameModalInstance = new Modal(nameModalRef.value)
     passwordModalInstance = new Modal(passwordModalRef.value)
 })
-// ==== 點進個人頁面時去資料庫撈自己的資料 ====
-const fetchAdminInfo = async () =>{
-    const response =await axios.get("/api/admin/account/me")
-    adminInfo.value = response.data
-}
+
 </script>
 
 <template>
