@@ -46,8 +46,8 @@ public class AdminAccountService {
 	            throw new AdminBusinessRuleCheckException("總管理員已存在，無法重複建立");
 	        }
 
-	        admin.setName(req.name());
-	        admin.setPassword(passwordEncoder.encode(req.password()));
+	        admin.setName(req.superAdminName());
+	        admin.setPassword(passwordEncoder.encode(req.superAdminPassword()));
 	        admin.setRole(Role.ROLE_SUPER_ADMIN);
 	        admin.setCreateTime(LocalDateTime.now());
 

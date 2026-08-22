@@ -29,10 +29,10 @@ public class AdminAccount {
 	private Integer id;
 	@Column(name = "admin_account_password", nullable = false)
 	private String password;
-	@Column(name = "admin_account_name", nullable = false)
+	@Column(name = "admin_account_name", nullable = false, length = 20)
 	private String name;
 	@Enumerated(EnumType.STRING)//把Enum的值用字串名稱存到database，因為Enum的內容在底層是array
-	@Column(name = "admin_role", nullable = false)
+	@Column(name = "admin_role", nullable = false, length = 25)//雖然腳色寫死，但是長度設小一點每個欄位占用的記憶體空間也會小一點
 	private Role role;
 	@Column(name = "admin_account_created_time", nullable = false)
 	private LocalDateTime createTime;

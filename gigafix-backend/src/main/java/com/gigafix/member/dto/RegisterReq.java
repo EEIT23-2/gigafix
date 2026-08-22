@@ -16,7 +16,9 @@ public record RegisterReq(
 		@Size(min = 8, message = "密碼長度不可低於8個字元")
 		String password,
 		@NotBlank(message = "真實姓名不可為空")
+		@Size(max = 40, message = "真實姓名字數上限為40")
 		String realName,
+		@Size(max = 40, message = "暱稱字數上限為40")
 		@NotBlank(message = "暱稱不可為空")
 		String nickName, 
 		@NotBlank(message = "Email不可為空")

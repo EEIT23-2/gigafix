@@ -14,7 +14,7 @@ import ClientNavBar from '@/components/ClientNavBar.vue';
 
     <!-- 共用頁尾 -->
     <footer class="site-footer">
-      <p>© Smartmobile 創宇通訊 - 版權所有</p>
+      <p>© Gigafix 機不可失 - 歡迎聯絡我們以取得您最好的手機</p>
     </footer>
   </div>
 </template>
