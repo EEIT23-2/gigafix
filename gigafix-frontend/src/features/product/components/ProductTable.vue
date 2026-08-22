@@ -106,7 +106,7 @@ function useFallbackImage(event) {
               {{ saleStatusText(product.sale_status) }}
             </span>
           </td>
-          <td>{{ formatDate(product.createdDate) }}</td>
+          <td>{{ formatDate(product.createdTime) }}</td>
           <td class="text-end text-nowrap">
             <button
               class="btn btn-sm btn-outline-primary me-1"
