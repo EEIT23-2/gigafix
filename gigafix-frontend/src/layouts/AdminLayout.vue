@@ -1,8 +1,22 @@
 <script setup>
 import AdminNavBar from '@/components/AdminNavBar.vue';
-import { ref } from 'vue'
+//抓使用者資料的import
+import { useFetchAdminInfoStore } from '@/stores/admin';
+import { storeToRefs } from 'pinia'
+import axios from 'axios';
+import { useRouter } from 'vue-router'
 
-const adminInfo = ref({})
+//抓使用者資料
+const fetchAdminInfoStore = useFetchAdminInfoStore()
+const { adminInfo } = storeToRefs(fetchAdminInfoStore)
+//登出後強制轉跳頁面需要使用router
+const router = useRouter()
+
+//登出的非同步請求
+const logout = async () =>{
+  await fetchAdminInfoStore.logoutAdmin()
+  router.push('/adminLogin')
+}
 
 </script>
 
@@ -37,9 +51,13 @@ const adminInfo = ref({})
         <!-- 右上角使用者名稱 -->
         <div class="user-section">
           <span class="username">
-            登出
+            <span v-if="adminInfo">
+              美好的一天✨✨~ {{ adminInfo.adminName }}
+            </span>
             |
-            Valerie Luna
+            <button type="button" class="btn-logout" @click="logout">
+              登出
+            </button>
           </span>
         </div>
       </header>
@@ -176,5 +194,22 @@ const adminInfo = ref({})
   flex: 1;
   overflow-y: auto;
   padding: 24px;
+}
+/*登出按鈕*/
+.btn-logout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  font-size: 0.875rem; /* 等同 btn-sm */
+  font-weight: 700;
+  line-height: 1;
+  color: #dc3545; /* Bootstrap danger 紅色 */
+  background-color: #f8d7da; /* Bootstrap danger-subtle 淺粉紅 */
+  border: none;
+  border-radius: 6px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
 }
 </style>
