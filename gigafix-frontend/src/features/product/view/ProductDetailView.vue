@@ -254,11 +254,21 @@ onMounted(fetchProduct);
 }
 .detail-list dt,
 .detail-list dd {
-  padding-top: 0.8rem;
-  padding-bottom: 0.8rem;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+  margin-bottom: 0;
   border-bottom: 1px solid #e8ebf0;
+  display: flex;
+  align-items: center;
 }
+
 .detail-list dt {
   color: #64748b;
+}
+
+/* 移除最後一行的底線，讓介面看起來更乾淨 */
+.detail-list dt:last-of-type,
+.detail-list dd:last-of-type {
+  border-bottom: none;
 }
 </style>

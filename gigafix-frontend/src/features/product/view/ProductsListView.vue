@@ -340,9 +340,7 @@ onMounted(() => fetchProducts(page.value));
               >Total: {{ totalElements }}</span
             >
           </div>
-          <p class="text-secondary mb-0 mt-1">
-            Manage and track pre-owned device inventory.
-          </p>
+          <p class="text-secondary mb-0 mt-1">二手商品庫存管理輕鬆又簡單^^.</p>
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
           <button
@@ -398,7 +396,7 @@ onMounted(() => fetchProducts(page.value));
             v-model.trim="keyword"
             class="form-control search-input"
             type="search"
-            placeholder="搜尋商品名稱..."
+            placeholder="搜尋商品名稱、型號..."
             @keyup.enter="fetchProducts(0)"
           />
           <select
@@ -474,10 +472,11 @@ onMounted(() => fetchProducts(page.value));
             搜尋
           </button>
           <button
-            class="btn btn-outline-secondary text-nowrap position-relative"
+            class="btn btn-outline-secondary text-nowrap position-relative d-inline-flex align-items-center gap-1"
             type="button"
             @click="showAdvancedFilter = true"
           >
+            <span class="material-symbols-outlined">filter_alt</span>
             進階篩選
             <span
               v-if="advancedFilterCount"
