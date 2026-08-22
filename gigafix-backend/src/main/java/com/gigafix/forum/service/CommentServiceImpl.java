@@ -141,6 +141,16 @@ public class CommentServiceImpl implements CommentService {
 				.toList();
 	}
 
+	// 後台單筆留言詳情，不受狀態限制
+	// TODO: 角色系統做好後要加 moderator/admin 權限檢查，目前任何呼叫者都可以執行
+	@Override
+	public CommentResponse getCommentForAdmin(Long commentId) {
+
+		return commentRepository.findById(commentId)
+				.map(comment -> toCommentResponse(comment, null))
+				.orElseThrow(() -> new IllegalArgumentException("留言不存在，commentId：" + commentId));
+	}
+
 	// 後台直接設定留言狀態，並同步文章的留言數
 	// TODO: 角色系統做好後要加 moderator/admin 權限檢查，目前任何呼叫者都可以執行
 	@Override

@@ -56,10 +56,13 @@ public class ArticleServiceImpl implements ArticleService {
 	private static final Set<Article.ArticleStatus> MEMBER_ALLOWED_SOURCES = EnumSet.of(Article.ArticleStatus.DRAFT,
 			Article.ArticleStatus.PUBLISHED, Article.ArticleStatus.HIDDEN, Article.ArticleStatus.CLOSED);
 
-	// 後台可以轉換的目標狀態（1~6 皆可，含強制處分與解除）
+	// 後台可以轉換的目標狀態（管理員可操作：發布、下架、強制隱藏、強制關閉）
 	private static final Set<Article.ArticleStatus> ADMIN_ALLOWED_TARGETS = EnumSet.of(Article.ArticleStatus.PUBLISHED,
-			Article.ArticleStatus.HIDDEN, Article.ArticleStatus.TAKEN_DOWN, Article.ArticleStatus.CLOSED,
-			Article.ArticleStatus.FORCE_HIDDEN, Article.ArticleStatus.FORCE_CLOSED);
+			Article.ArticleStatus.TAKEN_DOWN, Article.ArticleStatus.FORCE_HIDDEN, Article.ArticleStatus.FORCE_CLOSED);
+
+	// 後台可以變更狀態的來源（草稿、作者隱藏不開放管理員操作；強制處分後仍可再被管理員改回來，所以強制隱藏/強制關閉也是合法來源）
+	private static final Set<Article.ArticleStatus> ADMIN_ALLOWED_SOURCES = EnumSet.of(Article.ArticleStatus.PUBLISHED,
+			Article.ArticleStatus.CLOSED, Article.ArticleStatus.FORCE_HIDDEN, Article.ArticleStatus.FORCE_CLOSED);
 
 	// ---------------會員前台功能----------------------
 
@@ -93,8 +96,8 @@ public class ArticleServiceImpl implements ArticleService {
 		Article article = new Article();
 		article.setAuthor(author);
 		article.setCategory(category);
-		article.setTitle(request.getTitle());
-		article.setContent(request.getContent());
+		article.setTitle(emptyIfNull(request.getTitle()));
+		article.setContent(emptyIfNull(request.getContent()));
 		article.setCoverImage(request.getCoverImage());
 		article.setStatus(requestedStatus);
 
@@ -108,10 +111,11 @@ public class ArticleServiceImpl implements ArticleService {
 	@Override
 	public Page<ArticleResponse> getArticles(Integer categoryId, String keyword, String sort, int page, int size) {
 
-		// 排序方式：popular = 依按讚數，其餘（含預設）= 依建立時間新到舊
-		Sort sortOrder = "popular".equalsIgnoreCase(sort)
+		// 排序方式：popular = 依按讚數，其餘（含預設）= 依建立時間新到舊；置頂文章一律排最前面
+		Sort secondarySort = "popular".equalsIgnoreCase(sort)
 				? Sort.by(Sort.Direction.DESC, "likeCount")
 				: Sort.by(Sort.Direction.DESC, "articleCreatedTime");
+		Sort sortOrder = Sort.by(Sort.Direction.DESC, "isPinned").and(secondarySort);
 
 		Pageable pageable = PageRequest.of(page, size, sortOrder);
 
@@ -377,7 +381,11 @@ public class ArticleServiceImpl implements ArticleService {
 		Article article = articleRepository.findById(articleId)
 				.orElseThrow(() -> new IllegalArgumentException("文章不存在，articleId：" + articleId));
 
-		// 後台可以轉換到 1~6 任一狀態（含強制隱藏/強制關閉，以及解除處分改回發布）
+		// 目前狀態必須允許管理員操作（草稿、作者隱藏不開放）
+		if (!ADMIN_ALLOWED_SOURCES.contains(article.getStatus())) {
+			throw new IllegalStateException("目前狀態不允許管理員變更：" + article.getStatus());
+		}
+		// 後台可以轉換到發布/下架/強制隱藏/強制關閉（含解除處分改回發布）
 		if (!ADMIN_ALLOWED_TARGETS.contains(request.getStatus())) {
 			throw new IllegalStateException("不允許轉換為此狀態：" + request.getStatus());
 		}
@@ -409,6 +417,11 @@ public class ArticleServiceImpl implements ArticleService {
 
 	private static boolean isBlank(String s) {
 		return s == null || s.isBlank();
+	}
+
+	// title/content 欄位為 NOT NULL，null 一律轉空字串再存進 entity，避免草稿完全不帶欄位時撞 DB 限制
+	private static String emptyIfNull(String s) {
+		return s == null ? "" : s;
 	}
 
 	// 將 Article Entity 轉成 ArticleResponse DTO（完整內容）

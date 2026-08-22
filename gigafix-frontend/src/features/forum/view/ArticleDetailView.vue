@@ -10,6 +10,8 @@ import {
   addBookmark,
   removeBookmark,
   hasBookmarked,
+  getFloors,
+  createFloor,
   TEST_MEMBER_ID,
 } from '../api'
 import CommentSection from '../components/CommentSection.vue'
@@ -23,8 +25,15 @@ const bookmarked = ref(false)
 const loading = ref(true)
 const errorMessage = ref('')
 
+const floors = ref([])
+const floorContent = ref('')
+const floorSubmitting = ref(false)
+const floorErrorMessage = ref('')
+
 const articleId = computed(() => route.params.articleId)
 const isAuthor = computed(() => article.value?.authorId === TEST_MEMBER_ID)
+// 只有根文章（不是樓層本身）才能被蓋樓
+const canAddFloor = computed(() => !!article.value && article.value.parentArticleId == null)
 
 async function load() {
   loading.value = true
@@ -45,18 +54,30 @@ async function load() {
   }
 }
 
-onMounted(load)
+async function loadFloors() {
+  try {
+    floors.value = await getFloors(articleId.value)
+  } catch {
+    // 樓層載入失敗不影響文章本身的顯示，安靜失敗即可
+  }
+}
+
+onMounted(() => {
+  load()
+  loadFloors()
+})
 
 async function toggleLike() {
   try {
     if (liked.value) {
       await unlikeArticle(articleId.value)
       liked.value = false
+      article.value.likeCount -= 1
     } else {
       await likeArticle(articleId.value)
       liked.value = true
+      article.value.likeCount += 1
     }
-    await load()
   } catch {
     // 本地狀態可能跟伺服器實際狀態不同步（例如上次操作沒真的送達），失敗時反轉一次貼近實際結果
     liked.value = !liked.value
@@ -74,6 +95,22 @@ async function toggleBookmark() {
     }
   } catch {
     bookmarked.value = !bookmarked.value
+  }
+}
+
+async function handleCreateFloor() {
+  if (!floorContent.value.trim()) return
+  floorSubmitting.value = true
+  floorErrorMessage.value = ''
+  try {
+    await createFloor(articleId.value, floorContent.value)
+    floorContent.value = ''
+    await loadFloors()
+  } catch (error) {
+    const fieldError = error.response?.data?.errors?.[0]?.message
+    floorErrorMessage.value = fieldError || '蓋樓失敗，請確認文章目前是否可以蓋樓'
+  } finally {
+    floorSubmitting.value = false
   }
 }
 
@@ -114,6 +151,29 @@ async function handleDelete() {
       </div>
 
       <CommentSection :article-id="articleId" />
+
+      <div v-for="floor in floors" :key="floor.articleId" class="floor-block">
+        <div class="floor-header">
+          <span class="floor-badge">{{ floor.floorNumber }}樓</span>
+          <span class="author">{{ floor.authorNickName }}</span>
+          <span class="time">{{ new Date(floor.articleCreatedTime).toLocaleString() }}</span>
+        </div>
+        <p class="floor-content">{{ floor.content }}</p>
+        <CommentSection :article-id="floor.articleId" />
+      </div>
+
+      <section v-if="canAddFloor" class="floor-form-section">
+        <h3>蓋樓</h3>
+        <form class="floor-form" @submit.prevent="handleCreateFloor">
+          <textarea v-model="floorContent" rows="3" placeholder="回覆這篇文章（蓋樓）..." />
+          <div class="form-footer">
+            <button type="submit" :disabled="floorSubmitting">
+              {{ floorSubmitting ? '送出中...' : '蓋樓' }}
+            </button>
+          </div>
+          <p v-if="floorErrorMessage" class="error">{{ floorErrorMessage }}</p>
+        </form>
+      </section>
     </template>
     <p v-else class="empty">{{ errorMessage || '文章不存在或已被下架' }}</p>
   </div>
@@ -185,5 +245,92 @@ h1 {
   text-align: center;
   color: #999999;
   padding: 60px 0;
+}
+
+.floor-block {
+  margin-top: 20px;
+  padding: 14px 16px;
+  background-color: #f8fafc;
+  border: 1px solid #e5e9f0;
+  border-radius: 6px;
+}
+
+.floor-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: #888888;
+  margin-bottom: 6px;
+}
+
+.floor-badge {
+  padding: 2px 8px;
+  background-color: #2b77c5;
+  color: #ffffff;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.floor-header .author {
+  font-weight: 600;
+  color: #333333;
+}
+
+.floor-content {
+  margin: 0 0 4px;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.floor-form-section {
+  margin-top: 20px;
+  border-top: 1px solid #eaeaea;
+  padding-top: 12px;
+}
+
+.floor-form-section h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.floor-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.floor-form textarea {
+  padding: 8px;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.floor-form .form-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.floor-form button[type='submit'] {
+  padding: 6px 16px;
+  background-color: #2b77c5;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.floor-form button[type='submit']:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.error {
+  color: #c0392b;
+  font-size: 13px;
+  margin: 0;
 }
 </style>

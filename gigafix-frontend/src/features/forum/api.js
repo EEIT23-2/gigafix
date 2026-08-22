@@ -39,6 +39,26 @@ export function deleteArticle(articleId) {
   return http.delete(`/api/members/${TEST_MEMBER_ID}/articles/${articleId}`)
 }
 
+export function updateArticleStatus(articleId, status) {
+  return http
+    .patch(`/api/members/${TEST_MEMBER_ID}/articles/${articleId}/status`, { status })
+    .then((res) => res.data)
+}
+
+// ---------------- 蓋樓（樓層） ----------------
+
+export function getFloors(articleId) {
+  return http
+    .get(`/api/articles/${articleId}/floors`, { params: { memberId: TEST_MEMBER_ID } })
+    .then((res) => res.data)
+}
+
+export function createFloor(articleId, content) {
+  return http
+    .post(`/api/members/${TEST_MEMBER_ID}/articles/${articleId}/floors`, { content })
+    .then((res) => res.data)
+}
+
 // ---------------- 留言 ----------------
 
 export function getComments(articleId) {

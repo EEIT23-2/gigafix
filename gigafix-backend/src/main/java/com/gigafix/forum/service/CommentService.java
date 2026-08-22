@@ -27,6 +27,9 @@ public interface CommentService {
 
 	// ---------------後台管理功能（暫無權限檢查）------------------
 
+	// 後台單筆留言詳情，不受狀態限制
+	CommentResponse getCommentForAdmin(Long commentId);
+
 	// 直接設定留言狀態（隱藏／下架／恢復）
 	CommentResponse updateCommentStatus(Long commentId, UpdateCommentStatusRequest request);
 }

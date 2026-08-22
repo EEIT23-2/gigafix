@@ -130,16 +130,21 @@ async function handleLike(comment) {
 
 <style scoped>
 .comment-section {
-  margin-top: 24px;
+  margin-top: 12px;
   border-top: 1px solid #eaeaea;
-  padding-top: 16px;
+  padding-top: 10px;
+}
+
+.comment-section h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
 }
 
 .comment-form {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 .comment-form textarea {
@@ -187,7 +192,7 @@ async function handleLike(comment) {
 }
 
 .comment-item {
-  padding: 10px 0;
+  padding: 6px 0;
   border-bottom: 1px solid #f0f0f0;
 }
 
@@ -236,6 +241,7 @@ async function handleLike(comment) {
 .empty {
   color: #999999;
   text-align: center;
-  padding: 20px 0;
+  padding: 10px 0;
+  font-size: 13px;
 }
 </style>
