@@ -1,5 +1,9 @@
 <script setup>
 import AdminNavBar from '@/components/AdminNavBar.vue';
+import { ref } from 'vue'
+
+const adminInfo = ref({})
+
 </script>
 
 <template>
@@ -32,7 +36,11 @@ import AdminNavBar from '@/components/AdminNavBar.vue';
 
         <!-- 右上角使用者名稱 -->
         <div class="user-section">
-          <span class="username">Valerie Luna</span>
+          <span class="username">
+            登出
+            |
+            Valerie Luna
+          </span>
         </div>
       </header>
 

@@ -13,6 +13,7 @@ public record AdminCreateReq(
 	    @Size(min = 8, message = "密碼長度不可低於8個字元")
 		String password,
 		@NotBlank(message = "admin名稱不可為空")
+		@Size(max = 20, message = "名稱字數上限為20個")
 		String adminName,
 		@NotNull(message = "admin權限不可為空")
 		Role role
