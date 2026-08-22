@@ -27,7 +27,7 @@ public class OrderItem {
     private String productName; // 商品名稱快照
     @Column(name = "unit_price", nullable = false)
     private Integer unitPrice; // 成交價格快照
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "order_item_created_time", nullable = false)
     private LocalDateTime createdAt; // 建立時間
 
     @PrePersist //訂單只會建立一次 不會修改 所以只需要在建立時設定時間

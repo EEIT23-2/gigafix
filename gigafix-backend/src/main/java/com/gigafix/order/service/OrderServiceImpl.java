@@ -17,6 +17,7 @@ import com.gigafix.order.constant.ShippingStatus;
 import com.gigafix.order.dto.AdminCreateOrderRequest;
 import com.gigafix.order.dto.AdminOrderCreateOptionsResponse;
 import com.gigafix.order.dto.CreateOrderRequest;
+import com.gigafix.order.dto.OrderItemResponse;
 import com.gigafix.order.dto.OrderResponse;
 import com.gigafix.order.dto.PaymentSuccessRequest;
 import com.gigafix.order.dto.ShipOrderRequest;
@@ -585,11 +586,19 @@ public class OrderServiceImpl implements OrderService {
 
     // 將 Order Entity 轉成 OrderResponse DTO
     private OrderResponse toOrderResponse(Order order) {
-
+        List<OrderItemResponse> items = orderItemRepository.findByOrderId(order.getOrderId())
+                .stream()
+                .map(item -> OrderItemResponse.builder()
+                        .productId(item.getProductId())
+                        .productName(item.getProductName())
+                        .unitPrice(item.getUnitPrice())
+                        .build())
+                .toList();
         return OrderResponse.builder()
                 .orderId(order.getOrderId())
                 .memberId(order.getMember().getId())
                 .totalAmount(order.getTotalAmount())
+                .orderItems(items)
                 .orderStatus(order.getOrderStatus())
                 .paymentMethod(order.getPaymentMethod())
                 .paymentStatus(order.getPaymentStatus())
@@ -617,6 +626,8 @@ public class OrderServiceImpl implements OrderService {
                 .map(member -> AdminOrderCreateOptionsResponse.MemberOption.builder()
                         .memberId(member.getId())
                         .memberName(member.getRealName())
+                        .phone(member.getPhone())
+                        .address(member.getAddress())
                         .build())
                 .toList();
 
