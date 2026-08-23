@@ -1,6 +1,7 @@
 package com.gigafix.repair.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -15,6 +16,6 @@ public class RepairTechniciansRequest {
 	@Size(max = 20)
 	private String phone;
 	
-	@NotBlank(message = "請選擇所屬分店" )
+	@NotNull(message = "請選擇所屬分店" )
 	private Byte storeId; // 前端傳入分店 ID
 }

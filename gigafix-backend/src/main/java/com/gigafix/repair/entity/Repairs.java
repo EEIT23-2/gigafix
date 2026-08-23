@@ -12,6 +12,7 @@ import com.gigafix.repair.entity.status.ApprovalStatus;
 import com.gigafix.repair.entity.status.DropoffType;
 import com.gigafix.repair.entity.status.PickupType;
 import com.gigafix.repair.entity.status.RepairPay;
+import com.gigafix.repair.entity.status.RepairPayStatus;
 import com.gigafix.repair.entity.status.RepairStatus;
 
 import jakarta.persistence.Column;
@@ -113,7 +114,8 @@ public class Repairs {
 	private RepairPay repairPay;
 	
 	@Column(name = "repair_pay_status")
-	private Byte repairPayStatus;
+	@Enumerated(EnumType.ORDINAL)
+	private RepairPayStatus repairPayStatus;
 	
 	@Column(name = "pickup_type")
 	@Enumerated(EnumType.ORDINAL)

@@ -5,6 +5,9 @@ import java.time.LocalTime;
 
 import com.gigafix.repair.entity.status.ApprovalStatus;
 import com.gigafix.repair.entity.status.DropoffType;
+import com.gigafix.repair.entity.status.PickupType;
+import com.gigafix.repair.entity.status.RepairPay;
+import com.gigafix.repair.entity.status.RepairPayStatus;
 import com.gigafix.repair.entity.status.RepairStatus;
 
 import lombok.AllArgsConstructor;
@@ -37,6 +40,12 @@ public class RepairsResponse{
 	private String repairItems;
 	private Integer estimatedCost;
 	private ApprovalStatus approvalStatus;
+
+//	3. 結案
+	private Integer finalCost;
+	private RepairPay repairPay;
+	private RepairPayStatus repairPayStatus;
+	private PickupType pickupType;
 	
 
 }
