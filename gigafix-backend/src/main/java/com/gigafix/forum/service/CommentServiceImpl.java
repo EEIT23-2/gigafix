@@ -1,8 +1,6 @@
 package com.gigafix.forum.service;
 
-import java.util.EnumSet;
 import java.util.List;
-import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,10 +34,6 @@ public class CommentServiceImpl implements CommentService {
 	// 讚 Repository（查詢呼叫者是否已對某則留言按讚用）
 	private final LikeRepository likeRepository;
 
-	// 留言/蓋樓被鎖住的狀態（4=關閉 6=強制關閉）
-	private static final Set<Article.ArticleStatus> CLOSED_STATUSES = EnumSet.of(Article.ArticleStatus.CLOSED,
-			Article.ArticleStatus.FORCE_CLOSED);
-
 	// 留言
 	@Override
 	@Transactional
@@ -53,8 +47,8 @@ public class CommentServiceImpl implements CommentService {
 		Article article = articleRepository.findById(articleId)
 				.orElseThrow(() -> new IllegalArgumentException("文章不存在，articleId：" + articleId));
 
-		// 文章關閉（4）或強制關閉（6）時不能留言，其餘狀態皆可
-		if (CLOSED_STATUSES.contains(article.getStatus())) {
+		// 只有發布中的文章可以留言（草稿/作者隱藏/下架/關閉/強制隱藏/強制關閉都不行）
+		if (article.getStatus() != Article.ArticleStatus.PUBLISHED) {
 			throw new IllegalStateException("文章目前無法留言");
 		}
 

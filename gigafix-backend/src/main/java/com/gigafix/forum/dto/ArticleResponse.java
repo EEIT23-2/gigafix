@@ -33,4 +33,5 @@ public class ArticleResponse {
 	private String visibilityMessage; // visible=false 時的說明文字；visible=true 時為 null
 	private Long parentArticleId; // 所屬根文章 id；一般文章/專欄為 null，樓層才有值
 	private Integer floorNumber; // 第幾樓；只有蓋樓相關 API（列表/建立）會填，其餘為 null
+	private Integer floorCount; // 這篇文章底下有幾樓；樓層本身查出來固定是 0
 }

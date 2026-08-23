@@ -12,6 +12,7 @@ import {
   hasBookmarked,
   getFloors,
   createFloor,
+  reportArticle,
   TEST_MEMBER_ID,
 } from '../api'
 import CommentSection from '../components/CommentSection.vue'
@@ -29,11 +30,27 @@ const floors = ref([])
 const floorContent = ref('')
 const floorSubmitting = ref(false)
 const floorErrorMessage = ref('')
+const floorTextareaRef = ref(null)
+
+const showReportForm = ref(false)
+const reportReason = ref('')
+const reportSubmitting = ref(false)
+const reportErrorMessage = ref('')
+const reportSuccessMessage = ref('')
 
 const articleId = computed(() => route.params.articleId)
 const isAuthor = computed(() => article.value?.authorId === TEST_MEMBER_ID)
 // 只有根文章（不是樓層本身）才能被蓋樓
 const canAddFloor = computed(() => !!article.value && article.value.parentArticleId == null)
+const floorLocked = computed(
+  () => article.value?.status === 'CLOSED' || article.value?.status === 'FORCE_CLOSED',
+)
+
+function autoResize(event) {
+  const el = event.target
+  el.style.height = 'auto'
+  el.style.height = `${el.scrollHeight}px`
+}
 
 async function load() {
   loading.value = true
@@ -105,12 +122,37 @@ async function handleCreateFloor() {
   try {
     await createFloor(articleId.value, floorContent.value)
     floorContent.value = ''
+    if (floorTextareaRef.value) floorTextareaRef.value.style.height = 'auto'
     await loadFloors()
   } catch (error) {
     const fieldError = error.response?.data?.errors?.[0]?.message
     floorErrorMessage.value = fieldError || '蓋樓失敗，請確認文章目前是否可以蓋樓'
   } finally {
     floorSubmitting.value = false
+  }
+}
+
+function toggleReportForm() {
+  reportSuccessMessage.value = ''
+  reportErrorMessage.value = ''
+  reportReason.value = ''
+  showReportForm.value = !showReportForm.value
+}
+
+async function handleReportSubmit() {
+  if (!reportReason.value.trim()) return
+  reportSubmitting.value = true
+  reportErrorMessage.value = ''
+  try {
+    await reportArticle(articleId.value, reportReason.value)
+    showReportForm.value = false
+    reportReason.value = ''
+    reportSuccessMessage.value = '已送出檢舉'
+  } catch (error) {
+    const fieldError = error.response?.data?.errors?.[0]?.message
+    reportErrorMessage.value = fieldError || '檢舉失敗，請稍後再試'
+  } finally {
+    reportSubmitting.value = false
   }
 }
 
@@ -125,55 +167,88 @@ async function handleDelete() {
   <div class="article-detail-view">
     <p v-if="loading">載入中...</p>
     <template v-else-if="article">
-      <div class="header">
-        <span class="category">{{ article.categoryName }}</span>
-        <h1>{{ article.title }}</h1>
-        <div class="meta">
-          <span>{{ article.authorNickName }}</span>
-          <span>{{ new Date(article.articleCreatedTime).toLocaleString() }}</span>
-          <span>👁 {{ article.viewCount }}</span>
+      <p v-if="!article.visible" class="empty">{{ article.visibilityMessage }}</p>
+      <template v-else>
+        <div class="header">
+          <span class="category">{{ article.categoryName }}</span>
+          <h1>{{ article.title }}</h1>
+          <div class="meta">
+            <span>{{ article.authorNickName }}</span>
+            <span>{{ new Date(article.articleCreatedTime).toLocaleString() }}</span>
+            <span>👁 {{ article.viewCount }}</span>
+            <span>
+              <span :title="`[蓋樓數: ${article.floorCount}]`">🧱{{ article.floorCount }}</span
+              >/<span :title="`[留言數: ${article.commentCount}]`">💬{{ article.commentCount }}</span>
+            </span>
+          </div>
         </div>
-      </div>
 
-      <img v-if="article.coverImage" class="cover" :src="article.coverImage" alt="" />
+        <img v-if="article.coverImage" class="cover" :src="article.coverImage" alt="" />
 
-      <div class="content" v-html="article.content"></div>
+        <div class="content" v-html="article.content"></div>
 
-      <div class="actions">
-        <button type="button" @click="toggleLike">👍 讚 {{ article.likeCount }}</button>
-        <button type="button" @click="toggleBookmark">
-          {{ bookmarked ? '★ 已收藏' : '☆ 收藏' }}
-        </button>
-        <template v-if="isAuthor">
-          <RouterLink :to="{ name: 'forumEdit', params: { articleId } }">編輯</RouterLink>
-          <button type="button" class="delete" @click="handleDelete">刪除</button>
-        </template>
-      </div>
-
-      <CommentSection :article-id="articleId" />
-
-      <div v-for="floor in floors" :key="floor.articleId" class="floor-block">
-        <div class="floor-header">
-          <span class="floor-badge">{{ floor.floorNumber }}樓</span>
-          <span class="author">{{ floor.authorNickName }}</span>
-          <span class="time">{{ new Date(floor.articleCreatedTime).toLocaleString() }}</span>
+        <div class="actions">
+          <button type="button" @click="toggleLike">👍 讚 {{ article.likeCount }}</button>
+          <button type="button" @click="toggleBookmark">
+            {{ bookmarked ? '★ 已收藏' : '☆ 收藏' }}
+          </button>
+          <button v-if="!isAuthor" type="button" class="report" @click="toggleReportForm">🚩 檢舉</button>
+          <template v-if="isAuthor">
+            <RouterLink :to="{ name: 'forumEdit', params: { articleId } }">編輯</RouterLink>
+            <button type="button" class="delete" @click="handleDelete">刪除</button>
+          </template>
         </div>
-        <p class="floor-content">{{ floor.content }}</p>
-        <CommentSection :article-id="floor.articleId" />
-      </div>
 
-      <section v-if="canAddFloor" class="floor-form-section">
-        <h3>蓋樓</h3>
-        <form class="floor-form" @submit.prevent="handleCreateFloor">
-          <textarea v-model="floorContent" rows="3" placeholder="回覆這篇文章（蓋樓）..." />
+        <form v-if="showReportForm" class="report-form" @submit.prevent="handleReportSubmit">
+          <textarea
+            v-model="reportReason"
+            rows="1"
+            maxlength="500"
+            placeholder="請輸入檢舉原因..."
+            @input="autoResize"
+          />
           <div class="form-footer">
-            <button type="submit" :disabled="floorSubmitting">
-              {{ floorSubmitting ? '送出中...' : '蓋樓' }}
+            <button type="button" class="cancel" @click="toggleReportForm">取消</button>
+            <button type="submit" :disabled="reportSubmitting">
+              {{ reportSubmitting ? '送出中...' : '送出檢舉' }}
             </button>
           </div>
-          <p v-if="floorErrorMessage" class="error">{{ floorErrorMessage }}</p>
+          <p v-if="reportErrorMessage" class="error">{{ reportErrorMessage }}</p>
         </form>
-      </section>
+        <p v-if="reportSuccessMessage" class="report-success">{{ reportSuccessMessage }}</p>
+
+        <CommentSection :article-id="articleId" :status="article.status" />
+
+        <div v-for="floor in floors" :key="floor.articleId" class="floor-block">
+          <div class="floor-header">
+            <span class="floor-badge">{{ floor.floorNumber }}樓</span>
+            <span class="author">{{ floor.authorNickName }}</span>
+            <span class="time">{{ new Date(floor.articleCreatedTime).toLocaleString() }}</span>
+          </div>
+          <p class="floor-content">{{ floor.content }}</p>
+          <CommentSection :article-id="floor.articleId" :status="floor.status" />
+        </div>
+
+        <section v-if="canAddFloor" class="floor-form-section">
+          <h3>蓋樓</h3>
+          <p v-if="floorLocked" class="locked-message">蓋樓功能已關閉</p>
+          <form v-else class="floor-form" @submit.prevent="handleCreateFloor">
+            <textarea
+              ref="floorTextareaRef"
+              v-model="floorContent"
+              rows="1"
+              placeholder="回覆這篇文章（蓋樓）..."
+              @input="autoResize"
+            />
+            <div class="form-footer">
+              <button type="submit" :disabled="floorSubmitting">
+                {{ floorSubmitting ? '送出中...' : '蓋樓' }}
+              </button>
+            </div>
+            <p v-if="floorErrorMessage" class="error">{{ floorErrorMessage }}</p>
+          </form>
+        </section>
+      </template>
     </template>
     <p v-else class="empty">{{ errorMessage || '文章不存在或已被下架' }}</p>
   </div>
@@ -241,10 +316,71 @@ h1 {
   border-color: #f0c0c0;
 }
 
+.actions .report {
+  color: #a15c00;
+  border-color: #e8d3a0;
+}
+
 .empty {
   text-align: center;
   color: #999999;
   padding: 60px 0;
+}
+
+.report-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 8px;
+  background-color: #fffaf0;
+  border: 1px solid #e8d3a0;
+  border-radius: 4px;
+}
+
+.report-form textarea {
+  padding: 8px;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  font-family: inherit;
+  resize: none;
+  overflow: hidden;
+}
+
+.report-form .form-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.report-form .cancel {
+  padding: 4px 12px;
+  font-size: 13px;
+  background: none;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.report-form button[type='submit'] {
+  padding: 4px 12px;
+  font-size: 13px;
+  background-color: #2b77c5;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.report-form button[type='submit']:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.report-success {
+  margin: 8px 0 0;
+  color: #1e7e34;
+  font-size: 13px;
 }
 
 .floor-block {
@@ -306,7 +442,8 @@ h1 {
   border: 1px solid #d0d0d0;
   border-radius: 4px;
   font-family: inherit;
-  resize: vertical;
+  resize: none;
+  overflow: hidden;
 }
 
 .floor-form .form-footer {
@@ -315,7 +452,8 @@ h1 {
 }
 
 .floor-form button[type='submit'] {
-  padding: 6px 16px;
+  padding: 4px 12px;
+  font-size: 13px;
   background-color: #2b77c5;
   color: #ffffff;
   border: none;
@@ -326,6 +464,11 @@ h1 {
 .floor-form button[type='submit']:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+.locked-message {
+  color: #999999;
+  font-size: 13px;
 }
 
 .error {

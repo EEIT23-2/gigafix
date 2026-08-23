@@ -30,6 +30,17 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
 	Page<Article> search(@Param("statuses") Collection<Article.ArticleStatus> statuses,
 			@Param("categoryId") Integer categoryId, @Param("keyword") String keyword, Pageable pageable);
 
+	// 熱門排序：讚數 > 蓋樓數 > 瀏覽數，蓋樓數用 correlated subquery 現算（沒有落地欄位，避免要對既有資料 backfill），
+	// 排序完全寫死在 JPQL 裡，呼叫端要傳「不帶 Sort」的 Pageable，避免跟這裡的 ORDER BY 衝突
+	@Query("SELECT a FROM Article a WHERE a.status IN :statuses AND a.parentArticle IS NULL "
+			+ "AND (:categoryId IS NULL OR a.category.categoryId = :categoryId) "
+			+ "AND (:keyword IS NULL OR a.title LIKE %:keyword% OR a.content LIKE %:keyword%) "
+			+ "ORDER BY a.isPinned DESC, a.likeCount DESC, "
+			+ "(SELECT COUNT(f) FROM Article f WHERE f.parentArticle = a) DESC, "
+			+ "a.viewCount DESC")
+	Page<Article> searchOrderByPopularity(@Param("statuses") Collection<Article.ArticleStatus> statuses,
+			@Param("categoryId") Integer categoryId, @Param("keyword") String keyword, Pageable pageable);
+
 	// 後台文章列表查詢：狀態選填（null 代表不篩選），不排除樓層，多一個作者篩選
 	@Query("SELECT a FROM Article a WHERE (:status IS NULL OR a.status = :status) "
 			+ "AND (:categoryId IS NULL OR a.category.categoryId = :categoryId) "

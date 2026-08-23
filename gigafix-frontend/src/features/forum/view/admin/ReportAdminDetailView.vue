@@ -6,10 +6,19 @@ import {
   getArticleForAdmin,
   getCommentForAdmin,
   getArticleComments,
+  updateArticleStatus,
   updateCommentStatus,
   updateReportStatus,
 } from '../../adminApi'
-import { COMMENT_STATUS_MAP, REPORT_STATUS_MAP, statusBadgeClass, statusLabel } from '../../adminStatusMaps'
+import {
+  ADMIN_ARTICLE_SOURCE_STATUSES,
+  ADMIN_ARTICLE_STATUS_OPTIONS,
+  ARTICLE_STATUS_MAP,
+  COMMENT_STATUS_MAP,
+  REPORT_STATUS_MAP,
+  statusBadgeClass,
+  statusLabel,
+} from '../../adminStatusMaps'
 
 const route = useRoute()
 const router = useRouter()
@@ -27,7 +36,15 @@ const commentActionBusy = ref(false)
 const reportSubmitting = ref(false)
 const targetReportStatus = ref('')
 
+const articleTargetStatus = ref('')
+const articleTargetPinned = ref(false)
+const articleStatusSubmitting = ref(false)
+
 const isCommentReport = computed(() => report.value?.commentId != null)
+
+const canChangeArticleStatus = computed(
+  () => !!article.value && ADMIN_ARTICLE_SOURCE_STATUSES.includes(article.value.status),
+)
 
 const highlightedCommentVisibleInline = computed(
   () =>
@@ -55,6 +72,10 @@ async function fetchAll() {
       reportedComment.value = await getCommentForAdmin(report.value.commentId)
       article.value = await getArticleForAdmin(reportedComment.value.articleId)
       inlineComments.value = await getArticleComments(reportedComment.value.articleId)
+    }
+
+    if (article.value) {
+      articleTargetPinned.value = article.value.isPinned ?? false
     }
   } catch (error) {
     console.error(error)
@@ -90,6 +111,28 @@ async function handleCommentStatusAction(status) {
       : '無法連線到後端伺服器'
   } finally {
     commentActionBusy.value = false
+  }
+}
+
+async function handleArticleStatusSubmit() {
+  if (!articleTargetStatus.value) return
+  articleStatusSubmitting.value = true
+  errorMessage.value = ''
+  successMessage.value = ''
+  try {
+    article.value = await updateArticleStatus(article.value.articleId, {
+      status: articleTargetStatus.value,
+      isPinned: articleTargetPinned.value,
+    })
+    articleTargetStatus.value = ''
+    successMessage.value = '文章狀態已更新'
+  } catch (error) {
+    console.error(error)
+    errorMessage.value = error.response
+      ? `文章狀態更新失敗：HTTP ${error.response.status}`
+      : '無法連線到後端伺服器'
+  } finally {
+    articleStatusSubmitting.value = false
   }
 }
 
@@ -173,31 +216,70 @@ onMounted(fetchAll)
                 {{ isCommentReport ? '被檢舉留言所屬的文章' : '被檢舉的文章' }}
               </h3>
               <button class="btn btn-sm btn-outline-primary" type="button" @click="goToArticleDetail">
-                前往文章管理頁
+                查看完整文章詳情
               </button>
             </div>
             <div class="text-secondary small mb-1">文章 ID：{{ article.articleId }}</div>
-            <h4 class="h5 fw-semibold mb-2">{{ article.title || '（無標題）' }}</h4>
-            <div v-if="!isCommentReport" class="article-content">{{ article.content }}</div>
+            <span class="badge mb-2" :class="statusBadgeClass(ARTICLE_STATUS_MAP, article.status)">
+              {{ statusLabel(ARTICLE_STATUS_MAP, article.status) }}
+            </span>
+            <h4 class="h5 fw-semibold mb-2 mt-2">{{ article.title || '（無標題）' }}</h4>
+            <div v-if="!isCommentReport" class="article-content mb-3">{{ article.content }}</div>
+
+            <hr />
+            <h5 class="h6 fw-bold mb-2">變更文章狀態</h5>
+            <p v-if="!canChangeArticleStatus" class="text-secondary small mb-0">
+              此文章目前狀態為「{{ statusLabel(ARTICLE_STATUS_MAP, article.status) }}」，管理員無法變更狀態。
+            </p>
+            <form
+              v-else
+              class="d-flex flex-wrap align-items-end gap-3"
+              @submit.prevent="handleArticleStatusSubmit"
+            >
+              <div>
+                <label class="form-label small text-secondary" for="article-target-status">要變更的狀態</label>
+                <select id="article-target-status" v-model="articleTargetStatus" class="form-select">
+                  <option value="">請選擇要變更的狀態</option>
+                  <option v-for="value in ADMIN_ARTICLE_STATUS_OPTIONS" :key="value" :value="value">
+                    {{ statusLabel(ARTICLE_STATUS_MAP, value) }}
+                  </option>
+                </select>
+              </div>
+              <div class="form-check">
+                <input
+                  id="article-target-pinned"
+                  v-model="articleTargetPinned"
+                  class="form-check-input"
+                  type="checkbox"
+                />
+                <label class="form-check-label" for="article-target-pinned">置頂</label>
+              </div>
+              <button
+                class="btn btn-sm btn-primary"
+                type="submit"
+                :disabled="!articleTargetStatus || articleStatusSubmitting"
+              >
+                {{ articleStatusSubmitting ? '更新中...' : '送出變更' }}
+              </button>
+            </form>
           </div>
         </section>
 
         <section v-if="isCommentReport && reportedComment" class="card mb-4">
           <div class="card-body p-4">
-            <h3 class="h5 fw-bold mb-3">文章底下所有留言（被檢舉留言已高亮）</h3>
+            <h3 class="h5 fw-bold mb-3">被檢舉的留言</h3>
 
-            <div v-if="!highlightedCommentVisibleInline" class="callout mb-3">
+            <div class="reported-comment-card mb-3">
               <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="fw-semibold">{{ reportedComment.authorNickName }}（#{{ reportedComment.authorId }}）</span>
                 <span class="badge" :class="statusBadgeClass(COMMENT_STATUS_MAP, reportedComment.status)">
                   {{ statusLabel(COMMENT_STATUS_MAP, reportedComment.status) }}
                 </span>
-                <span class="small text-secondary">此留言已下架，不會顯示在下方留言列表中</span>
               </div>
-              <div class="fw-semibold">{{ reportedComment.authorNickName }}（#{{ reportedComment.authorId }}）</div>
               <div class="comment-content">{{ reportedComment.content }}</div>
             </div>
 
-            <div class="d-flex flex-wrap gap-2 mb-3">
+            <div class="d-flex flex-wrap gap-2 mb-4">
               <button
                 class="btn btn-sm btn-outline-warning"
                 type="button"
@@ -224,6 +306,10 @@ onMounted(fetchAll)
               </button>
             </div>
 
+            <h4 class="h6 fw-bold mb-2">所屬文章的其他留言</h4>
+            <p v-if="!highlightedCommentVisibleInline" class="text-secondary small mb-2">
+              此留言目前已下架，不會顯示在下方列表中。
+            </p>
             <ul class="list-unstyled comment-list mb-0">
               <li
                 v-for="comment in inlineComments"
@@ -292,9 +378,9 @@ onMounted(fetchAll)
   line-height: 1.7;
   white-space: pre-wrap;
 }
-.callout {
-  border: 1px solid #f0c0c0;
-  background: #fff5f5;
+.reported-comment-card {
+  border: 1px solid #e8ebf0;
+  background: #f8fafc;
   border-radius: 8px;
   padding: 12px 16px;
 }

@@ -43,10 +43,6 @@ public class ArticleServiceImpl implements ArticleService {
 	private static final Set<Article.ArticleStatus> FULLY_PUBLIC_STATUSES = EnumSet.of(
 			Article.ArticleStatus.PUBLISHED, Article.ArticleStatus.CLOSED, Article.ArticleStatus.FORCE_CLOSED);
 
-	// 留言/蓋樓被鎖住的狀態（4=關閉 6=強制關閉）
-	private static final Set<Article.ArticleStatus> CLOSED_STATUSES = EnumSet.of(Article.ArticleStatus.CLOSED,
-			Article.ArticleStatus.FORCE_CLOSED);
-
 	// 會員可以自行轉換的目標狀態
 	private static final Set<Article.ArticleStatus> MEMBER_ALLOWED_TARGETS = EnumSet.of(
 			Article.ArticleStatus.PUBLISHED, Article.ArticleStatus.HIDDEN, Article.ArticleStatus.TAKEN_DOWN,
@@ -111,16 +107,18 @@ public class ArticleServiceImpl implements ArticleService {
 	@Override
 	public Page<ArticleResponse> getArticles(Integer categoryId, String keyword, String sort, int page, int size) {
 
-		// 排序方式：popular = 依按讚數，其餘（含預設）= 依建立時間新到舊；置頂文章一律排最前面
-		Sort secondarySort = "popular".equalsIgnoreCase(sort)
-				? Sort.by(Sort.Direction.DESC, "likeCount")
-				: Sort.by(Sort.Direction.DESC, "articleCreatedTime");
-		Sort sortOrder = Sort.by(Sort.Direction.DESC, "isPinned").and(secondarySort);
-
-		Pageable pageable = PageRequest.of(page, size, sortOrder);
-
-		// 只查可公開瀏覽的文章（發布/關閉/強制關閉），分類/關鍵字為選填條件，樓層已在查詢裡排除
-		Page<Article> articles = articleRepository.search(FULLY_PUBLIC_STATUSES, categoryId, keyword, pageable);
+		Page<Article> articles;
+		if ("popular".equalsIgnoreCase(sort)) {
+			// 熱門排序：讚 > 蓋樓 > 瀏覽，完整排序寫死在 JPQL 裡，Pageable 不能再帶 Sort，避免衝突
+			Pageable pageable = PageRequest.of(page, size);
+			articles = articleRepository.searchOrderByPopularity(FULLY_PUBLIC_STATUSES, categoryId, keyword, pageable);
+		} else {
+			// 預設（latest）：依建立時間新到舊；置頂文章一律排最前面
+			Sort sortOrder = Sort.by(Sort.Direction.DESC, "isPinned")
+					.and(Sort.by(Sort.Direction.DESC, "articleCreatedTime"));
+			Pageable pageable = PageRequest.of(page, size, sortOrder);
+			articles = articleRepository.search(FULLY_PUBLIC_STATUSES, categoryId, keyword, pageable);
+		}
 
 		return articles.map(this::toArticleResponse);
 	}
@@ -324,8 +322,8 @@ public class ArticleServiceImpl implements ArticleService {
 		if (root.getParentArticle() != null) {
 			throw new IllegalStateException("不可在樓層下再建立樓層");
 		}
-		// 文章關閉時不能蓋樓
-		if (CLOSED_STATUSES.contains(root.getStatus())) {
+		// 只有發布中的文章可以蓋樓（草稿/作者隱藏/下架/關閉/強制隱藏/強制關閉都不行）
+		if (root.getStatus() != Article.ArticleStatus.PUBLISHED) {
 			throw new IllegalStateException("文章目前無法蓋樓");
 		}
 
@@ -443,6 +441,7 @@ public class ArticleServiceImpl implements ArticleService {
 				.viewCount(article.getViewCount())
 				.likeCount(article.getLikeCount())
 				.commentCount(article.getCommentCount())
+				.floorCount((int) articleRepository.countByParentArticle_ArticleId(article.getArticleId()))
 				.coverImage(visible ? article.getCoverImage() : null)
 				.status(article.getStatus().name())
 				.isPinned(article.getIsPinned())

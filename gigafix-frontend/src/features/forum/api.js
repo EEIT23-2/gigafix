@@ -45,6 +45,20 @@ export function updateArticleStatus(articleId, status) {
     .then((res) => res.data)
 }
 
+// ---------------- 檢舉 ----------------
+
+export function reportArticle(articleId, reason) {
+  return http
+    .post(`/api/members/${TEST_MEMBER_ID}/articles/${articleId}/reports`, { reason })
+    .then((res) => res.data)
+}
+
+export function reportComment(commentId, reason) {
+  return http
+    .post(`/api/members/${TEST_MEMBER_ID}/comments/${commentId}/reports`, { reason })
+    .then((res) => res.data)
+}
+
 // ---------------- 蓋樓（樓層） ----------------
 
 export function getFloors(articleId) {

@@ -83,9 +83,10 @@ function goToDetail(article) {
 async function handleTogglePin(article) {
   errorMessage.value = ''
   try {
-    await updateArticlePin(article.articleId, !article.isPinned)
-    successMessage.value = article.isPinned ? '已取消置頂' : '已設為置頂'
-    await fetchArticles(page.value)
+    const newPinned = !article.isPinned
+    await updateArticlePin(article.articleId, newPinned)
+    article.isPinned = newPinned
+    successMessage.value = newPinned ? '已設為置頂' : '已取消置頂'
   } catch (error) {
     console.error(error)
     errorMessage.value = error.response
