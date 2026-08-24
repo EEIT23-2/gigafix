@@ -46,6 +46,11 @@ public class Article {
 	@JoinColumn(name = "author_id", nullable = false)
 	private Member author;
 
+	// 蓋樓用：NULL = 一般文章/專欄；有值 = 樓層，指向該串的根文章本身（不是上一樓）
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "parent_article_id")
+	private Article parentArticle;
+
 	@Column(name = "title", nullable = false, columnDefinition = "NVARCHAR(255)")
 	private String title;
 
@@ -64,10 +69,10 @@ public class Article {
 	@Column(name = "cover_image", columnDefinition = "VARCHAR(255)")
 	private String coverImage;
 
-	// 狀態代碼：0=草稿 1=發布 2=隱藏 3=下架 4=限制，用宣告順序對應 TINYINT，新增狀態只能加在最後面
+	// 狀態代碼：0=草稿 1=發布 2=隱藏 3=下架 4=關閉 5=強制隱藏 6=強制關閉，用宣告順序對應 TINYINT，新增狀態只能加在最後面
 	// CK_articles_status：資料庫端再擋一次，避免非法數值繞過應用層直接寫進 TINYINT 欄位
 	@Enumerated(EnumType.ORDINAL)
-	@Column(name = "status", nullable = false, columnDefinition = "TINYINT", check = @CheckConstraint(name = "CK_articles_status", constraint = "status IN (0,1,2,3,4)"))
+	@Column(name = "status", nullable = false, columnDefinition = "TINYINT", check = @CheckConstraint(name = "CK_articles_status", constraint = "status IN (0,1,2,3,4,5,6)"))
 	private ArticleStatus status;
 
 	@Column(name = "is_pinned", nullable = false)
@@ -107,6 +112,6 @@ public class Article {
 	}
 
 	public enum ArticleStatus {
-		DRAFT, PUBLISHED, HIDDEN, TAKEN_DOWN, RESTRICTED
+		DRAFT, PUBLISHED, HIDDEN, TAKEN_DOWN, CLOSED, FORCE_HIDDEN, FORCE_CLOSED
 	}
 }

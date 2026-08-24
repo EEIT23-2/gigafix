@@ -1,6 +1,8 @@
 package com.gigafix.forum.service;
 
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +31,10 @@ public class BookmarkServiceImpl implements BookmarkService {
 	// 會員 Repository
 	private final MemberRepository memberRepository;
 
+	// 完整可見的狀態（1=發布 4=關閉 6=強制關閉），只有這些狀態的文章可以被收藏
+	private static final Set<Article.ArticleStatus> FULLY_PUBLIC_STATUSES = EnumSet.of(
+			Article.ArticleStatus.PUBLISHED, Article.ArticleStatus.CLOSED, Article.ArticleStatus.FORCE_CLOSED);
+
 	// 收藏文章
 	@Override
 	@Transactional
@@ -38,9 +44,9 @@ public class BookmarkServiceImpl implements BookmarkService {
 		Member member = memberRepository.findById(memberId)
 				.orElseThrow(() -> new IllegalArgumentException("會員不存在，memberId：" + memberId));
 
-		// 查詢文章，非已發布狀態視為不存在
+		// 查詢文章，非完整可見狀態視為不存在
 		Article article = articleRepository.findById(articleId)
-				.filter(a -> a.getStatus() == Article.ArticleStatus.PUBLISHED)
+				.filter(a -> FULLY_PUBLIC_STATUSES.contains(a.getStatus()))
 				.orElseThrow(() -> new IllegalArgumentException("文章不存在，articleId：" + articleId));
 
 		// 檢查是否已經收藏過
@@ -119,8 +125,12 @@ public class BookmarkServiceImpl implements BookmarkService {
 				.coverImage(article.getCoverImage())
 				.status(article.getStatus().name())
 				.isPinned(article.getIsPinned())
+				.parentArticleId(article.getParentArticle() != null ? article.getParentArticle().getArticleId() : null)
 				.articleCreatedTime(article.getArticleCreatedTime())
 				.articleUpdatedTime(article.getArticleUpdatedTime())
+				// 能被收藏的文章一定通過了上面的 FULLY_PUBLIC_STATUSES 過濾，這裡固定完整可見
+				.visible(true)
+				.visibilityMessage(null)
 				.build();
 	}
 }

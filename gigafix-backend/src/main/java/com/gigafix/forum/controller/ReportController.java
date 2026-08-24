@@ -60,6 +60,16 @@ public class ReportController {
 		return ResponseEntity.ok(responses);
 	}
 
+	// 單筆檢舉詳情（後台用）
+	// TODO: 角色系統做好後要加 moderator/admin 權限檢查，目前任何呼叫者都可以執行
+	@GetMapping("/api/admin/reports/{reportId}")
+	public ResponseEntity<ReportResponse> getReport(@PathVariable Long reportId) {
+
+		ReportResponse response = reportService.getReport(reportId);
+
+		return ResponseEntity.ok(response);
+	}
+
 	// 處理／關閉檢舉
 	// TODO: 角色系統做好後要加 moderator/admin 權限檢查，目前任何呼叫者都可以執行
 	@PatchMapping("/api/reports/{reportId}/status")
