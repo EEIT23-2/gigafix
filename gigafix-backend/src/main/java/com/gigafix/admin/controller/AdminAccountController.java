@@ -89,10 +89,10 @@ public class AdminAccountController {
         return ResponseEntity.ok().build(); //200
     }
 	
+	//總管理員刪除其他管理員
     @DeleteMapping
     public ResponseEntity<Void> deleteAdmin(@Valid @RequestBody DeleteAdminReq deleteAdminReq) {
-    	System.out.println(deleteAdminReq.adminId());
-    	accountService.deleteAccount(deleteAdminReq.adminId());
+    	accountService.deleteAccount(deleteAdminReq);
         return ResponseEntity.noContent().build(); //204
     }
 	
