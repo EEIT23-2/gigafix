@@ -170,16 +170,16 @@ public class RepairsService {
 		return toResponse(repair);
 	}
 	
-//	查全部
-	public List<RepairsResponse> selectAll() {
-
-		List<Repairs> list = rRepos.findAll();
-		List<RepairsResponse> result = new ArrayList<RepairsResponse>();
-		for(Repairs r : list) {
-			result.add(toResponse(r));
-		}
-		return result;
-	}
+////	查全部，沒用到了
+//	public List<RepairsResponse> selectAll() {
+//
+//		List<Repairs> list = rRepos.findAll();
+//		List<RepairsResponse> result = new ArrayList<RepairsResponse>();
+//		for(Repairs r : list) {
+//			result.add(toResponse(r));
+//		}
+//		return result;
+//	}
 	
 //	查全部(另一種寫法)
 //	public List<RepairsResponse> findAll() {
