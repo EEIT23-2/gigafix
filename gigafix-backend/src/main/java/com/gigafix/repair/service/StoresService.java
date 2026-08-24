@@ -8,9 +8,9 @@ import org.springframework.stereotype.Service;
 import com.gigafix.repair.dto.StoresRequest;
 import com.gigafix.repair.dto.StoresResponse;
 import com.gigafix.repair.entity.Stores;
+import com.gigafix.repair.exception.RepairNotFoundException;
 import com.gigafix.repair.repository.StoresRepository;
 
-import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
@@ -45,7 +45,7 @@ public class StoresService {
 //	修改
 	public StoresResponse updateById(Byte id, StoresRequest req) {
 		Stores store = storesRepos.findById(id)
-				.orElseThrow(() -> new EntityNotFoundException("分店ID: " + id + " 找不到!"));
+				.orElseThrow(() -> new RepairNotFoundException("分店ID: " + id + " 找不到!"));
 		store.setName(req.getName());
 		store.setAddress(req.getAddress());
 		store.setPhone(req.getPhone());
@@ -56,7 +56,7 @@ public class StoresService {
 //  controller有回傳狀態碼204，就不用回傳字串提醒刪除成功了
 	public void deleteById(Byte id) {
 		if(!storesRepos.existsById(id)) {
-			throw new EntityNotFoundException("分店ID: " + id + " 找不到!");
+			throw new RepairNotFoundException("分店ID: " + id + " 找不到!");
 		}
 		storesRepos.deleteById(id);
 	}
@@ -65,13 +65,13 @@ public class StoresService {
 	public StoresResponse selectById(Byte id) {
 //		lambda 寫法
 		Stores store = storesRepos.findById(id)
-				.orElseThrow(() -> new EntityNotFoundException("分店ID: " + id + " 找不到!"));
+				.orElseThrow(() -> new RepairNotFoundException("分店ID: " + id + " 找不到!"));
 	    return toResponse(store);
 	    
 //	 // 不用箭頭寫法（if 判斷）
 //	    Optional<Stores> op = storesRepos.findById(id);
 //	    if (op.isEmpty()) {
-//	        throw new EntityNotFoundException("分店ID: " + id + " 找不到!");
+//	        throw new RepairNotFoundException("分店ID: " + id + " 找不到!");
 //	    }
 //	    Stores store = op.get();
 	}

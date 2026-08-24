@@ -25,12 +25,12 @@ import com.gigafix.repair.entity.status.RepairPayStatus;
 import com.gigafix.repair.entity.status.RepairStatus;
 import com.gigafix.repair.exception.InvalidRepairStatusException;
 import com.gigafix.repair.exception.NotEligibleException;
+import com.gigafix.repair.exception.RepairNotFoundException;
 import com.gigafix.repair.exception.TimeConflictException;
 import com.gigafix.repair.repository.RepairTechniciansRepository;
 import com.gigafix.repair.repository.RepairsRepository;
 import com.gigafix.repair.repository.StoresRepository;
 
-import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
@@ -110,9 +110,9 @@ public class RepairsService {
 		checkTimeConflict(req.getStoreId(), req.getBookingDate(), req.getTimeSlot(), null);
 		
 		Stores store = sRepos.findById(req.getStoreId())
-				.orElseThrow(() -> new EntityNotFoundException("找不到分店"));
+				.orElseThrow(() -> new RepairNotFoundException("找不到分店"));
 		Member member = mRepos.findById(req.getMemberId())
-				.orElseThrow(() -> new EntityNotFoundException("找不到會員"));
+				.orElseThrow(() -> new RepairNotFoundException("找不到會員"));
 		
 		Repairs repair = Repairs.builder()
 				.member(member)
@@ -132,13 +132,13 @@ public class RepairsService {
 	
 //	修改
 	public RepairsResponse updateById(Long id, AppointmentRequest req) {
-		Repairs r = rRepos.findById(id).orElseThrow(() -> new EntityNotFoundException("找不到維修單，id=" + id));
+		Repairs r = rRepos.findById(id).orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
 		
 		// 排除自己這一筆，不然會誤判成跟自己衝突
 		checkTimeConflict(req.getStoreId(), req.getBookingDate(), req.getTimeSlot(), id);
 		
 		Stores store = sRepos.findById(req.getStoreId())
-				.orElseThrow(() -> new EntityNotFoundException("找不到分店，id= " + req.getStoreId()));
+				.orElseThrow(() -> new RepairNotFoundException("找不到分店，id= " + req.getStoreId()));
 		
 		r.setStore(store);
 		r.setRepairBrand(req.getRepairBrand());
@@ -158,7 +158,7 @@ public class RepairsService {
 //	刪除
 	public void deleteById(Long id) {
 		if(!rRepos.existsById(id)) {
-			throw new EntityNotFoundException("找不到維修單，id=" + id);
+			throw new RepairNotFoundException("找不到維修單，id=" + id);
 		}
 		rRepos.deleteById(id);
 	}
@@ -166,7 +166,7 @@ public class RepairsService {
 //	id查
 	public RepairsResponse selectById(Long id) {
 		Repairs repair =  rRepos.findById(id)
-				.orElseThrow(() -> new EntityNotFoundException("找不到維修單，id=" + id));
+				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
 		return toResponse(repair);
 	}
 	
@@ -234,7 +234,7 @@ public class RepairsService {
 //	技師認領：維修單必須是「待估價」且尚未被任何技師認領
 	public RepairsResponse assign(Long id, Integer technicianId) {
 		Repairs r = rRepos.findById(id)
-				.orElseThrow(() -> new EntityNotFoundException("找不到維修單，id=" + id));
+				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
 
 		if (r.getRepairStatus() != RepairStatus.PENDING_QUOTE) {
 //			例如:還沒認領就被客戶退掉/未送檢
@@ -245,7 +245,7 @@ public class RepairsService {
 		}
 		
 		RepairTechnicians tech = rtRepos.findById(technicianId)
-				.orElseThrow(() -> new EntityNotFoundException("找不到技師，id=" + technicianId));
+				.orElseThrow(() -> new RepairNotFoundException("找不到技師，id=" + technicianId));
 
 		r.setRepairTechnicians(tech);
 
@@ -255,7 +255,7 @@ public class RepairsService {
 //	技師填寫、修改檢測報價（可能部分更新）：要先認領，且狀態還是待估價才能修改
 	public RepairsResponse updateQuote(Long id, QuotationRequest req) {
 		Repairs r = rRepos.findById(id)
-				.orElseThrow(() -> new EntityNotFoundException("找不到維修單，id=" + id));
+				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
 
 //		null檢查:.getId() 對null呼叫會直接NPE噴錯
 		if (r.getRepairTechnicians() == null) {
@@ -288,7 +288,7 @@ public class RepairsService {
 //	技師送出報價：repairStatus 待估價->已報價，approvalStatus 無->待確認
 	public RepairsResponse submitQuote(Long id, Integer technicianId) {
 	    Repairs r = rRepos.findById(id)
-	    		.orElseThrow(() -> new EntityNotFoundException("找不到維修單，id=" + id));
+	    		.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
 
 	    if (r.getRepairTechnicians() == null) {
 	        throw new InvalidRepairStatusException("尚未有技師認領此維修單，請先認領");
@@ -316,7 +316,7 @@ public class RepairsService {
 //	已報價->報價後不維修(拒絕)
 	public RepairsResponse respondToQuote(Long id, Long memberId, boolean approve) {
 	    Repairs r = rRepos.findById(id)
-	    		.orElseThrow(() -> new EntityNotFoundException("找不到維修單，id=" + id));
+	    		.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
 
 	    if (!r.getMember().getId().equals(memberId)) {
 	        throw new NotEligibleException("此維修單不是你的，無法回應報價");
@@ -342,7 +342,7 @@ public class RepairsService {
 //	跟 updateQuote 不同：這裡只能改 inspectionResult
 	public RepairsResponse updateInspectionResult(Long id, InspectionResultRequest req) {
 		Repairs r = rRepos.findById(id)
-				.orElseThrow(() -> new EntityNotFoundException("找不到維修單，id=" + id));
+				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
 	
 		if (r.getRepairTechnicians() == null) {
 			throw new InvalidRepairStatusException("尚未有技師認領此維修單，請先認領");
@@ -367,7 +367,7 @@ public class RepairsService {
 //	金額異動的話 adjustmentNote 必填，並直接覆蓋 inspectionResult
 	public RepairsResponse completeRepair(Long id, CompleteRepairRequest req) {
 		Repairs r = rRepos.findById(id)
-				.orElseThrow(() -> new EntityNotFoundException("找不到維修單，id=" + id));
+				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
 	
 		if (r.getRepairTechnicians() == null) {
 			throw new InvalidRepairStatusException("尚未有技師認領此維修單，請先認領");
@@ -399,7 +399,7 @@ public class RepairsService {
 //	技師已電話通知客戶：repairStatus 維修完成->等待取件
 	public RepairsResponse markNotified(Long id, Integer technicianId) {
 		Repairs r = rRepos.findById(id)
-				.orElseThrow(() -> new EntityNotFoundException("找不到維修單，id=" + id));
+				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
 
 		if (r.getRepairTechnicians() == null) {
 			throw new InvalidRepairStatusException("尚未有技師認領此維修單，請先認領");
@@ -419,7 +419,7 @@ public class RepairsService {
 //	客戶預約後未送修（沒到店/沒寄件）：repairStatus 待估價->未送修
 	public RepairsResponse undelivered(Long id, Integer technicianId) {
 		Repairs r = rRepos.findById(id)
-				.orElseThrow(() -> new EntityNotFoundException("找不到維修單，id=" + id));
+				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
 
 		if (r.getRepairTechnicians() == null) {
 			throw new InvalidRepairStatusException("尚未有技師認領此維修單，請先認領");
@@ -440,7 +440,7 @@ public class RepairsService {
 //	repairStatus 等待取件 -> 已結案
 	public RepairsResponse closeRepair(Long id, Integer technicianId) {
 		Repairs r = rRepos.findById(id)
-				.orElseThrow(() -> new EntityNotFoundException("找不到維修單，id=" + id));
+				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
 	
 		if (r.getRepairTechnicians() == null) {
 			throw new InvalidRepairStatusException("尚未有技師認領此維修單，請先認領");
@@ -465,7 +465,7 @@ public class RepairsService {
 //	repairStatus 報價後不維修->已結案
 	public RepairsResponse closeRejectedRepair(Long id, Integer technicianId, Integer finalCost) {
 		Repairs r = rRepos.findById(id)
-				.orElseThrow(() -> new EntityNotFoundException("找不到維修單，id=" + id));
+				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
 
 		if (r.getRepairTechnicians() == null) {
 			throw new InvalidRepairStatusException("尚未有技師認領此維修單，請先認領");

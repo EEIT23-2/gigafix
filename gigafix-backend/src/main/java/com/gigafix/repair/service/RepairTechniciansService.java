@@ -9,10 +9,10 @@ import com.gigafix.repair.dto.RepairTechniciansRequest;
 import com.gigafix.repair.dto.RepairTechniciansResponse;
 import com.gigafix.repair.entity.RepairTechnicians;
 import com.gigafix.repair.entity.Stores;
+import com.gigafix.repair.exception.RepairNotFoundException;
 import com.gigafix.repair.repository.RepairTechniciansRepository;
 import com.gigafix.repair.repository.StoresRepository;
 
-import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
@@ -42,7 +42,7 @@ public class RepairTechniciansService {
     // 新增：先知道是哪間分店，再新增技師
     public RepairTechniciansResponse insert(RepairTechniciansRequest req) {
     	Stores store = storesRepos.findById(req.getStoreId())
-    			.orElseThrow(() -> new EntityNotFoundException("找不到分店，ID: " + req.getStoreId()));
+    			.orElseThrow(() -> new RepairNotFoundException("找不到分店，ID: " + req.getStoreId()));
         RepairTechnicians rt = new RepairTechnicians(null, req.getName(), req.getPhone(), store);
         return toResponse(rtRepos.save(rt));
     }
@@ -51,9 +51,9 @@ public class RepairTechniciansService {
     public RepairTechniciansResponse updateById(Integer id, RepairTechniciansRequest req) {
         // 前端回傳id數字，要先變物件
     	RepairTechnicians rt = rtRepos.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("找不到技師，ID: " + id));
+                .orElseThrow(() -> new RepairNotFoundException("找不到技師，ID: " + id));
         Stores store = storesRepos.findById(req.getStoreId())
-                .orElseThrow(() -> new EntityNotFoundException("找不到分店，ID: " + req.getStoreId()));
+                .orElseThrow(() -> new RepairNotFoundException("找不到分店，ID: " + req.getStoreId()));
         rt.setName(req.getName());
         rt.setPhone(req.getPhone());
         rt.setStore(store);
@@ -64,7 +64,7 @@ public class RepairTechniciansService {
 //    controller有回傳狀態碼204，就不用回傳字串提醒刪除成功了
     public void deleteById(Integer id) {
     	if (!rtRepos.existsById(id)) {
-            throw new EntityNotFoundException("找不到技師，ID: " + id);
+            throw new RepairNotFoundException("找不到技師，ID: " + id);
         }
         rtRepos.deleteById(id);
     }
@@ -72,7 +72,7 @@ public class RepairTechniciansService {
     // id查詢
     public RepairTechniciansResponse selectById(Integer id) {
     	RepairTechnicians rt = rtRepos.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("找不到技師，ID: " + id));
+                .orElseThrow(() -> new RepairNotFoundException("找不到技師，ID: " + id));
         return toResponse(rt);
     }
 
