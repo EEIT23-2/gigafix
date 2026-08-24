@@ -6,7 +6,7 @@ const props = defineProps({
   modelValue: { type: [Number, String, null], default: null },
   includeAllOption: { type: Boolean, default: true },
 })
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'categories-loaded'])
 
 const categories = ref([])
 const errorMessage = ref('')
@@ -14,6 +14,7 @@ const errorMessage = ref('')
 onMounted(async () => {
   try {
     categories.value = await getCategories()
+    emit('categories-loaded', categories.value)
   } catch {
     errorMessage.value = '分類載入失敗'
   }

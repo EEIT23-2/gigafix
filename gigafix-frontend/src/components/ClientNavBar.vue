@@ -50,7 +50,7 @@ import { RouterLink } from 'vue-router'
             <router-link class="nav-item" >最新活動 ▾</router-link>
             <router-link class="nav-item" >二手手機 ▾</router-link>
             <router-link class="nav-item" >維修手機 ▾</router-link>
-            <router-link class="nav-item" >Gigafix討論區</router-link>
+            <router-link class="nav-item" to="/gigafix/forum">Gigafix討論區</router-link>
             <router-link class="nav-item">關於Gigafix</router-link>
           </ul>
         </nav>

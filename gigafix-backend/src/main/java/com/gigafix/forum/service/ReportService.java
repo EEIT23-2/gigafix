@@ -24,6 +24,9 @@ public interface ReportService {
 	// 查詢檢舉列表，status 為 null 表示查全部
 	List<ReportResponse> getReports(Report.ReportStatus status);
 
+	// 單筆檢舉詳情
+	ReportResponse getReport(Long reportId);
+
 	// 處理／關閉檢舉
 	ReportResponse updateReportStatus(Long reportId, UpdateReportStatusRequest request);
 }
