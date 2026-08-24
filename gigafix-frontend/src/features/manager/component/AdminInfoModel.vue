@@ -5,6 +5,8 @@ import { ref, onMounted } from 'vue';
 import { useFetchAdminInfoStore } from '@/stores/admin';
 import { storeToRefs } from 'pinia'
 import { Modal } from 'bootstrap'
+import { getRoleLabel } from '../util/roleMap.js';
+import { formatDateTime } from '../util/timeMap.js';
 
 //====取得使用者資訊====
 const fetchAdminInfoStore = useFetchAdminInfoStore()
@@ -128,12 +130,12 @@ onMounted(() => {
         <div class="row mb-3">
             <div class="col-3 text-muted">角色</div>
             <div class="col-9">
-            <span class="badge bg-danger">{{ adminInfo.role }}</span>
+            <span class="badge bg-danger">{{ getRoleLabel(adminInfo.role) }}</span>
             </div>
         </div>
         <div class="row">
             <div class="col-3 text-muted">建立時間</div>
-            <div class="col-9">{{ adminInfo.createDateTime }}</div>
+            <div class="col-9">{{ formatDateTime(adminInfo.createDateTime) }}</div>
         </div>
         </div>
     </div>

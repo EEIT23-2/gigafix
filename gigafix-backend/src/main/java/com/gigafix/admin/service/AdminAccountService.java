@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.gigafix.admin.dto.AdminCreateReq;
 import com.gigafix.admin.dto.AdminInfoDto;
+import com.gigafix.admin.dto.DeleteAdminReq;
 import com.gigafix.admin.dto.SuperAdminSetupReq;
 import com.gigafix.admin.dto.UpdateOwnPasswordReq;
 import com.gigafix.admin.entity.AdminAccount;
@@ -130,10 +131,19 @@ public class AdminAccountService {
     
     
     //總管理員刪除帳號
-    public void deleteAccount(Integer id) {
-    	AdminAccount admin = adminRepository.findById(id).orElseThrow(() -> new AdminAccountNotFoundException());
-    	forceLogout(admin.getName());//更改後把人踢下線
-    	adminRepository.deleteById(id);
+    public void deleteAccount(DeleteAdminReq deleteAdminReq) {
+    	List<AdminAccount> SuperAdmin = adminRepository.findByRole(Role.ROLE_SUPER_ADMIN); //雖然理論上只會有一個但防止例外所以用List
+    	for (AdminAccount admin : SuperAdmin) {
+			if (passwordEncoder.matches(deleteAdminReq.SAPassword(), admin.getPassword())) { //matches(明文密碼, 資料庫雜湊值)
+				//如果總管理員密碼輸入正確的話，就刪除指定的使用者
+				AdminAccount deleteAdmin = adminRepository.findById(deleteAdminReq.adminId()).orElseThrow(() -> new AdminAccountNotFoundException());
+				forceLogout(deleteAdmin.getName());//更改後把人踢下線
+				adminRepository.deleteById(deleteAdmin.getId());
+			return;
+			}
+		}
+    	//找不到就拋出例外
+    	throw new AdminBusinessRuleCheckException("您不是總管理員，無法刪除使用者");
     }
 	
     //把admin物件轉成可以給前端顯示的info
