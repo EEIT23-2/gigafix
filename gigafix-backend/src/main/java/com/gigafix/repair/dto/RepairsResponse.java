@@ -23,6 +23,8 @@ public class RepairsResponse{
 	
 //	1. 客戶填寫維修預約單
 	private Long id;
+	private Long memberId;
+	private String memberName;
 	private String repairBrand;
 	private String repairModel;
 	private String issueDescription;

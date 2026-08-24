@@ -48,6 +48,8 @@ public class RepairsService {
 	private RepairsResponse toResponse(Repairs r) {
 		return RepairsResponse.builder()
 				.id(r.getId())
+				.memberId(r.getMember().getId())
+                .memberName(r.getMember().getRealName())
 				.repairBrand(r.getRepairBrand())
 				.repairModel(r.getRepairModel())
 				.issueDescription(r.getIssueDescription())
@@ -185,6 +187,24 @@ public class RepairsService {
 //				.map(this::toResponse)
 //				.collect(Collectors.toList());
 //	}
+	
+//	可依 維修單id/客戶id/客戶姓名/技師id/技師姓名/狀態 組合查詢，全部不填就是查全部
+	public List<RepairsResponse> search(Long id, Long memberId, String memberName,
+			Integer technicianId, String technicianName, RepairStatus status) {
+		String memberNameLike = (memberName != null) ? "%" + memberName + "%" : null;
+		String technicianNameLike = (technicianName != null) ? "%" + technicianName + "%" : null;
+
+		List<Repairs> list = rRepos.findByConditions(id, memberId, memberNameLike,
+				technicianId, technicianNameLike, status);
+
+		List<RepairsResponse> result = new ArrayList<>();
+		for (Repairs r : list) {
+			result.add(toResponse(r));
+		}
+		return result;
+	}
+	
+	
 	
 //	技師查詢：某分店「待估價」且尚未被認領的維修清單
 	public List<RepairsResponse> selectUnassigned(Byte storeId) {

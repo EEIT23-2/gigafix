@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.gigafix.repair.entity.Repairs;
 import com.gigafix.repair.entity.status.RepairStatus;
@@ -26,6 +28,20 @@ public interface RepairsRepository extends JpaRepository<Repairs, Long> {
 	// 某技師名下、指定狀態的維修單
 	List<Repairs> findByRepairTechnicians_IdAndRepairStatus(Integer technicianId, RepairStatus repairStatus);
 
+	// 組合查詢，每個條件是 null 就跳過不比對
+	@Query("SELECT r FROM Repairs r WHERE "
+			+ "(:id IS NULL OR r.id = :id) AND "
+			+ "(:memberId IS NULL OR r.member.id = :memberId) AND "
+			+ "(:memberName IS NULL OR r.member.realName LIKE :memberName) AND "
+			+ "(:technicianId IS NULL OR r.repairTechnicians.id = :technicianId) AND "
+			+ "(:technicianName IS NULL OR r.repairTechnicians.name LIKE :technicianName) AND "
+			+ "(:status IS NULL OR r.repairStatus = :status)")
+	List<Repairs> findByConditions(@Param("id") Long id,
+			@Param("memberId") Long memberId,
+			@Param("memberName") String memberName,
+			@Param("technicianId") Integer technicianId,
+			@Param("technicianName") String technicianName,
+			@Param("status") RepairStatus status);
 }
 
 

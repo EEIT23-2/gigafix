@@ -28,7 +28,7 @@ import lombok.RequiredArgsConstructor;
 
 
 @RestController
-@RequestMapping("/repairs")
+@RequestMapping("/api/repairs")
 @RequiredArgsConstructor
 public class RepairsController {
 	
@@ -64,8 +64,14 @@ public class RepairsController {
 	
 //	查全部
 	@GetMapping
-	public ResponseEntity<List<RepairsResponse>> selectAll(){
-		return ResponseEntity.ok(rServ.selectAll());//200
+	public ResponseEntity<List<RepairsResponse>> selectAll(
+			@RequestParam(required = false) Long id,
+			@RequestParam(required = false) Long memberId,
+			@RequestParam(required = false) String memberName,
+			@RequestParam(required = false) Integer technicianId,
+			@RequestParam(required = false) String technicianName,
+			@RequestParam(required = false) RepairStatus status) {
+		return ResponseEntity.ok(rServ.search(id, memberId, memberName, technicianId, technicianName, status));//200
 	}
 	
 

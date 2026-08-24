@@ -85,5 +85,15 @@ public class RepairTechniciansService {
 	    }
 	    return result;
     }
+    
+	// 查詢：某分店底下的所有技師
+    public List<RepairTechniciansResponse> selectByStore(Byte storeId) {
+    	List<RepairTechnicians> list = rtRepos.findByStore_Id(storeId);
+    	List<RepairTechniciansResponse> result = new ArrayList<>();
+    	for (RepairTechnicians rt : list) {
+    		result.add(toResponse(rt));
+    	}
+    	return result;
+    }
 
 }

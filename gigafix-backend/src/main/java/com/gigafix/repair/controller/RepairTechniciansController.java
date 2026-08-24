@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.gigafix.repair.dto.RepairTechniciansRequest;
@@ -21,7 +22,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController //(Controller + ResponseBody)
-@RequestMapping("/repairtechnicians")
+@RequestMapping("/api/repairtechnicians")
 @RequiredArgsConstructor
 public class RepairTechniciansController {
 	
@@ -57,7 +58,11 @@ public class RepairTechniciansController {
 
     // 查詢全部
     @GetMapping
-    public ResponseEntity<List<RepairTechniciansResponse>> queryAll() {
+    public ResponseEntity<List<RepairTechniciansResponse>> queryAll(
+    		@RequestParam(required = false) Byte storeId) {
+    	if (storeId != null) {
+    		return ResponseEntity.ok(rtServ.selectByStore(storeId));//200
+    	}
         return ResponseEntity.ok(rtServ.selectAll());//200
     }
 }
