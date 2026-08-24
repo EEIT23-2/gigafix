@@ -1,23 +1,32 @@
+import { compile } from "vue";
+
 export default [
   {
-    path: "repairs",
-    name: "repairs",
-    component: () => import("./view/RepairsListView.vue"),
+    path: "products",
+    name: "admin-products",
+    component: () => import("./view/ProductsListView.vue"),
   },
   {
-    path: "repairs/:repairId",
-    name: "repairs/:repairId",
-    component: () => import("./view/RepairDetailView.vue"),
+    path: "products/create",
+    name: "admin-product-create",
+    component: () => import("./view/ProductCreateView.vue"),
+  },
+  {
+    path: "products/:productId",
+    name: "admin-product-detail",
+    component: () => import("./view/ProductDetailView.vue"),
     props: true,
   },
   {
-    path: "technicians",
-    name: "technicians",
-    component: () => import("./view/TechniciansView.vue"),
+    path: "products/:productId/edit",
+    name: "admin-product-edit",
+    component: () => import("./view/ProductEditView.vue"),
+    props: true,
   },
-  {
-    path: "stores",
-    name: "stores",
-    component: () => import("./view/StoresView.vue"),
-  },
+  // {  //陣列裡設定網頁的path
+  //     path:,
+  //     name:,
+  //     component:,
+  //     props: true
+  // }
 ];
