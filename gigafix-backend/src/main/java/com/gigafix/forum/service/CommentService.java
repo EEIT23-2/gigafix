@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.gigafix.forum.dto.CommentResponse;
 import com.gigafix.forum.dto.CreateCommentRequest;
+import com.gigafix.forum.dto.UpdateCommentStatusRequest;
 
 /**
  * 留言 Service
@@ -20,4 +21,15 @@ public interface CommentService {
 
 	// 刪除（軟刪除）自己的留言
 	void deleteComment(Long memberId, Long commentId);
+
+	// 會員自己的留言歷史（個人中心用）
+	List<CommentResponse> getMyComments(Long memberId);
+
+	// ---------------後台管理功能（暫無權限檢查）------------------
+
+	// 後台單筆留言詳情，不受狀態限制
+	CommentResponse getCommentForAdmin(Long commentId);
+
+	// 直接設定留言狀態（隱藏／下架／恢復）
+	CommentResponse updateCommentStatus(Long commentId, UpdateCommentStatusRequest request);
 }

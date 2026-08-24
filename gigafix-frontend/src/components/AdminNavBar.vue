@@ -24,8 +24,12 @@ import { RouterLink } from "vue-router";
       <span class="nav-title"><span class="icon">📁</span> 維修單</span>
       <span class="arrow">›</span>
     </RouterLink>
-    <RouterLink class="nav-item" to="">
-      <span class="nav-title"><span class="icon">📁</span> 論壇</span>
+    <RouterLink class="nav-item" to="/admin/forum/articles">
+      <span class="nav-title"><span class="icon">📁</span> 論壇文章</span>
+      <span class="arrow">›</span>
+    </RouterLink>
+    <RouterLink class="nav-item" to="/admin/forum/reports">
+      <span class="nav-title"><span class="icon">🚩</span> 論壇檢舉</span>
       <span class="arrow">›</span>
     </RouterLink>
   </nav>

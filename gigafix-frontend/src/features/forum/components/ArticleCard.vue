@@ -18,7 +18,10 @@ defineProps({
         <span>{{ article.authorNickName }}</span>
         <span>👁 {{ article.viewCount }}</span>
         <span>👍 {{ article.likeCount }}</span>
-        <span>💬 {{ article.commentCount }}</span>
+        <span>
+          <span :title="`[蓋樓數: ${article.floorCount}]`">🧱{{ article.floorCount }}</span
+          >/<span :title="`[留言數: ${article.commentCount}]`">💬{{ article.commentCount }}</span>
+        </span>
       </div>
     </div>
   </RouterLink>

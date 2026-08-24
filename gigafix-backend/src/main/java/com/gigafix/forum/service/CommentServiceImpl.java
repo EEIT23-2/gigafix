@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.gigafix.forum.dto.CommentResponse;
 import com.gigafix.forum.dto.CreateCommentRequest;
+import com.gigafix.forum.dto.UpdateCommentStatusRequest;
 import com.gigafix.forum.entity.Article;
 import com.gigafix.forum.entity.Comment;
 import com.gigafix.forum.repository.ArticleRepository;
@@ -46,7 +47,7 @@ public class CommentServiceImpl implements CommentService {
 		Article article = articleRepository.findById(articleId)
 				.orElseThrow(() -> new IllegalArgumentException("文章不存在，articleId：" + articleId));
 
-		// 只有已發布的文章可以留言
+		// 只有發布中的文章可以留言（草稿/作者隱藏/下架/關閉/強制隱藏/強制關閉都不行）
 		if (article.getStatus() != Article.ArticleStatus.PUBLISHED) {
 			throw new IllegalStateException("文章目前無法留言");
 		}
@@ -118,6 +119,60 @@ public class CommentServiceImpl implements CommentService {
 		Article article = comment.getArticle();
 		article.setCommentCount(article.getCommentCount() - 1);
 		articleRepository.save(article);
+	}
+
+	// 會員自己的留言歷史（個人中心用，排除已下架留言）
+	@Override
+	public List<CommentResponse> getMyComments(Long memberId) {
+
+		if (!memberRepository.existsById(memberId)) {
+			throw new IllegalArgumentException("會員不存在，memberId：" + memberId);
+		}
+
+		return commentRepository.findByAuthor_IdOrderByCommentCreatedTimeDesc(memberId).stream()
+				.filter(comment -> comment.getStatus() != Comment.CommentStatus.TAKEN_DOWN)
+				.map(comment -> toCommentResponse(comment, memberId))
+				.toList();
+	}
+
+	// 後台單筆留言詳情，不受狀態限制
+	// TODO: 角色系統做好後要加 moderator/admin 權限檢查，目前任何呼叫者都可以執行
+	@Override
+	public CommentResponse getCommentForAdmin(Long commentId) {
+
+		return commentRepository.findById(commentId)
+				.map(comment -> toCommentResponse(comment, null))
+				.orElseThrow(() -> new IllegalArgumentException("留言不存在，commentId：" + commentId));
+	}
+
+	// 後台直接設定留言狀態，並同步文章的留言數
+	// TODO: 角色系統做好後要加 moderator/admin 權限檢查，目前任何呼叫者都可以執行
+	@Override
+	@Transactional
+	public CommentResponse updateCommentStatus(Long commentId, UpdateCommentStatusRequest request) {
+
+		Comment comment = commentRepository.findById(commentId)
+				.orElseThrow(() -> new IllegalArgumentException("留言不存在，commentId：" + commentId));
+
+		Comment.CommentStatus oldStatus = comment.getStatus();
+		Comment.CommentStatus newStatus = request.getStatus();
+
+		if (oldStatus != newStatus) {
+			Article article = comment.getArticle();
+			if (newStatus == Comment.CommentStatus.TAKEN_DOWN) {
+				// 轉入下架：留言數 -1
+				article.setCommentCount(article.getCommentCount() - 1);
+				articleRepository.save(article);
+			} else if (oldStatus == Comment.CommentStatus.TAKEN_DOWN) {
+				// 從下架恢復：留言數 +1
+				article.setCommentCount(article.getCommentCount() + 1);
+				articleRepository.save(article);
+			}
+			comment.setStatus(newStatus);
+			commentRepository.save(comment);
+		}
+
+		return toCommentResponse(comment, null);
 	}
 
 	// 將 Comment Entity 轉成 CommentResponse DTO
