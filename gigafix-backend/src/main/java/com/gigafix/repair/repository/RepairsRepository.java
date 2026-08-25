@@ -29,13 +29,13 @@ public interface RepairsRepository extends JpaRepository<Repairs, Long> {
 	List<Repairs> findByRepairTechnicians_IdAndRepairStatus(Integer technicianId, RepairStatus repairStatus);
 
 	// 組合查詢，每個條件是 null 就跳過不比對
-	@Query("SELECT r FROM Repairs r WHERE "
-			+ "(:id IS NULL OR r.id = :id) AND "
-			+ "(:memberId IS NULL OR r.member.id = :memberId) AND "
-			+ "(:memberName IS NULL OR r.member.realName LIKE :memberName) AND "
-			+ "(:technicianId IS NULL OR r.repairTechnicians.id = :technicianId) AND "
-			+ "(:technicianName IS NULL OR r.repairTechnicians.name LIKE :technicianName) AND "
-			+ "(:status IS NULL OR r.repairStatus = :status)")
+	@Query("SELECT r FROM Repairs r LEFT JOIN r.repairTechnicians t WHERE "
+	        + "(:id IS NULL OR r.id = :id) AND "
+	        + "(:memberId IS NULL OR r.member.id = :memberId) AND "
+	        + "(:memberName IS NULL OR r.member.realName LIKE :memberName) AND "
+	        + "(:technicianId IS NULL OR t.id = :technicianId) AND "
+	        + "(:technicianName IS NULL OR t.name LIKE :technicianName) AND "
+	        + "(:status IS NULL OR r.repairStatus = :status)")
 	List<Repairs> findByConditions(@Param("id") Long id,
 			@Param("memberId") Long memberId,
 			@Param("memberName") String memberName,

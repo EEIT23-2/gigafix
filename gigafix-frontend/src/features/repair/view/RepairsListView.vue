@@ -72,7 +72,7 @@ function resetSearch() {
 }
 
 function goToDetail(repair) {
-  router.push({ name: "repairs/:repairId", params: { repairId: repair.id } });
+  router.push({ name: "admin-repair-detail", params: { repairId: repair.id } });
 }
 
 onMounted(() => fetchRepairs());
