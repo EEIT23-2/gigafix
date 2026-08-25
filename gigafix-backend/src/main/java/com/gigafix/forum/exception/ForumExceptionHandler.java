@@ -24,6 +24,18 @@ import com.gigafix.common.dto.ErrorResp;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class ForumExceptionHandler {
 
+	// 自訂例外：自己帶狀態碼，優先於下面兩個 JDK 例外的預設對應
+	// 用於「不該被歸類成 404／409」的情境，目前是參數驗證失敗（400）
+	@ExceptionHandler(ForumException.class)
+	public ResponseEntity<ErrorResp> handleForumException(ForumException e) {
+
+		return ResponseEntity.status(e.getHttpStatus())
+				.body(ErrorResp.builder()
+						.errorCode(e.getErrorCode())
+						.message(e.getMessage())
+						.build());
+	}
+
 	// 狀態衝突：名稱重複、分類仍有文章使用中、重複按讚、文章目前無法蓋樓、無權限操作等
 	@ExceptionHandler(IllegalStateException.class)
 	public ResponseEntity<ErrorResp> handleIllegalState(IllegalStateException e) {
