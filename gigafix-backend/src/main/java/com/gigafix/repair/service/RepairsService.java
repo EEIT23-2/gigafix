@@ -381,18 +381,21 @@ public class RepairsService {
 			throw new InvalidRepairStatusException("此階段無法標記完工");
 		}
 	
+        // 不只檢查有沒有填，還要檢查「跟目前存的檢測結果是不是真的不一樣」
 		Integer finalCost = (req.getFinalCost() != null) ? req.getFinalCost() : r.getEstimatedCost();
 	
-		// 金額異動：一定要同時說明原因
 		boolean costChanged = !finalCost.equals(r.getEstimatedCost());
-		if (costChanged && (req.getAdjustmentNote() == null || req.getAdjustmentNote().isBlank())) {
-			throw new InvalidRepairStatusException("最終金額與報價不同，請填寫異動說明");
+		if (costChanged) {
+			boolean noteChanged = req.getAdjustmentNote() != null
+					&& !req.getAdjustmentNote().isBlank()
+					&& !req.getAdjustmentNote().equals(r.getInspectionResult());
+			if (!noteChanged) {
+				throw new InvalidRepairStatusException("最終金額與報價不同，請先更新檢測結果說明原因");
+			}
+			r.setInspectionResult(req.getAdjustmentNote());
 		}
 	
 		r.setFinalCost(finalCost);
-		if (costChanged) {
-			r.setInspectionResult(req.getAdjustmentNote());
-		}
 		r.setRepairStatus(RepairStatus.REPAIR_COMPLETED);
 	
 		return toResponse(rRepos.save(r));
@@ -488,6 +491,14 @@ public class RepairsService {
 		r.setPickupType(PickupType.SELF_PICKUP);
 		r.setRepairStatus(RepairStatus.CLOSED);
 
+		return toResponse(rRepos.save(r));
+	}
+	
+//	技師手動更新付款狀態
+	public RepairsResponse updatePayStatus(Long id, RepairPayStatus payStatus) {
+		Repairs r = rRepos.findById(id)
+				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
+		r.setRepairPayStatus(payStatus);
 		return toResponse(rRepos.save(r));
 	}
 }

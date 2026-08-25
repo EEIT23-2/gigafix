@@ -20,6 +20,7 @@ import com.gigafix.repair.dto.CompleteRepairRequest;
 import com.gigafix.repair.dto.InspectionResultRequest;
 import com.gigafix.repair.dto.QuotationRequest;
 import com.gigafix.repair.dto.RepairsResponse;
+import com.gigafix.repair.entity.status.RepairPayStatus;
 import com.gigafix.repair.entity.status.RepairStatus;
 import com.gigafix.repair.service.RepairsService;
 
@@ -158,6 +159,13 @@ public class RepairsController {
 	public ResponseEntity<RepairsResponse> undelivered(@PathVariable Long id,
 			@RequestParam Integer technicianId) {
 		return ResponseEntity.ok(rServ.undelivered(id, technicianId));//200
+	}
+	
+//	技師手動更新付款狀態
+	@PatchMapping("/{id}/pay-status")
+	public ResponseEntity<RepairsResponse> updatePayStatus(@PathVariable Long id,
+			@RequestParam RepairPayStatus payStatus) {
+		return ResponseEntity.ok(rServ.updatePayStatus(id, payStatus));//200
 	}
 	
 }

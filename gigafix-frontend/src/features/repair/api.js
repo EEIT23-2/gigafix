@@ -109,6 +109,16 @@ export const markUndelivered = async (repairId, technicianId) => {
   return response.data;
 };
 
+// 技師手動更新付款狀態
+export const updatePayStatus = async (repairId, payStatus) => {
+  const response = await axios.patch(
+    `${REPAIRS_URL}/${repairId}/pay-status`,
+    null,
+    { params: { payStatus } },
+  );
+  return response.data;
+};
+
 // ========== 技師 ==========
 
 // 查詢技師，storeId 有填就查該分店的技師，不填就查全部

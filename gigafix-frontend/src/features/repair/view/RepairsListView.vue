@@ -1,9 +1,40 @@
 <script setup>
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { searchRepairs } from "../api";
+import { assignRepair, getTechnicians, searchRepairs } from "../api";
 
 const router = useRouter();
+
+const technicians = ref([]);
+async function fetchTechnicians() {
+  try {
+    technicians.value = await getTechnicians();
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+async function handleAssign(repair, technicianId, selectEl) {
+  if (!technicianId) return;
+  const tech = technicians.value.find(
+    (t) => String(t.id) === String(technicianId),
+  );
+  const techLabel = tech ? `${tech.id} - ${tech.name}` : technicianId;
+  if (!window.confirm(`確定要指派技師「${techLabel}」認領這張維修單嗎？`)) {
+    if (selectEl) selectEl.value = "";
+    return;
+  }
+  try {
+    await assignRepair(repair.id, technicianId);
+    await fetchRepairs();
+  } catch (error) {
+    console.error(error);
+    errorMessage.value = error.response
+      ? `認領失敗：HTTP ${error.response.status}`
+      : "無法連線到後端伺服器";
+    if (selectEl) selectEl.value = "";
+  }
+}
 
 // 搜尋條件，全部可以不填
 const searchId = ref("");
@@ -40,8 +71,10 @@ function buildParams() {
   if (searchId.value !== "") params.id = searchId.value;
   if (searchMemberId.value !== "") params.memberId = searchMemberId.value;
   if (searchMemberName.value !== "") params.memberName = searchMemberName.value;
-  if (searchTechnicianId.value !== "") params.technicianId = searchTechnicianId.value;
-  if (searchTechnicianName.value !== "") params.technicianName = searchTechnicianName.value;
+  if (searchTechnicianId.value !== "")
+    params.technicianId = searchTechnicianId.value;
+  if (searchTechnicianName.value !== "")
+    params.technicianName = searchTechnicianName.value;
   if (searchStatus.value !== "") params.status = searchStatus.value;
   return params;
 }
@@ -75,7 +108,10 @@ function goToDetail(repair) {
   router.push({ name: "admin-repair-detail", params: { repairId: repair.id } });
 }
 
-onMounted(() => fetchRepairs());
+onMounted(() => {
+  fetchRepairs();
+  fetchTechnicians();
+});
 </script>
 
 <template>
@@ -160,14 +196,27 @@ onMounted(() => fetchRepairs());
           >
             <td>{{ r.id }}</td>
             <td>{{ r.memberName }}（id:{{ r.memberId }}）</td>
-            <td>
+            <td @click.stop>
               <span v-if="r.technicianId">
                 {{ r.technicianName }}（id:{{ r.technicianId }}）
               </span>
-              <span v-else class="text-secondary">尚未認領</span>
+              <select
+                v-else-if="r.repairStatus === 'PENDING_QUOTE'"
+                class="form-select form-select-sm"
+                style="max-width: 180px"
+                @change="handleAssign(r, $event.target.value, $event.target)"
+              >
+                <option value="">選擇技師認領</option>
+                <option v-for="t in technicians" :key="t.id" :value="t.id">
+                  {{ t.id }} - {{ t.name }}
+                </option>
+              </select>
+              <span v-else class="text-secondary">—</span>
             </td>
             <td>
-              <span class="badge text-bg-light border">{{ statusLabel(r.repairStatus) }}</span>
+              <span class="badge text-bg-light border">{{
+                statusLabel(r.repairStatus)
+              }}</span>
             </td>
             <td>{{ r.storeName }}</td>
             <td>{{ r.repairBrand }} {{ r.repairModel }}</td>
