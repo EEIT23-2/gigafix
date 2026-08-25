@@ -70,6 +70,8 @@ public class RepairsService {
 				.repairPay(r.getRepairPay())
 				.repairPayStatus(r.getRepairPayStatus())
 				.pickupType(r.getPickupType())
+				.repairCreatedTime(r.getRepairCreatedTime())
+				.repairUpdatedTime(r.getRepairUpdatedTime())
 				.build();
 	}
 	

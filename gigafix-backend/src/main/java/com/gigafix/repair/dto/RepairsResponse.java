@@ -1,6 +1,7 @@
 package com.gigafix.repair.dto;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 import com.gigafix.repair.entity.status.ApprovalStatus;
@@ -48,6 +49,8 @@ public class RepairsResponse{
 	private RepairPay repairPay;
 	private RepairPayStatus repairPayStatus;
 	private PickupType pickupType;
+	private LocalDateTime repairCreatedTime;
+	private LocalDateTime repairUpdatedTime;
 	
 
 }
