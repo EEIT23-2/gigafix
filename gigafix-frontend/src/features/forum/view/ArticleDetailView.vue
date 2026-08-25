@@ -21,6 +21,9 @@ import MoreActionsMenu from '../components/MoreActionsMenu.vue'
 const route = useRoute()
 const router = useRouter()
 
+// 對齊後端 CreateReportRequest 的 @Size(max = 250)，欄位是 NVARCHAR(250)，250 是字元數
+const REPORT_MAX_LENGTH = 250
+
 const article = ref(null)
 const liked = ref(false)
 const bookmarked = ref(false)
@@ -236,11 +239,12 @@ async function handleDeleteFloor(floorId) {
           <textarea
             v-model="reportReason"
             rows="1"
-            maxlength="500"
+            :maxlength="REPORT_MAX_LENGTH"
             placeholder="請輸入檢舉原因..."
             @input="autoResize"
           />
           <div class="form-footer">
+            <span class="char-count">{{ reportReason.length }}/{{ REPORT_MAX_LENGTH }}</span>
             <button type="button" class="cancel" @click="toggleReportForm(article.articleId)">取消</button>
             <button type="submit" :disabled="reportSubmitting">
               {{ reportSubmitting ? '送出中...' : '送出' }}
@@ -294,11 +298,12 @@ async function handleDeleteFloor(floorId) {
               <textarea
                 v-model="reportReason"
                 rows="1"
-                maxlength="500"
+                :maxlength="REPORT_MAX_LENGTH"
                 placeholder="請輸入檢舉原因..."
                 @input="autoResize"
               />
               <div class="form-footer">
+                <span class="char-count">{{ reportReason.length }}/{{ REPORT_MAX_LENGTH }}</span>
                 <button type="button" class="cancel" @click="toggleReportForm(floor.articleId)">
                   取消
                 </button>
@@ -428,6 +433,16 @@ h1 {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.char-count {
+  font-size: 12px;
+  color: #999999;
+}
+
+/* footer 已經是 flex-end + gap，字數靠 margin-right:auto 吃掉剩餘空間推到最左邊 */
+.report-form .char-count {
+  margin-right: auto;
 }
 
 .report-form .cancel {

@@ -2,6 +2,7 @@ package com.gigafix.forum.service;
 
 import java.util.List;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -91,17 +92,21 @@ public class CategoryServiceImpl implements CategoryService {
 	@Override
 	public List<CategoryResponse> getCategories() {
 
-		return categoryRepository.findAll().stream()
+		// 依 category_id 排序，讓後台列表與前台下拉的順序固定，不受資料庫回傳順序影響
+		return categoryRepository.findAll(Sort.by(Sort.Direction.ASC, "categoryId")).stream()
 				.map(this::toCategoryResponse)
 				.toList();
 	}
 
 	// 將 Category Entity 轉成 CategoryResponse DTO
+	// articleCount 是每個分類各查一次 count，分類數量是個位數到十幾筆，這個 N+1 成本可以接受，
+	// 不值得為此改寫成 group by 查詢
 	private CategoryResponse toCategoryResponse(Category category) {
 
 		return CategoryResponse.builder()
 				.categoryId(category.getCategoryId())
 				.name(category.getName())
+				.articleCount(articleRepository.countByCategory_CategoryId(category.getCategoryId()))
 				.build();
 	}
 }

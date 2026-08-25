@@ -23,6 +23,11 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
 	// 該分類是否還有文章在使用（刪除分類前檢查用）
 	boolean existsByCategory_CategoryId(Integer categoryId);
 
+	// 該分類底下的文章數（後台分類管理顯示用）
+	// 語意刻意與上面的 existsByCategory_CategoryId 一致：涵蓋所有狀態，含已下架的文章與樓層，
+	// 否則會出現「列表顯示 0 篇卻刪不掉」這種對不起來的情況
+	long countByCategory_CategoryId(Integer categoryId);
+
 	// 前台文章列表查詢：狀態限定在可公開瀏覽的集合，且排除樓層（parent_article_id IS NULL），分類/關鍵字皆為選填
 	@Query("SELECT a FROM Article a WHERE a.status IN :statuses AND a.parentArticle IS NULL "
 			+ "AND (:categoryId IS NULL OR a.category.categoryId = :categoryId) "

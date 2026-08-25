@@ -35,7 +35,7 @@ public class CategoryController {
 
 	// 建立分類
 	// TODO: 角色系統做好後要加 moderator/admin 權限檢查，目前任何呼叫者都可以執行
-	@PostMapping("/api/categories")
+	@PostMapping("/api/admin/categories")
 	public ResponseEntity<CategoryResponse> createCategory(@Valid @RequestBody CreateCategoryRequest request) {
 
 		CategoryResponse response = categoryService.createCategory(request);
@@ -45,7 +45,7 @@ public class CategoryController {
 
 	// 修改分類名稱
 	// TODO: 角色系統做好後要加 moderator/admin 權限檢查，目前任何呼叫者都可以執行
-	@PutMapping("/api/categories/{categoryId}")
+	@PutMapping("/api/admin/categories/{categoryId}")
 	public ResponseEntity<CategoryResponse> updateCategory(
 			@PathVariable Integer categoryId,
 			@Valid @RequestBody UpdateCategoryRequest request) {
@@ -57,7 +57,7 @@ public class CategoryController {
 
 	// 刪除分類
 	// TODO: 角色系統做好後要加 moderator/admin 權限檢查，目前任何呼叫者都可以執行
-	@DeleteMapping("/api/categories/{categoryId}")
+	@DeleteMapping("/api/admin/categories/{categoryId}")
 	public ResponseEntity<Void> deleteCategory(@PathVariable Integer categoryId) {
 
 		categoryService.deleteCategory(categoryId);

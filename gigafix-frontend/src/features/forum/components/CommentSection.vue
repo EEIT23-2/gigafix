@@ -17,7 +17,7 @@ const props = defineProps({
 })
 
 const MAX_LENGTH = 1000
-const REPORT_MAX_LENGTH = 500
+const REPORT_MAX_LENGTH = 250
 
 const comments = ref([])
 const newContent = ref('')
@@ -194,6 +194,7 @@ async function handleReportSubmit(commentId) {
               @input="autoResize"
             />
             <div class="form-footer">
+              <span class="char-count">{{ reportReason.length }}/{{ REPORT_MAX_LENGTH }}</span>
               <button type="button" class="cancel" @click="toggleReportForm(comment.commentId)">取消</button>
               <button type="submit" :disabled="reportSubmitting">
                 {{ reportSubmitting ? '送出中...' : '送出檢舉' }}
@@ -359,6 +360,17 @@ async function handleReportSubmit(commentId) {
   border-color: #2b77c5;
   color: #2b77c5;
   background-color: #eaf2fb;
+}
+
+/* .form-footer 是留言表單與檢舉表單共用的 space-between；檢舉表單多了字數會變成三個子元素，
+   space-between 會把「取消」推到正中間，所以這裡改成靠右排列，字數用 margin-right:auto 推到左邊 */
+.report-form .form-footer {
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.report-form .char-count {
+  margin-right: auto;
 }
 
 .report-form {
