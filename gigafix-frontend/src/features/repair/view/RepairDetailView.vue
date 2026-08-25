@@ -323,7 +323,7 @@ onMounted(() => fetchRepair());
 
       <!-- 2. 檢測報價 -->
       <section class="card mb-4">
-        <div class="card-header fw-bold">檢測報價</div>
+        <div class="card-header fw-bold">檢測/報價</div>
         <div class="card-body row g-3">
           <div class="col-md-4">
             <span class="text-secondary">技師：</span
@@ -358,6 +358,44 @@ onMounted(() => fetchRepair());
           <div class="col-md-4">
             <span class="text-secondary">客戶確認狀態：</span
             >{{ label(APPROVAL_LABELS, repair.approvalStatus) }}
+          </div>
+
+          <!-- 維修項目 -->
+          <div
+            class="col-12"
+            v-if="
+              repair.repairStatus === 'PENDING_QUOTE' && repair.technicianId
+            "
+          >
+            <label class="form-label text-secondary">報價項目：</label>
+            <textarea
+              v-model="quoteForm.repairItems"
+              class="form-control"
+              rows="2"
+            ></textarea>
+          </div>
+          <div class="col-12" v-else>
+            <span class="text-secondary">報價項目：</span
+            >{{ repair.repairItems ?? "—" }}
+          </div>
+
+          <!-- 估價金額 -->
+          <div
+            class="col-md-4"
+            v-if="
+              repair.repairStatus === 'PENDING_QUOTE' && repair.technicianId
+            "
+          >
+            <label class="form-label text-secondary">估價金額：</label>
+            <input
+              v-model.number="quoteForm.estimatedCost"
+              type="number"
+              class="form-control"
+            />
+          </div>
+          <div class="col-md-4" v-else>
+            <span class="text-secondary">估價金額：</span
+            >{{ repair.estimatedCost ?? "—" }}元
           </div>
 
           <!-- 檢測結果 -->
@@ -397,44 +435,6 @@ onMounted(() => fetchRepair());
           <div class="col-12" v-else>
             <span class="text-secondary">檢測結果：</span
             >{{ repair.inspectionResult ?? "—" }}
-          </div>
-
-          <!-- 維修項目 -->
-          <div
-            class="col-12"
-            v-if="
-              repair.repairStatus === 'PENDING_QUOTE' && repair.technicianId
-            "
-          >
-            <label class="form-label text-secondary">維修項目：</label>
-            <textarea
-              v-model="quoteForm.repairItems"
-              class="form-control"
-              rows="2"
-            ></textarea>
-          </div>
-          <div class="col-12" v-else>
-            <span class="text-secondary">維修項目：</span
-            >{{ repair.repairItems ?? "—" }}
-          </div>
-
-          <!-- 估價金額 -->
-          <div
-            class="col-md-4"
-            v-if="
-              repair.repairStatus === 'PENDING_QUOTE' && repair.technicianId
-            "
-          >
-            <label class="form-label text-secondary">估價金額：</label>
-            <input
-              v-model.number="quoteForm.estimatedCost"
-              type="number"
-              class="form-control"
-            />
-          </div>
-          <div class="col-md-4" v-else>
-            <span class="text-secondary">估價金額：</span
-            >{{ repair.estimatedCost ?? "—" }}
           </div>
 
           <!-- 待估價+已認領：送出報價 -->
@@ -479,7 +479,7 @@ onMounted(() => fetchRepair());
             </div>
             <div class="col-12">
               <label class="form-label"
-                >調整原因（金額跟估價不同時才需要填，會取代檢測結果內容）</label
+                >調整原因（金額跟估價不同時需填寫）</label
               >
               <textarea
                 v-model="completeForm.adjustmentNote"
