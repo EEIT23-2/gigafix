@@ -55,7 +55,6 @@ export function getReportForAdmin(reportId) {
   return http.get(`/api/admin/reports/${reportId}`).then((res) => res.data)
 }
 
-// 注意：這支不在 /api/admin 底下，是既有的路徑不一致，照現況使用
 export function updateReportStatus(reportId, status) {
-  return http.patch(`/api/reports/${reportId}/status`, { status }).then((res) => res.data)
+  return http.patch(`/api/admin/reports/${reportId}/status`, { status }).then((res) => res.data)
 }

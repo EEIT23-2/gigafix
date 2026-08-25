@@ -9,6 +9,7 @@ import {
   reportComment,
   TEST_MEMBER_ID,
 } from '../api'
+import MoreActionsMenu from './MoreActionsMenu.vue'
 
 const props = defineProps({
   articleId: { type: [Number, String], required: true },
@@ -137,8 +138,6 @@ async function handleReportSubmit(commentId) {
 
 <template>
   <section class="comment-section">
-    <h3>留言</h3>
-
     <p v-if="loadError" class="error">{{ loadError }}</p>
     <ul v-else class="comment-list">
       <li v-for="comment in comments" :key="comment.commentId" class="comment-item">
@@ -165,22 +164,22 @@ async function handleReportSubmit(commentId) {
             >
               👍 {{ comment.likeCount }}
             </button>
-            <button
-              v-if="comment.authorId === TEST_MEMBER_ID"
-              type="button"
-              class="delete"
-              @click="handleDelete(comment.commentId)"
-            >
-              刪除
-            </button>
-            <button
-              v-if="comment.authorId !== TEST_MEMBER_ID"
-              type="button"
-              class="report"
-              @click="toggleReportForm(comment.commentId)"
-            >
-              檢舉
-            </button>
+            <MoreActionsMenu>
+              <template #default="{ close }">
+                <!-- 留言沒有「編輯」：後端只有新增/刪除/改狀態，沒有更新留言內容的端點 -->
+                <button
+                  v-if="comment.authorId === TEST_MEMBER_ID"
+                  type="button"
+                  class="danger"
+                  @click="close(); handleDelete(comment.commentId)"
+                >
+                  刪除
+                </button>
+                <button v-else type="button" @click="close(); toggleReportForm(comment.commentId)">
+                  檢舉
+                </button>
+              </template>
+            </MoreActionsMenu>
           </div>
           <form
             v-if="reportingCommentId === comment.commentId"
@@ -343,9 +342,11 @@ async function handleReportSubmit(commentId) {
 .comment-actions {
   display: flex;
   gap: 10px;
+  align-items: center;
 }
 
-.comment-actions button {
+/* 用子代選擇器，避免這條規則透過 slot 蓋掉 ⋮ 選單內的選項樣式 */
+.comment-actions > button {
   background: none;
   border: 1px solid #d0d0d0;
   border-radius: 4px;
@@ -354,20 +355,10 @@ async function handleReportSubmit(commentId) {
   cursor: pointer;
 }
 
-.comment-actions .like.liked {
+.comment-actions > .like.liked {
   border-color: #2b77c5;
   color: #2b77c5;
   background-color: #eaf2fb;
-}
-
-.comment-actions .delete {
-  color: #c0392b;
-  border-color: #f0c0c0;
-}
-
-.comment-actions .report {
-  color: #a15c00;
-  border-color: #e8d3a0;
 }
 
 .report-form {
