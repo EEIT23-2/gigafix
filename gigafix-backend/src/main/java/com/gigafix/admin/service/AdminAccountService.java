@@ -143,7 +143,7 @@ public class AdminAccountService {
 			}
 		}
     	//找不到就拋出例外
-    	throw new AdminBusinessRuleCheckException("您不是總管理員，無法刪除使用者");
+    	throw new AdminBusinessRuleCheckException("非總管理員權限輸入正確密碼");
     }
 	
     //把admin物件轉成可以給前端顯示的info
@@ -175,9 +175,7 @@ public class AdminAccountService {
 				
 			}
 		}
-    	
-    	
-    	
     }
 	
+    
 }

@@ -2,6 +2,7 @@ package com.gigafix.admin.controller;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
@@ -14,7 +15,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.gigafix.admin.dto.AdminLoginReq;
 import com.gigafix.admin.dto.AdminLoginResp;
+import com.gigafix.admin.exception.AdminBusinessRuleCheckException;
+import com.gigafix.admin.repository.AdminAccountRepository;
 import com.gigafix.admin.security.AdminUserDetails;
+import com.gigafix.admin.service.LoginLockService;
+import com.gigafix.admin.security.AdminLoginAttemptInfo;
 import com.gigafix.admin.security.AdminSecurityUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,14 +34,25 @@ import lombok.RequiredArgsConstructor;
 public class AdminUserDetailsController {
 	private final AuthenticationManager authenticationManager;
 	private final SecurityContextRepository securityContextRepository;
+	private final LoginLockService loginLockService;
+	private final AdminAccountRepository adminAccountRepository;
 	
 	@PostMapping("/adminlogin") //因為是前後端分離專案，前端回傳Json，spring security的預設登入formLogin()不讀取Json，所以不寫Json轉換器的話只能自己寫login
 	public ResponseEntity<AdminLoginResp> adminLogin(@Valid @RequestBody AdminLoginReq adminLoginReq, HttpServletRequest req, HttpServletResponse resp) {
-		//Spring security的方法會做登入認證，自動呼叫我自己在AdminUserDetailsService寫的loadUserByUsername() + 密碼比對
-		//這裡回傳的authenticate裡面有包著我在loadUserByUsername()回傳的AdminUserDetails物件，所以自帶admin所有的資訊
-		//尚未認證時new UsernamePasswordAuthenticationToken(使用者名稱, 使用者密碼)
-		Authentication authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(adminLoginReq.adminName(), adminLoginReq.password()));
-		//回傳的Authentication裡面包含→Principal(可以拿到UserDetails物件)、Authorities(權限)、Credentials密碼、認證後結果
+		Authentication authentication;
+
+		try {
+			//Spring security的方法會做登入認證，自動呼叫我自己在AdminUserDetailsService寫的loadUserByUsername() + 密碼比對
+			//這裡回傳的authenticate裡面有包著我在loadUserByUsername()回傳的AdminUserDetails物件，所以自帶admin所有的資訊
+			//尚未認證時new UsernamePasswordAuthenticationToken(使用者名稱, 使用者密碼)
+			authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(adminLoginReq.adminName(), adminLoginReq.password()));
+			//回傳的Authentication裡面包含→Principal(可以拿到UserDetails物件)、Authorities(權限)、Credentials密碼、認證後結果
+		} catch (BadCredentialsException e) {//如果登入失敗authenticate()會拋出這個例外
+			Integer adminId = adminAccountRepository.findByName(adminLoginReq.adminName()).orElseThrow(() -> new AdminBusinessRuleCheckException("帳號或密碼錯誤")).getId();
+			AdminLoginAttemptInfo AdminLoginAttemptInfo = loginLockService.recordFailedAttempt(adminId);//登入失敗就在
+			throw new AdminBusinessRuleCheckException("帳號或密碼錯誤" + AdminLoginAttemptInfo.getFailCount() +"次");
+		}
+		loginLockService.resetAttempts(((AdminUserDetails)authentication.getPrincipal()).getId());
 		
 		if (req.getSession(false) == null) {
 		    req.getSession(true); // 確保 session 存在，不然會報錯

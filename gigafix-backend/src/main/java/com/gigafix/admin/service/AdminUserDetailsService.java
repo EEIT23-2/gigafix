@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.gigafix.admin.entity.AdminAccount;
+import com.gigafix.admin.exception.AdminBusinessRuleCheckException;
 import com.gigafix.admin.repository.AdminAccountRepository;
 import com.gigafix.admin.security.AdminUserDetails;
 
@@ -16,14 +17,15 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class AdminUserDetailsService implements UserDetailsService {
 	private final AdminAccountRepository accountRepository;
+	private final LoginLockService lockService;
 
 	
-	@Override
+	@Override //
 	public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-		AdminAccount adminAccount = accountRepository.findByName(username);
-		if (adminAccount == null) {
-			throw new UsernameNotFoundException(""); 
-			//這個錯誤會被spring security的DaoAuthenticationProvider攔截並轉成拋回來adCredentialsException("Bad credentials")
+		AdminAccount adminAccount = accountRepository.findByName(username).orElseThrow(() -> new UsernameNotFoundException(""));
+		
+		if (lockService.getLockRemainingMinutes(adminAccount.getId()) != 0) {
+			throw new AdminBusinessRuleCheckException("該帳號密碼錯誤超過5次，請稍後再嘗試登入");
 		}
 		System.out.println("role: " + adminAccount.getRole()); 
 		
