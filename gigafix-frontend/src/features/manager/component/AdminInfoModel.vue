@@ -52,7 +52,7 @@ const handleNameSubmit = async () => {
         adminInfo.value.adminName = newName.value
         nameModalInstance.hide()
     } catch (err) {
-        console.log(err)
+        alert(`修改名稱失敗，原因: ${err.response.data.message}`)
         nameErrorMsg.value = '更新失敗,請稍後再試'
     } finally {
         nameLoading.value = false
@@ -83,7 +83,7 @@ const handlePasswordSubmit = async () => {
         })
         passwordModalInstance.hide()
     } catch (err) {
-        console.log(err)
+        alert(`修改密碼失敗，原因: ${err.response.data.message}`)
         passwordErrorMsg.value = '密碼修改失敗,請確認原密碼是否正確'
     } finally {
         passwordLoading.value = false

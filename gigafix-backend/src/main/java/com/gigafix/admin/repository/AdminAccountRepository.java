@@ -1,6 +1,7 @@
 package com.gigafix.admin.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -9,7 +10,7 @@ import com.gigafix.admin.entity.AdminAccount.Role;
 
 public interface AdminAccountRepository extends JpaRepository<AdminAccount, Integer> {
 	
-	AdminAccount findByName(String name);
+	Optional<AdminAccount> findByName(String name);
 	
 	boolean existsByRole(Role role); //檢查某管理類型是否存在
 	

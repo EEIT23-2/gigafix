@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -39,12 +40,14 @@ public class AdminAccountController {
         return ResponseEntity.ok(accountService.setupSuperAdmin(req));
     }
 	
-	@PostMapping 
+	@PostMapping
+	@PreAuthorize("hasRole('ROLE_SUPER_ADMIN')") //檢查該登入帳號的權限是否為總管理員,'ROLE_SUPER_ADMIN'必須用單引號，不能用雙引號
 	public ResponseEntity<AdminInfoDto> creatAdmin(@Valid @RequestBody AdminCreateReq req){
 		return ResponseEntity.status(HttpStatus.CREATED).body(accountService.createAdmin(req)); //201
 	}
 	
 	@GetMapping
+	@PreAuthorize("hasRole('ROLE_SUPER_ADMIN')")
     public ResponseEntity<List<AdminInfoDto>> getAll() {
         return ResponseEntity.ok(accountService.getAllAccounts()); //200
     }
@@ -64,12 +67,14 @@ public class AdminAccountController {
 	
 	//總管理員幫某個管理員重設的帳密(被改的人要重新登入才會變)
 	@PatchMapping("/password")
+	@PreAuthorize("hasRole('ROLE_SUPER_ADMIN')")
 	public ResponseEntity<AdminInfoDto> resetPassword(@Valid @RequestBody ResetPasswordReq resetPasswordReq) {
 	    return ResponseEntity.ok(accountService.resetPassword(resetPasswordReq.id(), resetPasswordReq.newPassword()));
 	}
 	
 	//總管理員改某個管理員的權限(權限只有總管理員可以改)
 	@PatchMapping("/role")
+	@PreAuthorize("hasRole('ROLE_SUPER_ADMIN')")
 	public ResponseEntity<AdminInfoDto> updateRole(@Valid @RequestBody UpdateRoleReq updateRoleReq) {
 	    return ResponseEntity.ok(accountService.updateRole(updateRoleReq.id(), updateRoleReq.role()));
 	}
@@ -91,6 +96,7 @@ public class AdminAccountController {
 	
 	//總管理員刪除其他管理員
     @DeleteMapping
+    @PreAuthorize("hasRole('ROLE_SUPER_ADMIN')")
     public ResponseEntity<Void> deleteAdmin(@Valid @RequestBody DeleteAdminReq deleteAdminReq) {
     	accountService.deleteAccount(deleteAdminReq);
         return ResponseEntity.noContent().build(); //204

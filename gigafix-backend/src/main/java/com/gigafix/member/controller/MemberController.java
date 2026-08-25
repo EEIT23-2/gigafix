@@ -48,7 +48,7 @@ public class MemberController {
 		return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, loginResult.responseCookie().toString()).body(loginResult.loginResp()); //200
 	}
 	
-	@PostMapping("/logout") //登入，因為不是只資源操作，所以不適用RESTful原則
+	@PostMapping("/logout") //登出，因為不是只資源操作，所以不適用RESTful原則
 	public ResponseEntity<Void> logout(){
 		ResponseCookie cookie = memberService.logout();
 	    return ResponseEntity.ok()

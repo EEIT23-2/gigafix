@@ -60,7 +60,13 @@ const router = createRouter({
   ],
 });
 
+const excludedPaths = ['/adminLogin', '/gigafix', '/creatSuperAdminView']
+
 router.beforeEach(async (to) => {
+  if (excludedPaths.includes(to.path)) {
+    return // 排除的路徑直接放行，不觸發抓取使用者資料
+  }
+
   const fetchAdminInfoStore = useFetchAdminInfoStore()
   if (!fetchAdminInfoStore.fetched) {
     await fetchAdminInfoStore.fetchAdmin() // 真正觸發抓資料的動作

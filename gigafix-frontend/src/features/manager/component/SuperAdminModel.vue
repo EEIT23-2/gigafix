@@ -12,19 +12,23 @@ const updateOrDeleteAdmin =ref(null) //刪除或修改時會傳給後端的id變
 // ====刪除管理員的相關宣告====
 const showDeleteModal = ref(false)
 const superAdminComfirmPWD = ref('')
+const deleteErrorMsg =ref('')
 // ====創建管理員相關的宣告====
 const showCreateModal = ref(false)
 const adminName = ref('')
 const password = ref('')
 const role = ref('')
+const createErrorMsg = ref('')
 const createAdminLoading = ref(false)
 const createAdminErrorMsg = ref('')
 // ====修改管理員腳色相關的宣告====
 const showUpdateRoleModal = ref(false)
 const updateAdminRole =ref('')
+const updateRoleErrorMsg =ref('')
 // ====重設管理員密碼相關的宣告====
 const showRestPasswordModal = ref(false)
 const updateAdminPassword =ref('')
+const updatePasswordErrorMsg =ref('')
 //====取得所有的管理者====
 const fetchAllAdmin = async () => {
     errorMsg.value = ''
@@ -32,7 +36,7 @@ const fetchAllAdmin = async () => {
         const rep = await axios.get("/api/admin/account")
         allAdmins.value = rep.data
     } catch (err) {
-        console.error('抓取管理員列表失敗', err)
+        alert(`管理員列表讀取失敗，原因: ${err.response.data.message}`)
         errorMsg.value = '無法載入管理員列表,請稍後再試'
     }
 }
@@ -43,6 +47,7 @@ const otherAdmins = computed(() => allAdmins.value.slice(1))
 
 // ====創建管理員====
 const openCreateAdminModal = () => {
+    createErrorMsg.value = '請輸入帳號'
     adminName.value = ''
     password.value = ''
     role.value = ''
@@ -76,18 +81,34 @@ const createAdmin = async () => {
         role.value = ''
         fetchAllAdmin()
     } catch (err) {
-        console.log(err)
+        alert(`創建管理員失敗，原因: ${err.response.data.message}`)
         createAdminErrorMsg.value = '建立帳號失敗'
     } finally {
         createAdminLoading.value = false
     }
     
 }
+// createErrorMsg
+const checkCreateError = () => {
+    if (adminName.value === '') {
+        createErrorMsg.value = '請輸入帳號'
+    }else if (password.value === '') {
+        createErrorMsg.value = '請輸入密碼'
+    }else if (password.value.length < 8 ) {
+        createErrorMsg.value = '密碼長度必須至少 8 位數'
+    }else if (role.value === '') {
+        createErrorMsg.value = '請選擇權限'
+    }else {
+        createErrorMsg.value = ''
+    }
+}
+
 
 //====修改管理員權限====
 const openUpdateRoleModal = (adminInfo) =>{
     updateOrDeleteAdmin.value = adminInfo
     updateAdminRole.value = ''
+    updateRoleErrorMsg.value = '選擇管理員權限'
     showUpdateRoleModal.value = true
 }
 
@@ -100,17 +121,24 @@ const updateRoleAdmin = async () => {
         showUpdateRoleModal.value = false
         alert('更新成功')
     } catch (err) { //回傳4xx,5xx
-        console.log('更新失敗', err.response?.status, err.response?.data)
-        alert('更新失敗')
+        alert(`更新管理員權限失敗，原因: ${err.response.data.message}`)
     }finally{
-        
         fetchAllAdmin()
+    }
+}
+
+const checkUpdateRoleError = () => {
+    if (updateAdminRole.value === '') {
+        updateRoleErrorMsg.value = '選擇管理員權限'
+    }else {
+        updateRoleErrorMsg.value = ''
     }
 }
 
 //====重設管理員密碼====
 const openResetPasswordModal = (adminInfo) =>{
     updateOrDeleteAdmin.value = adminInfo
+    updatePasswordErrorMsg.value = '請輸入密碼'
     updateAdminPassword.value = ''
     showRestPasswordModal.value = true
 }
@@ -124,16 +152,26 @@ const resetAdminPassword = async () => {
         showRestPasswordModal.value = false
         alert('更新成功')
     } catch (err) { //回傳4xx,5xx
-        console.log('更新失敗', err.response?.status, err.response?.data)
-        alert('更新失敗')
+        alert(`重新設定管理員密碼失敗，原因: ${err.response.data.message}`)
     }finally{
-        
         fetchAllAdmin()
+    }
+}
+//updatePasswordErrorMsg
+const checkUpdatePasswordError = () => {
+    if (updateAdminPassword.value === '') {
+        updatePasswordErrorMsg.value = '請輸入密碼'
+    }else if (updateAdminPassword.value.length < 8) {
+        updatePasswordErrorMsg.value = '密碼長度必須至少 8 位數'
+    }else {
+        updatePasswordErrorMsg.value = ''
     }
 }
 
 //====刪除管理員====
 const openDeleteModal = (adminInfo) => {
+    superAdminComfirmPWD.value = ''
+    deleteErrorMsg.value = '請輸入密碼'
     updateOrDeleteAdmin.value = adminInfo // 複製一份,避免直接改到原始列表資料
     showDeleteModal.value = true
 }
@@ -150,10 +188,18 @@ const deleteAdmin = async () => {
         showDeleteModal.value = false
         alert('刪除成功')
     } catch (err) { //回傳4xx,5xx
-        console.log('刪除失敗', err.response?.status, err.response?.data)
-        alert('刪除失敗')
+        alert(`刪除管理員失敗，原因: ${err.response.data.message}`)
     }finally{
         fetchAllAdmin()
+    }
+}
+const checkDeleteError = () => {
+    if (superAdminComfirmPWD.value === '') {
+        deleteErrorMsg.value = '請輸入密碼'
+    }else if (superAdminComfirmPWD.value.length < 8) {
+        deleteErrorMsg.value = '密碼長度必須至少 8 位數'
+    }else {
+        deleteErrorMsg.value = ''
     }
 }
 
@@ -218,13 +264,13 @@ onMounted(() => {
     <BaseModal v-model="showCreateModal">
         <template #title>管理員名稱</template>
         <label class="form-label">名稱</label>
-        <input type="text" class="form-control" v-model="adminName" :disabled="createAdminLoading">
+        <input type="text" class="form-control" v-model="adminName" :disabled="createAdminLoading" @input="checkCreateError()">
         
         <label class="form-label">密碼</label>
-        <input type="password" class="form-control" v-model="password" :disabled="createAdminLoading">
+        <input type="password" class="form-control" v-model="password" :disabled="createAdminLoading" @input="checkCreateError()">
         
         <label class="form-label">管理員角色類型</label>
-        <select class="form-select" v-model="role" :disabled="createAdminLoading">
+        <select class="form-select" v-model="role" :disabled="createAdminLoading" @change="checkCreateError()">
             <option value="" disabled>請選擇角色</option>
             <option value="ROLE_DEPUTY_ADMIN">副管理員</option>
             <option value="ROLE_FORUM_ADMIN">論壇管理員</option>
@@ -234,12 +280,10 @@ onMounted(() => {
         <p v-if="createAdminErrorMsg" class="text-danger mt-2 mb-0">{{ createAdminErrorMsg }}</p>
 
         <template #footer>
-            <button type="button" class="btn btn-secondary" @click="showCreateModal = false" :disabled="createAdminLoading">
-            取消
-            </button>
-            <button type="button" class="btn btn-primary" @click="createAdmin" :disabled="createAdminLoading">
-            {{ createAdminLoading ? '創建會員中' : '送出' }}
-            </button>
+            <p  v-if="createErrorMsg" class="text-danger small mb-3">{{ createErrorMsg }}</p>
+            <button type="button" class="btn btn-secondary" @click="showCreateModal = false" :disabled="createAdminLoading">取消</button>
+            <button v-if="createErrorMsg" type="button" class="btn btn-primary" disabled>請輸入正確資訊</button>
+            <button v-if="createErrorMsg == ''" type="button" class="btn btn-primary" @click="createAdmin" :disabled="createAdminLoading">{{ createAdminLoading ? '創建會員中' : '送出' }}</button>
         </template>
     </BaseModal>
 
@@ -248,7 +292,7 @@ onMounted(() => {
         <template #title>修改管理員角色</template>
 
         <label class="form-label">修改的管理員角色類型</label>
-        <select class="form-select" v-model="updateAdminRole">
+        <select class="form-select" v-model="updateAdminRole" @change="checkUpdateRoleError()">
             <option value="" disabled>請選擇角色</option>
             <option value="ROLE_DEPUTY_ADMIN">副管理員</option>
             <option value="ROLE_FORUM_ADMIN">論壇管理員</option>
@@ -256,8 +300,10 @@ onMounted(() => {
             <option value="ROLE_REPAIR_ADMIN">手機維修管理員</option>
         </select>
         <template #footer>
+            <p  v-if="updateRoleErrorMsg" class="text-danger small mb-3">{{ updateRoleErrorMsg }}</p>
             <button class="btn btn-secondary" @click="showUpdateRoleModal = false">取消</button>
-            <button class="btn btn-primary" @click="updateRoleAdmin()">送出</button>
+            <button v-if="updateRoleErrorMsg" type="button" class="btn btn-primary" disabled>請選擇管理員權限</button>
+            <button v-if="updateRoleErrorMsg == ''" class="btn btn-primary" @click="updateRoleAdmin()">送出</button>
         </template>
     </BaseModal>
 
@@ -266,21 +312,25 @@ onMounted(() => {
         <template #title>重新設定管理員密碼</template>
 
         <label class="form-label">密碼</label>
-        <input type="password" class="form-control" v-model="updateAdminPassword" :disabled="createAdminLoading" placeholder="請輸入重設的密碼">
+        <input type="password" class="form-control" v-model="updateAdminPassword" :disabled="createAdminLoading" placeholder="請輸入重設的密碼" @input="checkUpdatePasswordError()">
 
         <template #footer>
+            <p  v-if="updatePasswordErrorMsg" class="text-danger small mb-3">{{ updatePasswordErrorMsg }}</p>
             <button class="btn btn-secondary" @click="showDeleteModal = false">取消</button>
-            <button class="btn btn-primary" @click="resetAdminPassword()">送出</button>
+            <button v-if="updatePasswordErrorMsg" type="button" class="btn btn-primary" disabled>請輸入密碼</button>
+            <button v-if="updatePasswordErrorMsg == ''" class="btn btn-primary" @click="resetAdminPassword()">送出</button>
         </template>
     </BaseModal>
 
     <!-- 總管理員刪除其他管理員的彈窗 -->
     <BaseModal v-model="showDeleteModal" :adminInfo="updateOrDeleteAdmin" @closed="superAdminComfirmPWD = ''; updateOrDeleteAdmin = null">
         <template #title>確認刪除管理員</template>
-        <input type="password" v-model="superAdminComfirmPWD" class="form-control" placeholder="請輸入密碼以確認要刪除該管理員" />
+        <input type="password" v-model="superAdminComfirmPWD" class="form-control" placeholder="請輸入密碼以確認要刪除該管理員" @input="checkDeleteError()">
         <template #footer>
+            <p  v-if="deleteErrorMsg" class="text-danger small mb-3">{{ deleteErrorMsg }}</p>
             <button class="btn btn-secondary" @click="showDeleteModal = false">取消</button>
-            <button class="btn btn-primary" @click="deleteAdmin()">確定刪除</button>
+            <button v-if="deleteErrorMsg" type="button" class="btn btn-primary" disabled>請輸入密碼</button>
+            <button v-if="deleteErrorMsg == ''" class="btn btn-primary" @click="deleteAdmin()">確定刪除</button>
         </template>
     </BaseModal>
 

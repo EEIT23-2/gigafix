@@ -12,6 +12,7 @@ import com.gigafix.admin.entity.AdminAccount;
 import com.gigafix.admin.entity.AdminAccount.Role;
 
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
