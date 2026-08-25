@@ -154,6 +154,13 @@ public class RepairsController {
 		return ResponseEntity.ok(rServ.closeRejectedRepair(id, technicianId, finalCost));//200
 	}
 	
+//	報價後不維修：技師填最終金額(檢測費)送出，狀態推進到尚未取件
+	@PatchMapping("/{id}/notify-rejected")
+	public ResponseEntity<RepairsResponse> notifyRejected(@PathVariable Long id,
+			@RequestParam Integer technicianId, @RequestParam(required = false) Integer finalCost) {
+		return ResponseEntity.ok(rServ.notifyRejected(id, technicianId, finalCost));//200
+	}
+	
 //	客戶預約後未送修
 	@PatchMapping("/{id}/undelivered")
 	public ResponseEntity<RepairsResponse> undelivered(@PathVariable Long id,

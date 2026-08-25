@@ -498,6 +498,28 @@ public class RepairsService {
 		return toResponse(rRepos.save(r));
 	}
 	
+//	報價後不維修：技師填最終金額(檢測費)送出，狀態推進到尚未取件
+	public RepairsResponse notifyRejected(Long id, Integer technicianId, Integer finalCost) {
+		Repairs r = rRepos.findById(id)
+				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
+
+		if (r.getRepairTechnicians() == null) {
+			throw new InvalidRepairStatusException("尚未有技師認領此維修單，請先認領");
+		}
+		if (!r.getRepairTechnicians().getId().equals(technicianId)) {
+			throw new InvalidRepairStatusException("此維修單不是你負責的，不能送出");
+		}
+		if (r.getRepairStatus() != RepairStatus.QUOTE_REJECTED) {
+			throw new InvalidRepairStatusException("此階段無法送出");
+		}
+
+		r.setFinalCost(finalCost != null ? finalCost : 0);
+		r.setRepairStatus(RepairStatus.AWAITING_PICKUP);
+
+		return toResponse(rRepos.save(r));
+	}
+
+	
 //	技師手動更新付款狀態
 	public RepairsResponse updatePayStatus(Long id, RepairPayStatus payStatus) {
 		Repairs r = rRepos.findById(id)

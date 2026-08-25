@@ -2,12 +2,12 @@
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import {
-  closeRejectedRepair,
   closeRepair,
   completeRepair,
   getRepair,
   markNotified,
   markUndelivered,
+  notifyRejected,
   submitQuote,
   updateInspectionResult,
   updateQuote,
@@ -34,7 +34,7 @@ const STATUS_LABELS = {
   AWAITING_PICKUP: "尚未取件",
   CLOSED: "已結案",
   CANCELLED: "已取消",
-  NOT_DROPPED_OFF: "未送修",
+  NOT_DROPPED_OFF: "未送檢",
 };
 const APPROVAL_LABELS = {
   PENDING: "待確認",
@@ -152,10 +152,7 @@ async function handleSaveInspectionResult() {
 
 // ===== 維修完成區：最終金額／調整原因 =====
 // 維修中：走 completeRepair，會把狀態推進到「維修完成」
-// 報價後不維修：這裡的「最終金額」其實是檢測費，先存在 rejectedFee，
-//              真正送出是靠框框外的「結案」按鈕呼叫 closeRejectedRepair
 const completeForm = ref({ finalCost: null, adjustmentNote: "" });
-const rejectedFee = ref(null);
 
 async function handleComplete() {
   if (!window.confirm("確定要送出嗎？")) return;
@@ -179,26 +176,29 @@ async function handleNotify() {
   );
 }
 
-// ===== 取件付款：付款狀態下拉選單只是本地選擇，真正送出要按框框外的「結案」 =====
-// 尚未取件／報價後不維修 都共用同一顆結案按鈕，依狀態呼叫不同API
+// ===== 報價後不維修：技師填最終金額(檢測費)，按送出，狀態推進到「尚未取件」 =====
+const rejectedFee = ref(null);
+
+async function handleSubmitRejected() {
+  if (!window.confirm("確定要送出嗎？")) return;
+  await runAction(() =>
+    notifyRejected(
+      repair.value.id,
+      repair.value.technicianId,
+      rejectedFee.value === "" ? null : rejectedFee.value,
+    ),
+  );
+}
+
+// ===== 取件付款：付款狀態下拉選單選「已付款」後，旁邊小按鈕按下才真正結案、鎖住 =====
 const closePayStatus = ref("UNPAID");
 
 async function handleFinalClose() {
   if (closePayStatus.value !== "PAID") return;
   if (!window.confirm("確定要結案嗎？")) return;
-  if (repair.value.repairStatus === "QUOTE_REJECTED") {
-    await runAction(() =>
-      closeRejectedRepair(
-        repair.value.id,
-        repair.value.technicianId,
-        rejectedFee.value === "" ? null : rejectedFee.value,
-      ),
-    );
-  } else {
-    await runAction(() =>
-      closeRepair(repair.value.id, repair.value.technicianId),
-    );
-  }
+  await runAction(() =>
+    closeRepair(repair.value.id, repair.value.technicianId),
+  );
 }
 
 // ===== 共用：呼叫API、重抓資料、錯誤處理 =====
@@ -498,7 +498,7 @@ onMounted(() => fetchRepair());
             </div>
           </template>
 
-          <!-- 報價後不維修：這裡填的其實是檢測費，真正送出要按框框外的結案按鈕 -->
+          <!-- 報價後不維修：這裡填的其實是檢測費 -->
           <template v-else-if="repair.repairStatus === 'QUOTE_REJECTED'">
             <div class="col-md-6">
               <label class="form-label"
@@ -509,6 +509,15 @@ onMounted(() => fetchRepair());
                 type="number"
                 class="form-control"
               />
+            </div>
+            <div class="col-12">
+              <button
+                class="btn btn-primary"
+                :disabled="loading"
+                @click="handleSubmitRejected"
+              >
+                送出
+              </button>
             </div>
           </template>
 
@@ -553,11 +562,7 @@ onMounted(() => fetchRepair());
 
           <div
             class="col-md-4"
-            v-if="
-              ['AWAITING_PICKUP', 'QUOTE_REJECTED'].includes(
-                repair.repairStatus,
-              )
-            "
+            v-if="repair.repairStatus === 'AWAITING_PICKUP'"
           >
             <span class="text-secondary">付款狀態：</span>
             <select
@@ -579,13 +584,8 @@ onMounted(() => fetchRepair());
         </div>
       </section>
 
-      <!-- 結案按鈕：尚未取件／報價後不維修 都在這裡，選「已付款」才能按 -->
-      <div
-        v-if="
-          ['AWAITING_PICKUP', 'QUOTE_REJECTED'].includes(repair.repairStatus)
-        "
-        class="mb-3"
-      >
+      <!-- 結案按鈕：走到尚未取件狀態才會出現，選「已付款」才能按 -->
+      <div v-if="repair.repairStatus === 'AWAITING_PICKUP'" class="mb-3">
         <button
           class="btn btn-primary"
           :disabled="loading || closePayStatus !== 'PAID'"

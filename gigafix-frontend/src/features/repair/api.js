@@ -21,11 +21,9 @@ export const getRepair = async (repairId) => {
 
 // 技師認領維修單
 export const assignRepair = async (repairId, technicianId) => {
-  const response = await axios.post(
-    `${REPAIRS_URL}/${repairId}/assign`,
-    null,
-    { params: { technicianId } },
-  );
+  const response = await axios.post(`${REPAIRS_URL}/${repairId}/assign`, null, {
+    params: { technicianId },
+  });
   return response.data;
 };
 
@@ -81,18 +79,16 @@ export const markNotified = async (repairId, technicianId) => {
 
 // 門市取貨付款、結案
 export const closeRepair = async (repairId, technicianId) => {
-  const response = await axios.patch(
-    `${REPAIRS_URL}/${repairId}/close`,
-    null,
-    { params: { technicianId } },
-  );
+  const response = await axios.patch(`${REPAIRS_URL}/${repairId}/close`, null, {
+    params: { technicianId },
+  });
   return response.data;
 };
 
-// 報價不維修、門市取貨付款(檢測費或0元)、結案；finalCost 不填就是0元
-export const closeRejectedRepair = async (repairId, technicianId, finalCost) => {
+// 報價不維修：技師填最終金額(檢測費)送出，狀態推進到尚未取件；finalCost 不填就是0元
+export const notifyRejected = async (repairId, technicianId, finalCost) => {
   const response = await axios.patch(
-    `${REPAIRS_URL}/${repairId}/closerejected`,
+    `${REPAIRS_URL}/${repairId}/notify-rejected`,
     null,
     { params: { technicianId, finalCost } },
   );
