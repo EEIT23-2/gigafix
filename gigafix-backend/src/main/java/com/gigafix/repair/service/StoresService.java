@@ -3,11 +3,13 @@ package com.gigafix.repair.service;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import com.gigafix.repair.dto.StoresRequest;
 import com.gigafix.repair.dto.StoresResponse;
 import com.gigafix.repair.entity.Stores;
+import com.gigafix.repair.exception.DataInUseException;
 import com.gigafix.repair.exception.RepairNotFoundException;
 import com.gigafix.repair.repository.StoresRepository;
 
@@ -58,7 +60,12 @@ public class StoresService {
 		if(!storesRepos.existsById(id)) {
 			throw new RepairNotFoundException("分店ID: " + id + " 找不到!");
 		}
-		storesRepos.deleteById(id);
+		try {
+			storesRepos.deleteById(id);
+			storesRepos.flush();
+		} catch (DataIntegrityViolationException e) {
+			throw new DataInUseException("此分店底下還有技師或維修單記錄，請先處理完畢再刪除");
+		}
 	}
 	
 //	id查詢

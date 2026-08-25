@@ -3,12 +3,14 @@ package com.gigafix.repair.service;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import com.gigafix.repair.dto.RepairTechniciansRequest;
 import com.gigafix.repair.dto.RepairTechniciansResponse;
 import com.gigafix.repair.entity.RepairTechnicians;
 import com.gigafix.repair.entity.Stores;
+import com.gigafix.repair.exception.DataInUseException;
 import com.gigafix.repair.exception.RepairNotFoundException;
 import com.gigafix.repair.repository.RepairTechniciansRepository;
 import com.gigafix.repair.repository.StoresRepository;
@@ -61,12 +63,18 @@ public class RepairTechniciansService {
     }
 
     // 刪除
-//    controller有回傳狀態碼204，就不用回傳字串提醒刪除成功了
+    // controller有回傳狀態碼204，就不用回傳字串提醒刪除成功了
+    // 外鍵限制無法刪除
     public void deleteById(Integer id) {
     	if (!rtRepos.existsById(id)) {
             throw new RepairNotFoundException("找不到技師，ID: " + id);
         }
-        rtRepos.deleteById(id);
+        try {
+            rtRepos.deleteById(id);
+            rtRepos.flush();
+        } catch (DataIntegrityViolationException e) {
+            throw new DataInUseException("此技師名下還有維修單記錄，請先處理完畢再刪除");
+        }
     }
 
     // id查詢
