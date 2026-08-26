@@ -7,6 +7,9 @@ import ReportAdminTable from '../../components/admin/ReportAdminTable.vue'
 
 const router = useRouter()
 
+// 列表排序權重：待處理排最前面，關閉的沉到最後
+const REPORT_STATUS_SORT_ORDER = { PENDING: 0, RESOLVED: 1, CLOSED: 2 }
+
 const allReports = ref([])
 const loading = ref(false)
 const errorMessage = ref('')
@@ -34,7 +37,7 @@ async function fetchReports() {
 }
 
 const filteredReports = computed(() => {
-  return allReports.value.filter((report) => {
+  const matched = allReports.value.filter((report) => {
     if (statusFilter.value && report.status !== statusFilter.value) return false
     if (targetTypeFilter.value === 'article' && report.articleId == null) return false
     if (targetTypeFilter.value === 'comment' && report.commentId == null) return false
@@ -52,6 +55,24 @@ const filteredReports = computed(() => {
     }
     return true
   })
+
+  // filter() 已經回傳新陣列，就地排序不會動到 allReports
+  return matched.sort((a, b) => {
+    const orderDiff =
+      (REPORT_STATUS_SORT_ORDER[a.status] ?? 99) - (REPORT_STATUS_SORT_ORDER[b.status] ?? 99)
+    if (orderDiff !== 0) return orderDiff
+    // 同狀態內新的排前面
+    return (b.reportCreatedTime ?? '').localeCompare(a.reportCreatedTime ?? '')
+  })
+})
+
+// 統計刻意用未經篩選的 allReports，數字才不會隨著目前的搜尋/篩選條件跳動
+const statusCounts = computed(() => {
+  const counts = { PENDING: 0, RESOLVED: 0, CLOSED: 0 }
+  for (const report of allReports.value) {
+    if (report.status in counts) counts[report.status] += 1
+  }
+  return counts
 })
 
 const totalElements = computed(() => filteredReports.value.length)
@@ -83,9 +104,19 @@ onMounted(fetchReports)
 <template>
   <main class="container-fluid px-3 px-lg-4 py-4">
     <div class="mx-auto content-width">
-      <header class="d-flex align-items-center gap-3 mb-4">
-        <h1 class="fw-bold mb-0">論壇檢舉管理</h1>
-        <span class="badge rounded-pill text-bg-light border">Total: {{ totalElements }}</span>
+      <!-- 這排統計是「全部檢舉」的概況，不隨下方篩選條件變動；
+           目前篩選結果的筆數在表格下方的分頁資訊那一行 -->
+      <header class="d-flex align-items-center flex-wrap gap-2 mb-4">
+        <h1 class="fw-bold mb-0 me-2">論壇檢舉管理</h1>
+        <span class="badge rounded-pill text-bg-light border">總計: {{ allReports.length }}</span>
+        <span
+          v-for="[value, meta] in Object.entries(REPORT_STATUS_MAP)"
+          :key="value"
+          class="badge rounded-pill"
+          :class="meta.badgeClass"
+        >
+          {{ meta.label }}: {{ statusCounts[value] }}
+        </span>
       </header>
 
       <section class="card mb-4">

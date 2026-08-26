@@ -72,7 +72,7 @@ public class ReportController {
 
 	// 處理／關閉檢舉
 	// TODO: 角色系統做好後要加 moderator/admin 權限檢查，目前任何呼叫者都可以執行
-	@PatchMapping("/api/reports/{reportId}/status")
+	@PatchMapping("/api/admin/reports/{reportId}/status")
 	public ResponseEntity<ReportResponse> updateReportStatus(
 			@PathVariable Long reportId,
 			@Valid @RequestBody UpdateReportStatusRequest request) {

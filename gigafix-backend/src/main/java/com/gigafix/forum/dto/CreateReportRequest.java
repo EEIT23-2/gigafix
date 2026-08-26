@@ -11,6 +11,6 @@ import lombok.Setter;
 public class CreateReportRequest {
 
 	@NotBlank(message = "檢舉原因不能為空")
-	@Size(max = 500, message = "檢舉原因不能超過500字")
+	@Size(max = 250, message = "檢舉原因不能超過250字")
 	private String reason;
 }

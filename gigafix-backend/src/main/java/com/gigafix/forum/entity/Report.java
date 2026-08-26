@@ -58,9 +58,13 @@ public class Report {
 	@Column(name = "status", nullable = false, columnDefinition = "TINYINT", check = @CheckConstraint(name = "CK_reports_status", constraint = "status IN (0,1,2)"))
 	private ReportStatus status;
 
-	// COLLATE Chinese_Taiwan_Stroke_CI_AS：指定繁體中文筆畫排序定序（不分大小寫、不分腔調），確保檢舉原因文字排序/比較符合中文筆畫順序
-	// 注意：SQL Server 沒有 Chinese_Taiwan_Stroke_100_CI_AS 這個定序名稱，帶 _100_ 版本的筆畫排序定序全名是 Chinese_Traditional_Stroke_Order_100_CI_AS，寫錯會導致建表失敗
-	@Column(name = "reason", nullable = false, columnDefinition = "VARCHAR(500) COLLATE Chinese_Taiwan_Stroke_CI_AS")
+	// 用 NVARCHAR 而不是 VARCHAR：VARCHAR(n) 的 n 是位元組數，中文一字佔 2 bytes，
+	// 會跟 CreateReportRequest 的 @Size（算字元數）對不起來。NVARCHAR(250) 的 250 就是字元數，兩邊一致。
+	// 長度取 250 是因為規劃書跟組員談定的規格就是「250 個中文字」（當初的 VARCHAR(500) 剛好等於這個量），
+	// 不是 500——改成 NVARCHAR 時若直接沿用 500 會把容量變成談定的兩倍
+	// 這個欄位不指定 COLLATE：檢舉原因從來不排序、也不做等值比對，定序在這裡沒有作用，
+	// 跟著資料庫預設值即可（Category.name 有保留定序，因為判斷名稱重複要靠它）
+	@Column(name = "reason", nullable = false, columnDefinition = "NVARCHAR(250)")
 	private String reason;
 
 	@Column(name = "report_created_time", nullable = false, updatable = false)

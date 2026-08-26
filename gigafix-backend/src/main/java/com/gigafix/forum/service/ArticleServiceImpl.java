@@ -19,6 +19,7 @@ import com.gigafix.forum.dto.UpdateArticleRequest;
 import com.gigafix.forum.dto.UpdateArticleStatusRequest;
 import com.gigafix.forum.entity.Article;
 import com.gigafix.forum.entity.Category;
+import com.gigafix.forum.exception.ForumException;
 import com.gigafix.forum.repository.ArticleRepository;
 import com.gigafix.forum.repository.CategoryRepository;
 import com.gigafix.member.entity.Member;
@@ -80,12 +81,12 @@ public class ArticleServiceImpl implements ArticleService {
 		Article.ArticleStatus requestedStatus = request.getStatus() != null ? request.getStatus()
 				: Article.ArticleStatus.PUBLISHED;
 		if (requestedStatus != Article.ArticleStatus.DRAFT && requestedStatus != Article.ArticleStatus.PUBLISHED) {
-			throw new IllegalArgumentException("建立文章時狀態僅能為草稿或發布");
+			throw ForumException.badRequest("建立文章時狀態僅能為草稿或發布");
 		}
 		// 只有要直接發布時才驗證標題/內文不能空白；草稿允許空白，供自動儲存流程使用
 		if (requestedStatus == Article.ArticleStatus.PUBLISHED
 				&& (isBlank(request.getTitle()) || isBlank(request.getContent()))) {
-			throw new IllegalArgumentException("標題與內文不能為空");
+			throw ForumException.badRequest("標題與內文不能為空");
 		}
 
 		// 建立文章
@@ -195,7 +196,7 @@ public class ArticleServiceImpl implements ArticleService {
 		// 草稿階段允許標題/內文空白（自動儲存用）；非草稿狀態才驗證不能為空
 		if (article.getStatus() != Article.ArticleStatus.DRAFT
 				&& (isBlank(request.getTitle()) || isBlank(request.getContent()))) {
-			throw new IllegalArgumentException("標題與內文不能為空");
+			throw ForumException.badRequest("標題與內文不能為空");
 		}
 
 		// 更新文章內容
@@ -263,7 +264,7 @@ public class ArticleServiceImpl implements ArticleService {
 		// 發布時要驗證標題/內文不能為空
 		if (request.getStatus() == Article.ArticleStatus.PUBLISHED
 				&& (isBlank(article.getTitle()) || isBlank(article.getContent()))) {
-			throw new IllegalArgumentException("標題與內文不能為空，無法發布");
+			throw ForumException.badRequest("標題與內文不能為空，無法發布");
 		}
 
 		article.setStatus(request.getStatus());

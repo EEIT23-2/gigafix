@@ -9,6 +9,7 @@ import {
   reportComment,
   TEST_MEMBER_ID,
 } from '../api'
+import MoreActionsMenu from './MoreActionsMenu.vue'
 
 const props = defineProps({
   articleId: { type: [Number, String], required: true },
@@ -16,7 +17,7 @@ const props = defineProps({
 })
 
 const MAX_LENGTH = 1000
-const REPORT_MAX_LENGTH = 500
+const REPORT_MAX_LENGTH = 250
 
 const comments = ref([])
 const newContent = ref('')
@@ -137,8 +138,6 @@ async function handleReportSubmit(commentId) {
 
 <template>
   <section class="comment-section">
-    <h3>留言</h3>
-
     <p v-if="loadError" class="error">{{ loadError }}</p>
     <ul v-else class="comment-list">
       <li v-for="comment in comments" :key="comment.commentId" class="comment-item">
@@ -165,22 +164,22 @@ async function handleReportSubmit(commentId) {
             >
               👍 {{ comment.likeCount }}
             </button>
-            <button
-              v-if="comment.authorId === TEST_MEMBER_ID"
-              type="button"
-              class="delete"
-              @click="handleDelete(comment.commentId)"
-            >
-              刪除
-            </button>
-            <button
-              v-if="comment.authorId !== TEST_MEMBER_ID"
-              type="button"
-              class="report"
-              @click="toggleReportForm(comment.commentId)"
-            >
-              檢舉
-            </button>
+            <MoreActionsMenu>
+              <template #default="{ close }">
+                <!-- 留言沒有「編輯」：後端只有新增/刪除/改狀態，沒有更新留言內容的端點 -->
+                <button
+                  v-if="comment.authorId === TEST_MEMBER_ID"
+                  type="button"
+                  class="danger"
+                  @click="close(); handleDelete(comment.commentId)"
+                >
+                  刪除
+                </button>
+                <button v-else type="button" @click="close(); toggleReportForm(comment.commentId)">
+                  檢舉
+                </button>
+              </template>
+            </MoreActionsMenu>
           </div>
           <form
             v-if="reportingCommentId === comment.commentId"
@@ -195,6 +194,7 @@ async function handleReportSubmit(commentId) {
               @input="autoResize"
             />
             <div class="form-footer">
+              <span class="char-count">{{ reportReason.length }}/{{ REPORT_MAX_LENGTH }}</span>
               <button type="button" class="cancel" @click="toggleReportForm(comment.commentId)">取消</button>
               <button type="submit" :disabled="reportSubmitting">
                 {{ reportSubmitting ? '送出中...' : '送出檢舉' }}
@@ -343,9 +343,11 @@ async function handleReportSubmit(commentId) {
 .comment-actions {
   display: flex;
   gap: 10px;
+  align-items: center;
 }
 
-.comment-actions button {
+/* 用子代選擇器，避免這條規則透過 slot 蓋掉 ⋮ 選單內的選項樣式 */
+.comment-actions > button {
   background: none;
   border: 1px solid #d0d0d0;
   border-radius: 4px;
@@ -354,20 +356,21 @@ async function handleReportSubmit(commentId) {
   cursor: pointer;
 }
 
-.comment-actions .like.liked {
+.comment-actions > .like.liked {
   border-color: #2b77c5;
   color: #2b77c5;
   background-color: #eaf2fb;
 }
 
-.comment-actions .delete {
-  color: #c0392b;
-  border-color: #f0c0c0;
+/* .form-footer 是留言表單與檢舉表單共用的 space-between；檢舉表單多了字數會變成三個子元素，
+   space-between 會把「取消」推到正中間，所以這裡改成靠右排列，字數用 margin-right:auto 推到左邊 */
+.report-form .form-footer {
+  justify-content: flex-end;
+  gap: 8px;
 }
 
-.comment-actions .report {
-  color: #a15c00;
-  border-color: #e8d3a0;
+.report-form .char-count {
+  margin-right: auto;
 }
 
 .report-form {

@@ -16,9 +16,13 @@ import {
   TEST_MEMBER_ID,
 } from '../api'
 import CommentSection from '../components/CommentSection.vue'
+import MoreActionsMenu from '../components/MoreActionsMenu.vue'
 
 const route = useRoute()
 const router = useRouter()
+
+// 對齊後端 CreateReportRequest 的 @Size(max = 250)，欄位是 NVARCHAR(250)，250 是字元數
+const REPORT_MAX_LENGTH = 250
 
 const article = ref(null)
 const liked = ref(false)
@@ -32,11 +36,15 @@ const floorSubmitting = ref(false)
 const floorErrorMessage = ref('')
 const floorTextareaRef = ref(null)
 
-const showReportForm = ref(false)
+// 一次只展開一份檢舉表單。null = 沒展開；有值 = 正在檢舉哪一篇
+// （樓層本身也是一筆 article，所以主文章跟樓層可以共用同一組狀態與同一支 reportArticle API）
+const reportingArticleId = ref(null)
 const reportReason = ref('')
 const reportSubmitting = ref(false)
 const reportErrorMessage = ref('')
 const reportSuccessMessage = ref('')
+// 記住成功訊息屬於哪一篇，否則檢舉完某個樓層後訊息會顯示在錯的地方
+const reportSuccessTargetId = ref(null)
 
 const articleId = computed(() => route.params.articleId)
 const isAuthor = computed(() => article.value?.authorId === TEST_MEMBER_ID)
@@ -48,8 +56,12 @@ const floorLocked = computed(
 
 function autoResize(event) {
   const el = event.target
+  // 先歸零才量得到內容真正需要的高度；height:auto 時 rows 屬性會決定最小高度，
+  // 所以蓋樓框（rows=3）打第一個字時不會被縮成一行
   el.style.height = 'auto'
-  el.style.height = `${el.scrollHeight}px`
+  // scrollHeight 不含 border，box-sizing: border-box 下直接套用會每次少掉 border 那幾 px
+  const borderHeight = el.offsetHeight - el.clientHeight
+  el.style.height = `${el.scrollHeight + borderHeight}px`
 }
 
 async function load() {
@@ -132,22 +144,24 @@ async function handleCreateFloor() {
   }
 }
 
-function toggleReportForm() {
+function toggleReportForm(targetId) {
   reportSuccessMessage.value = ''
+  reportSuccessTargetId.value = null
   reportErrorMessage.value = ''
   reportReason.value = ''
-  showReportForm.value = !showReportForm.value
+  reportingArticleId.value = reportingArticleId.value === targetId ? null : targetId
 }
 
-async function handleReportSubmit() {
+async function handleReportSubmit(targetId) {
   if (!reportReason.value.trim()) return
   reportSubmitting.value = true
   reportErrorMessage.value = ''
   try {
-    await reportArticle(articleId.value, reportReason.value)
-    showReportForm.value = false
+    await reportArticle(targetId, reportReason.value)
+    reportingArticleId.value = null
     reportReason.value = ''
     reportSuccessMessage.value = '已送出檢舉'
+    reportSuccessTargetId.value = targetId
   } catch (error) {
     const fieldError = error.response?.data?.errors?.[0]?.message
     reportErrorMessage.value = fieldError || '檢舉失敗，請稍後再試'
@@ -160,6 +174,17 @@ async function handleDelete() {
   if (!confirm('確定要刪除這篇文章嗎？')) return
   await deleteArticle(articleId.value)
   router.push({ name: 'forumList' })
+}
+
+// 樓層本身就是一篇 article，刪除走的是同一支軟刪除 API（狀態改成下架）
+async function handleDeleteFloor(floorId) {
+  if (!confirm('確定要刪除這個樓層嗎？')) return
+  try {
+    await deleteArticle(floorId)
+    await loadFloors()
+  } catch {
+    floorErrorMessage.value = '刪除樓層失敗'
+  }
 }
 </script>
 
@@ -175,10 +200,11 @@ async function handleDelete() {
           <div class="meta">
             <span>{{ article.authorNickName }}</span>
             <span>{{ new Date(article.articleCreatedTime).toLocaleString() }}</span>
-            <span>👁 {{ article.viewCount }}</span>
+            <span :title="`瀏覽數: ${article.viewCount}`">👁 {{ article.viewCount }}</span>
             <span>
-              <span :title="`[蓋樓數: ${article.floorCount}]`">🧱{{ article.floorCount }}</span
-              >/<span :title="`[留言數: ${article.commentCount}]`">💬{{ article.commentCount }}</span>
+              💬
+              <span :title="`蓋樓數: ${article.floorCount}`">{{ article.floorCount }}</span
+              >/<span :title="`留言數: ${article.commentCount}`">{{ article.commentCount }}</span>
             </span>
           </div>
         </div>
@@ -192,30 +218,43 @@ async function handleDelete() {
           <button type="button" @click="toggleBookmark">
             {{ bookmarked ? '★ 已收藏' : '☆ 收藏' }}
           </button>
-          <button v-if="!isAuthor" type="button" class="report" @click="toggleReportForm">🚩 檢舉</button>
-          <template v-if="isAuthor">
-            <RouterLink :to="{ name: 'forumEdit', params: { articleId } }">編輯</RouterLink>
-            <button type="button" class="delete" @click="handleDelete">刪除</button>
-          </template>
+          <MoreActionsMenu>
+            <template #default="{ close }">
+              <template v-if="isAuthor">
+                <RouterLink :to="{ name: 'forumEdit', params: { articleId } }">編輯</RouterLink>
+                <button type="button" class="danger" @click="close(); handleDelete()">刪除</button>
+              </template>
+              <button v-else type="button" @click="close(); toggleReportForm(article.articleId)">
+                檢舉
+              </button>
+            </template>
+          </MoreActionsMenu>
         </div>
 
-        <form v-if="showReportForm" class="report-form" @submit.prevent="handleReportSubmit">
+        <form
+          v-if="reportingArticleId === article.articleId"
+          class="report-form"
+          @submit.prevent="handleReportSubmit(article.articleId)"
+        >
           <textarea
             v-model="reportReason"
             rows="1"
-            maxlength="500"
+            :maxlength="REPORT_MAX_LENGTH"
             placeholder="請輸入檢舉原因..."
             @input="autoResize"
           />
           <div class="form-footer">
-            <button type="button" class="cancel" @click="toggleReportForm">取消</button>
+            <span class="char-count">{{ reportReason.length }}/{{ REPORT_MAX_LENGTH }}</span>
+            <button type="button" class="cancel" @click="toggleReportForm(article.articleId)">取消</button>
             <button type="submit" :disabled="reportSubmitting">
-              {{ reportSubmitting ? '送出中...' : '送出檢舉' }}
+              {{ reportSubmitting ? '送出中...' : '送出' }}
             </button>
           </div>
           <p v-if="reportErrorMessage" class="error">{{ reportErrorMessage }}</p>
         </form>
-        <p v-if="reportSuccessMessage" class="report-success">{{ reportSuccessMessage }}</p>
+        <p v-if="reportSuccessTargetId === article.articleId" class="report-success">
+          {{ reportSuccessMessage }}
+        </p>
 
         <CommentSection :article-id="articleId" :status="article.status" />
 
@@ -225,24 +264,76 @@ async function handleDelete() {
             <span class="author">{{ floor.authorNickName }}</span>
             <span class="time">{{ new Date(floor.articleCreatedTime).toLocaleString() }}</span>
           </div>
-          <p class="floor-content">{{ floor.content }}</p>
-          <CommentSection :article-id="floor.articleId" :status="floor.status" />
+
+          <!-- 被隱藏/下架的樓層：後端已把 content 遮蔽成 null，改顯示遮蔽訊息，
+               底下的留言區也一併不顯示（樓層都收回了，留言不該還看得到） -->
+          <p v-if="!floor.visible" class="floor-mask">{{ floor.visibilityMessage }}</p>
+          <template v-else>
+            <p class="floor-content">{{ floor.content }}</p>
+
+            <div class="floor-actions">
+              <MoreActionsMenu>
+                <template #default="{ close }">
+                  <!-- 樓層沒有「編輯」：標題由後端自動生成、分類繼承樓主，套文章編輯頁語意不對 -->
+                  <button
+                    v-if="floor.authorId === TEST_MEMBER_ID"
+                    type="button"
+                    class="danger"
+                    @click="close(); handleDeleteFloor(floor.articleId)"
+                  >
+                    刪除
+                  </button>
+                  <button v-else type="button" @click="close(); toggleReportForm(floor.articleId)">
+                    檢舉
+                  </button>
+                </template>
+              </MoreActionsMenu>
+            </div>
+
+            <form
+              v-if="reportingArticleId === floor.articleId"
+              class="report-form"
+              @submit.prevent="handleReportSubmit(floor.articleId)"
+            >
+              <textarea
+                v-model="reportReason"
+                rows="1"
+                :maxlength="REPORT_MAX_LENGTH"
+                placeholder="請輸入檢舉原因..."
+                @input="autoResize"
+              />
+              <div class="form-footer">
+                <span class="char-count">{{ reportReason.length }}/{{ REPORT_MAX_LENGTH }}</span>
+                <button type="button" class="cancel" @click="toggleReportForm(floor.articleId)">
+                  取消
+                </button>
+                <button type="submit" :disabled="reportSubmitting">
+                  {{ reportSubmitting ? '送出中...' : '送出' }}
+                </button>
+              </div>
+              <p v-if="reportErrorMessage" class="error">{{ reportErrorMessage }}</p>
+            </form>
+            <p v-if="reportSuccessTargetId === floor.articleId" class="report-success">
+              {{ reportSuccessMessage }}
+            </p>
+
+            <CommentSection :article-id="floor.articleId" :status="floor.status" />
+          </template>
         </div>
 
         <section v-if="canAddFloor" class="floor-form-section">
-          <h3>蓋樓</h3>
           <p v-if="floorLocked" class="locked-message">蓋樓功能已關閉</p>
           <form v-else class="floor-form" @submit.prevent="handleCreateFloor">
             <textarea
               ref="floorTextareaRef"
               v-model="floorContent"
-              rows="1"
+              rows="3"
               placeholder="回覆這篇文章（蓋樓）..."
               @input="autoResize"
             />
             <div class="form-footer">
               <button type="submit" :disabled="floorSubmitting">
-                {{ floorSubmitting ? '送出中...' : '蓋樓' }}
+                {{ floorSubmitting ? '送出中...' : '送出' }}
               </button>
             </div>
             <p v-if="floorErrorMessage" class="error">{{ floorErrorMessage }}</p>
@@ -299,8 +390,9 @@ h1 {
   align-items: center;
 }
 
-.actions button,
-.actions a {
+/* 用子代選擇器，避免這條規則透過 slot 蓋掉 ⋮ 選單內的選項樣式 */
+.actions > button,
+.actions > a {
   padding: 6px 14px;
   border: 1px solid #d0d0d0;
   border-radius: 4px;
@@ -309,16 +401,6 @@ h1 {
   text-decoration: none;
   color: inherit;
   font-size: 14px;
-}
-
-.actions .delete {
-  color: #c0392b;
-  border-color: #f0c0c0;
-}
-
-.actions .report {
-  color: #a15c00;
-  border-color: #e8d3a0;
 }
 
 .empty {
@@ -351,6 +433,16 @@ h1 {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.char-count {
+  font-size: 12px;
+  color: #999999;
+}
+
+/* footer 已經是 flex-end + gap，字數靠 margin-right:auto 吃掉剩餘空間推到最左邊 */
+.report-form .char-count {
+  margin-right: auto;
 }
 
 .report-form .cancel {
@@ -418,6 +510,23 @@ h1 {
   margin: 0 0 4px;
   white-space: pre-wrap;
   line-height: 1.6;
+}
+
+/* 被隱藏/下架的樓層，沿用留言遮蔽的視覺語彙（灰底虛線） */
+.floor-mask {
+  margin: 0;
+  padding: 8px;
+  background-color: #f3f3f3;
+  border: 1px dashed #cccccc;
+  border-radius: 4px;
+  color: #888888;
+  font-size: 13px;
+  text-align: center;
+}
+
+.floor-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .floor-form-section {
