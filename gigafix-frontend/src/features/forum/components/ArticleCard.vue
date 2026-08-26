@@ -16,11 +16,12 @@ defineProps({
       <h3 class="title">{{ article.title }}</h3>
       <div class="meta">
         <span>{{ article.authorNickName }}</span>
-        <span>👁 {{ article.viewCount }}</span>
-        <span>👍 {{ article.likeCount }}</span>
+        <span :title="`瀏覽數: ${article.viewCount}`">👁 {{ article.viewCount }}</span>
+        <span :title="`讚數: ${article.likeCount}`">👍 {{ article.likeCount }}</span>
         <span>
-          <span :title="`[蓋樓數: ${article.floorCount}]`">🧱{{ article.floorCount }}</span
-          >/<span :title="`[留言數: ${article.commentCount}]`">💬{{ article.commentCount }}</span>
+          💬
+          <span :title="`蓋樓數: ${article.floorCount}`">{{ article.floorCount }}</span
+          >/<span :title="`留言數: ${article.commentCount}`">{{ article.commentCount }}</span>
         </span>
       </div>
     </div>

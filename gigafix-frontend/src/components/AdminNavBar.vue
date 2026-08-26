@@ -20,8 +20,16 @@ import { RouterLink } from "vue-router";
     </RouterLink>
 
     <div class="nav-heading">ADDONS</div>
-    <RouterLink class="nav-item" to="">
+    <RouterLink class="nav-item" to="/admin/repairs">
       <span class="nav-title"><span class="icon">📁</span> 維修單</span>
+      <span class="arrow">›</span>
+    </RouterLink>
+    <RouterLink class="nav-item" to="/admin/technicians">
+      <span class="nav-title"><span class="icon">🧑</span> 技師管理</span>
+      <span class="arrow">›</span>
+    </RouterLink>
+    <RouterLink class="nav-item" to="/admin/stores">
+      <span class="nav-title"><span class="icon">🏬</span> 分店管理</span>
       <span class="arrow">›</span>
     </RouterLink>
     <RouterLink class="nav-item" to="/admin/forum/articles">

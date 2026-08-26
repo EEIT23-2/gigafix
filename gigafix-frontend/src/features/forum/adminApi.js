@@ -55,7 +55,22 @@ export function getReportForAdmin(reportId) {
   return http.get(`/api/admin/reports/${reportId}`).then((res) => res.data)
 }
 
-// 注意：這支不在 /api/admin 底下，是既有的路徑不一致，照現況使用
 export function updateReportStatus(reportId, status) {
-  return http.patch(`/api/reports/${reportId}/status`, { status }).then((res) => res.data)
+  return http.patch(`/api/admin/reports/${reportId}/status`, { status }).then((res) => res.data)
+}
+
+// ---------------- 分類（後台） ----------------
+// 讀取沿用公開的 GET /api/categories（見 api.js 的 getCategories），
+// 寫入端點才在 /api/admin 底下，與其他後台端點一致
+
+export function createCategory(name) {
+  return http.post('/api/admin/categories', { name }).then((res) => res.data)
+}
+
+export function updateCategory(categoryId, name) {
+  return http.put(`/api/admin/categories/${categoryId}`, { name }).then((res) => res.data)
+}
+
+export function deleteCategory(categoryId) {
+  return http.delete(`/api/admin/categories/${categoryId}`)
 }
