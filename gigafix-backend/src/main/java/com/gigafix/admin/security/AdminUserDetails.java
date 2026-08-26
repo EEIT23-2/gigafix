@@ -60,5 +60,17 @@ public class AdminUserDetails implements UserDetails { //不想繼承AdminAccoun
 
 	@Override
 	public boolean isEnabled() {return true;}
+	
+	//用帳號 id判斷兩個物件相等
+	@Override
+	public boolean equals(Object o) {
+	    if (this == o) return true;
+	    if (!(o instanceof AdminUserDetails other)) return false;
+	    return this.getId() != null && this.getId().equals(other.getId());
+	}
 
+	@Override
+	public int hashCode() {
+	    return getId() != null ? getId().hashCode() : 0;
+	}
 }

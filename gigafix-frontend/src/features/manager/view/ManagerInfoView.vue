@@ -11,7 +11,7 @@ const { adminInfo } = storeToRefs(fetchAdminInfoStore)
 </script>
 
 <template>
-    <AdminInfoModel />
+    <AdminInfoModel v-if="adminInfo"/>
     <SuperAdminModel v-if="adminInfo && adminInfo.role === 'ROLE_SUPER_ADMIN'"/>
 </template>
 
