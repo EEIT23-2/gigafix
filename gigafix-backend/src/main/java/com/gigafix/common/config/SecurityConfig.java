@@ -16,10 +16,13 @@ import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
 
 import com.gigafix.admin.service.AdminUserDetailsService;
+import com.gigafix.common.dto.ErrorResp;
 import com.gigafix.common.security.RestAccessDeniedHandler;
 import com.gigafix.common.security.RestAuthEntryPoint;
 
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import tools.jackson.databind.ObjectMapper;
 
 @Configuration
 @EnableWebSecurity
@@ -28,6 +31,7 @@ public class SecurityConfig {
 	private final AdminUserDetailsService adminUserDetailsService;
 	private final RestAccessDeniedHandler restAccessDeniedHandler;
 	private final RestAuthEntryPoint restAuthEntryPoint;
+	private final ObjectMapper objectMapper;
 	
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity)throws Exception{
@@ -46,7 +50,20 @@ public class SecurityConfig {
 						)
 				.sessionManagement(session -> session //session-based 認證的核心設定
 						.maximumSessions(1) // 可選：限制同一使用者同時只能有一個 session
-					 	.sessionRegistry(sessionRegistry())) // IF_REQUIRED = 預設值，有需要時才建立 session（例如登入成功時)
+					 	.sessionRegistry(sessionRegistry())// IF_REQUIRED = 預設值，有需要時才建立 session（例如登入成功時)
+					 	.expiredSessionStrategy(event -> { //自訂策略丟出錯誤
+				            HttpServletResponse response = event.getResponse();
+				            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // 401
+				            response.setContentType("application/json;charset=UTF-8");
+
+				            ErrorResp errorResp = ErrorResp.builder()
+				                    .errorCode("SESSION_EXPIRED")
+				                    .message("此帳號已於其他裝置登入，請重新登入")
+				                    .build();
+
+				            response.getWriter().write(objectMapper.writeValueAsString(errorResp));
+				        })
+					 	) 
 				.exceptionHandling(ex -> ex //filter所拋出的兩大錯誤沒辦法用@ExceptionHandler抓，必須複寫他的兩個抓錯誤的介面
 						.authenticationEntryPoint(restAuthEntryPoint) // 未登入 → 401，在自訂一個EntryPoint裡面
 						.accessDeniedHandler(restAccessDeniedHandler)) // 已登入但權限不足 → 403

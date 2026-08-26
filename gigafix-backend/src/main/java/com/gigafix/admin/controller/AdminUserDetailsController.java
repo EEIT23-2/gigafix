@@ -1,5 +1,7 @@
 package com.gigafix.admin.controller;
 
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -7,6 +9,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.session.SessionInformation;
+import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -36,6 +40,7 @@ public class AdminUserDetailsController {
 	private final SecurityContextRepository securityContextRepository;
 	private final LoginLockService loginLockService;
 	private final AdminAccountRepository adminAccountRepository;
+	private final SessionRegistry sessionRegistry;
 	
 	@PostMapping("/adminlogin") //因為是前後端分離專案，前端回傳Json，spring security的預設登入formLogin()不讀取Json，所以不寫Json轉換器的話只能自己寫login
 	public ResponseEntity<AdminLoginResp> adminLogin(@Valid @RequestBody AdminLoginReq adminLoginReq, HttpServletRequest req, HttpServletResponse resp) {
@@ -58,6 +63,17 @@ public class AdminUserDetailsController {
 		    req.getSession(true); // 確保 session 存在，不然會報錯
 		}
 		req.changeSessionId(); //代替spring security透過formLogin時會做的抽換session id，因為不想寫SessionAuthenticationStrategy
+		
+		// ==== 新增：手動做 maximumSessions(1) 原本該做的事 ====
+	    AdminUserDetails principal = (AdminUserDetails) authentication.getPrincipal();
+	    List<SessionInformation> existingSessions = sessionRegistry.getAllSessions(principal, false);
+	    for (SessionInformation sessionInfo : existingSessions) {
+	        sessionInfo.expireNow(); // 把這個帳號原本所有還活著的session都標記過期
+	    }
+	    sessionRegistry.registerNewSession(req.getSession(true).getId(), principal); // 把這次新session登記進去
+	    // ====================================================
+		
+		
 		
 		SecurityContext context = SecurityContextHolder.createEmptyContext(); //創建一個SecurityContext，該物件專們用來裝Authentication
 		context.setAuthentication(authentication); //把登入驗證後使用者所有資訊放進這個context內，回傳值是void不能用方法鍊

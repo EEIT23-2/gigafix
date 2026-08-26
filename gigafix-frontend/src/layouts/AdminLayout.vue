@@ -55,7 +55,7 @@ const logout = async () =>{
               美好的一天✨✨~ {{ adminInfo.adminName }}
             </span>
             |
-            <button type="button" class="btn-logout" @click="logout">
+            <button type="button" class="btn-logout" @click="logout()">
               登出
             </button>
           </span>
