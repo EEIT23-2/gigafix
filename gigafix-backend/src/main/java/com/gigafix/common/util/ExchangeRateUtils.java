@@ -22,7 +22,7 @@ public class ExchangeRateUtils {//此類別是jack用來展示串第三方API商
         //發送get請求外部API
         try {
             ExchangeRateResponse response = restTemplate.getForObject(url, ExchangeRateResponse.class);
-            if(response !=null && "sucess".equals(response.getResult())){
+            if(response !=null && "success".equals(response.getResult())){
                 return response.getConversionRate();//若回應不是空值且取得結果為'成功'就回傳轉換幣別之匯率
             }
         } catch (RestClientException e) {
