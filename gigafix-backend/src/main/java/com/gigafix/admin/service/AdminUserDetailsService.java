@@ -26,6 +26,7 @@ public class AdminUserDetailsService implements UserDetailsService {
 		
 		if (lockService.getLockRemainingMinutes(adminAccount.getId()) != 0) {
 			throw new AdminBusinessRuleCheckException("該帳號密碼錯誤超過5次，請稍後再嘗試登入");
+			//會被 Spring Security 攔截並包成 InternalAuthenticationServiceException
 		}
 		System.out.println("role: " + adminAccount.getRole()); 
 		
