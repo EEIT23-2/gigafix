@@ -1,5 +1,6 @@
 <script setup>
 import ClientNavBar from '@/components/ClientNavBar.vue';
+import { RouterView } from 'vue-router';
 </script>
 
 <template>

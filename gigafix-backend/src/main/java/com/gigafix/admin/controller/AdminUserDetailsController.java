@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.InternalAuthenticationServiceException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
@@ -52,7 +53,13 @@ public class AdminUserDetailsController {
 			//尚未認證時new UsernamePasswordAuthenticationToken(使用者名稱, 使用者密碼)
 			authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(adminLoginReq.adminName(), adminLoginReq.password()));
 			//回傳的Authentication裡面包含→Principal(可以拿到UserDetails物件)、Authorities(權限)、Credentials密碼、認證後結果
-		} catch (BadCredentialsException e) {//如果登入失敗authenticate()會拋出這個例外
+		} catch (InternalAuthenticationServiceException e) {
+	        // loadUserByUsername() 裡丟出的鎖定例外，被 Spring Security 包了一層，這裡解開
+	        if (e.getCause() instanceof AdminBusinessRuleCheckException businessEx) {
+	            throw businessEx;
+	        }
+	        throw e; // 不是預期情況（例如真的內部錯誤），照原本丟出去，走 AuthenticationException 的 fallback handler
+	    } catch (BadCredentialsException e) {//如果登入失敗authenticate()會拋出這個例外
 			Integer adminId = adminAccountRepository.findByName(adminLoginReq.adminName()).orElseThrow(() -> new AdminBusinessRuleCheckException("帳號或密碼錯誤")).getId();
 			AdminLoginAttemptInfo AdminLoginAttemptInfo = loginLockService.recordFailedAttempt(adminId);//登入失敗就在
 			throw new AdminBusinessRuleCheckException("帳號或密碼錯誤" + AdminLoginAttemptInfo.getFailCount() +"次");
