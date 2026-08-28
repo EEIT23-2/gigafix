@@ -21,7 +21,9 @@ import com.gigafix.forum.entity.Article;
 import com.gigafix.forum.entity.Category;
 import com.gigafix.forum.exception.ForumException;
 import com.gigafix.forum.repository.ArticleRepository;
+import com.gigafix.forum.repository.BookmarkRepository;
 import com.gigafix.forum.repository.CategoryRepository;
+import com.gigafix.forum.repository.LikeRepository;
 import com.gigafix.member.entity.Member;
 import com.gigafix.member.repository.MemberRepository;
 
@@ -39,6 +41,12 @@ public class ArticleServiceImpl implements ArticleService {
 
 	// 會員 Repository
 	private final MemberRepository memberRepository;
+
+	// 讚 Repository（詳情/樓層列表要附上呼叫者是否已按讚）
+	private final LikeRepository likeRepository;
+
+	// 收藏 Repository（詳情/樓層列表要附上呼叫者是否已收藏）
+	private final BookmarkRepository bookmarkRepository;
 
 	// 前台列表/詳情：完整可見的狀態（1=發布 4=關閉 6=強制關閉，關閉只鎖留言/蓋樓，文章本身仍完整可見）
 	private static final Set<Article.ArticleStatus> FULLY_PUBLIC_STATUSES = EnumSet.of(
@@ -146,27 +154,44 @@ public class ArticleServiceImpl implements ArticleService {
 		boolean isAuthor = memberId != null && article.getAuthor().getId().equals(memberId);
 		Article.ArticleStatus status = article.getStatus();
 
+		ArticleResponse response;
 		if (FULLY_PUBLIC_STATUSES.contains(status)) {
+			// 先把 DTO 組完（順便把 lazy 關聯讀出來），再去加瀏覽數，
+			// 否則 incrementViewCount 清掉 persistence context 後這裡會抓不到 category/author
+			response = toArticleResponse(article, true, null);
 			if (incrementViewIfFull) {
-				article.setViewCount(article.getViewCount() + 1);
-				articleRepository.save(article);
+				articleRepository.incrementViewCount(article.getArticleId());
+				// entity 本身刻意不動（動了 dirty checking 一樣會觸發 @PreUpdate），所以自己把這次瀏覽補到回傳值上
+				response.setViewCount(response.getViewCount() + 1);
 			}
-			return toArticleResponse(article, true, null);
-		}
-		if (status == Article.ArticleStatus.HIDDEN) {
-			return isAuthor ? toArticleResponse(article, true, null)
+		} else if (status == Article.ArticleStatus.HIDDEN) {
+			response = isAuthor ? toArticleResponse(article, true, null)
 					: toArticleResponse(article, false, "此文章目前已被作者隱藏");
-		}
-		if (status == Article.ArticleStatus.FORCE_HIDDEN) {
-			return isAuthor ? toArticleResponse(article, true, null)
+		} else if (status == Article.ArticleStatus.FORCE_HIDDEN) {
+			response = isAuthor ? toArticleResponse(article, true, null)
 					: toArticleResponse(article, false, "此文章已被管理員隱藏");
-		}
-		if (status == Article.ArticleStatus.TAKEN_DOWN) {
+		} else if (status == Article.ArticleStatus.TAKEN_DOWN) {
 			// 連作者本人透過這個公開端點都看不到完整內容，完整內容只有後台端點看得到
-			return toArticleResponse(article, false, "此文章已下架");
+			response = toArticleResponse(article, false, "此文章已下架");
+		} else if (isAuthor) {
+			// DRAFT：只有作者本人看得到
+			response = toArticleResponse(article, true, null);
+		} else {
+			// DRAFT 給非作者：視為不存在
+			return null;
 		}
-		// DRAFT：只有作者本人看得到，其他人視為不存在
-		return isAuthor ? toArticleResponse(article, true, null) : null;
+
+		applyMemberInteraction(response, article.getArticleId(), memberId);
+		return response;
+	}
+
+	// 附上呼叫者對這篇文章的讚／收藏狀態；樓層列表靠這個一次帶回，前端才不用逐層再問一次（省掉 N+1）
+	private void applyMemberInteraction(ArticleResponse response, Long articleId, Long memberId) {
+
+		response.setLikedByCurrentMember(memberId != null
+				&& likeRepository.findByMember_IdAndArticle_ArticleId(memberId, articleId).isPresent());
+		response.setBookmarkedByCurrentMember(memberId != null
+				&& bookmarkRepository.findByMember_IdAndArticle_ArticleId(memberId, articleId).isPresent());
 	}
 
 	// 編輯自己的文章

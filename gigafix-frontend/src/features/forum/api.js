@@ -21,8 +21,12 @@ export function getArticles({ categoryId, keyword, sort = 'latest', page = 0, si
     .then((res) => res.data)
 }
 
+// 一定要帶 memberId：後端靠它判斷「是不是作者本人」（草稿/隱藏文章的可見性）
+// 以及回傳 likedByCurrentMember / bookmarkedByCurrentMember，沒帶的話一律當成匿名訪客
 export function getArticle(articleId) {
-  return http.get(`/api/articles/${articleId}`).then((res) => res.data)
+  return http
+    .get(`/api/articles/${articleId}`, { params: { memberId: TEST_MEMBER_ID } })
+    .then((res) => res.data)
 }
 
 export function createArticle(data) {

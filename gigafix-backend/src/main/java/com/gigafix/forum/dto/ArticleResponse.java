@@ -34,4 +34,6 @@ public class ArticleResponse {
 	private Long parentArticleId; // 所屬根文章 id；一般文章/專欄為 null，樓層才有值
 	private Integer floorNumber; // 第幾樓；只有蓋樓相關 API（列表/建立）會填，其餘為 null
 	private Integer floorCount; // 這篇文章底下有幾樓；樓層本身查出來固定是 0
+	private Boolean likedByCurrentMember; // 查詢時帶的 memberId 是否已對這篇按讚；沒帶 memberId 時為 false
+	private Boolean bookmarkedByCurrentMember; // 同上，是否已收藏。只有詳情/樓層列表會填，其餘路徑為 null
 }
