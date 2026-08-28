@@ -25,6 +25,8 @@ const REPORT_MAX_LENGTH = 250
 const article = ref(null)
 const loading = ref(true)
 const errorMessage = ref('')
+// 讚/收藏等互動操作失敗的提示。跟 errorMessage 分開，因為 errorMessage 會蓋掉整頁
+const interactionError = ref('')
 
 const floors = ref([])
 const floorContent = ref('')
@@ -112,10 +114,21 @@ function toggleFloorComments(floorId) {
   expandedFloors.value[floorId] = !expandedFloors.value[floorId]
 }
 
+// 讚/收藏失敗時的狀態校正：
+// 後端在「已經按過讚了」「尚未按讚」「已經收藏過了」這幾種情況會回 409/404，
+// 代表前端記錄的狀態跟資料庫不同步，這時反轉本地狀態剛好會校正回正確值。
+// 但如果是斷線或 500，反轉只會把原本正確的畫面弄錯，所以只在這兩種狀態碼才校正。
+function isStateDesyncError(error) {
+  const status = error.response?.status
+  return status === 409 || status === 404
+}
+
 // 樓層本身就是一篇 article，讚/收藏走的是同一組 API，只是帶該層自己的 articleId
 async function toggleLikeOn(target) {
+  interactionError.value = ''
+  const wasLiked = target.likedByCurrentMember
   try {
-    if (target.likedByCurrentMember) {
+    if (wasLiked) {
       await unlikeArticle(target.articleId)
       target.likedByCurrentMember = false
       target.likeCount -= 1
@@ -124,23 +137,38 @@ async function toggleLikeOn(target) {
       target.likedByCurrentMember = true
       target.likeCount += 1
     }
-  } catch {
-    // 本地狀態可能跟伺服器實際狀態不同步（例如上次操作沒真的送達），失敗時反轉一次貼近實際結果
-    target.likedByCurrentMember = !target.likedByCurrentMember
+  } catch (error) {
+    if (isStateDesyncError(error)) {
+      // 資料庫其實是相反的狀態，校正本地值與計數
+      target.likedByCurrentMember = !wasLiked
+      target.likeCount += wasLiked ? -1 : 1
+    } else {
+      interactionError.value = error.response
+        ? `操作失敗：HTTP ${error.response.status}`
+        : '無法連線到後端伺服器'
+    }
   }
 }
 
 async function toggleBookmarkOn(target) {
+  interactionError.value = ''
+  const wasBookmarked = target.bookmarkedByCurrentMember
   try {
-    if (target.bookmarkedByCurrentMember) {
+    if (wasBookmarked) {
       await removeBookmark(target.articleId)
       target.bookmarkedByCurrentMember = false
     } else {
       await addBookmark(target.articleId)
       target.bookmarkedByCurrentMember = true
     }
-  } catch {
-    target.bookmarkedByCurrentMember = !target.bookmarkedByCurrentMember
+  } catch (error) {
+    if (isStateDesyncError(error)) {
+      target.bookmarkedByCurrentMember = !wasBookmarked
+    } else {
+      interactionError.value = error.response
+        ? `操作失敗：HTTP ${error.response.status}`
+        : '無法連線到後端伺服器'
+    }
   }
 }
 
@@ -224,6 +252,21 @@ async function handleDeleteFloor(floorId) {
           <RouterLink :to="{ name: 'forumList' }" class="back-link">
             <i class="bi bi-chevron-left"></i>返回討論區
           </RouterLink>
+
+          <!-- 讚/收藏操作失敗的提示。不能併進 errorMessage，那個會把整頁換成錯誤畫面 -->
+          <div
+            v-if="interactionError"
+            class="alert alert-warning alert-dismissible mt-3 mb-0"
+            role="alert"
+          >
+            {{ interactionError }}
+            <button
+              class="btn-close"
+              type="button"
+              aria-label="關閉提示"
+              @click="interactionError = ''"
+            ></button>
+          </div>
 
           <div class="row g-4">
             <!-- ──────── 主欄 ──────── -->

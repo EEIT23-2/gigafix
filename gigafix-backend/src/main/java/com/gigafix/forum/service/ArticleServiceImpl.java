@@ -2,6 +2,7 @@ package com.gigafix.forum.service;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -145,6 +146,7 @@ public class ArticleServiceImpl implements ArticleService {
 			// DRAFT 且非作者本人：視為不存在
 			throw new IllegalArgumentException("文章不存在，articleId：" + articleId);
 		}
+		applySingleMemberInteraction(response, memberId);
 		return response;
 	}
 
@@ -181,17 +183,46 @@ public class ArticleServiceImpl implements ArticleService {
 			return null;
 		}
 
-		applyMemberInteraction(response, article.getArticleId(), memberId);
 		return response;
 	}
 
-	// 附上呼叫者對這篇文章的讚／收藏狀態；樓層列表靠這個一次帶回，前端才不用逐層再問一次（省掉 N+1）
-	private void applyMemberInteraction(ArticleResponse response, Long articleId, Long memberId) {
+	// 附上呼叫者對「單篇」文章的讚／收藏狀態（文章詳情用）。
+	// 內容看不到時（已下架/被隱藏的遮蔽版）直接跳過，不必為了讀不到的內容多打兩次查詢
+	private void applySingleMemberInteraction(ArticleResponse response, Long memberId) {
 
-		response.setLikedByCurrentMember(memberId != null
-				&& likeRepository.findByMember_IdAndArticle_ArticleId(memberId, articleId).isPresent());
-		response.setBookmarkedByCurrentMember(memberId != null
-				&& bookmarkRepository.findByMember_IdAndArticle_ArticleId(memberId, articleId).isPresent());
+		if (memberId == null || !Boolean.TRUE.equals(response.getVisible())) {
+			return;
+		}
+		Long articleId = response.getArticleId();
+		response.setLikedByCurrentMember(
+				likeRepository.findByMember_IdAndArticle_ArticleId(memberId, articleId).isPresent());
+		response.setBookmarkedByCurrentMember(
+				bookmarkRepository.findByMember_IdAndArticle_ArticleId(memberId, articleId).isPresent());
+	}
+
+	// 附上呼叫者對「一批」文章的讚／收藏狀態（樓層列表用）。
+	// 逐層查會變成每層 2 次查詢，這裡改成整批各查一次，總共固定 2 次
+	private void applyBatchMemberInteraction(List<ArticleResponse> responses, Long memberId) {
+
+		// 只有看得到內容的才需要標示互動狀態
+		List<Long> targetIds = responses.stream()
+				.filter(r -> Boolean.TRUE.equals(r.getVisible()))
+				.map(ArticleResponse::getArticleId)
+				.toList();
+
+		if (memberId == null || targetIds.isEmpty()) {
+			return;
+		}
+
+		Set<Long> likedIds = new HashSet<>(likeRepository.findLikedArticleIds(memberId, targetIds));
+		Set<Long> bookmarkedIds = new HashSet<>(bookmarkRepository.findBookmarkedArticleIds(memberId, targetIds));
+
+		for (ArticleResponse response : responses) {
+			if (Boolean.TRUE.equals(response.getVisible())) {
+				response.setLikedByCurrentMember(likedIds.contains(response.getArticleId()));
+				response.setBookmarkedByCurrentMember(bookmarkedIds.contains(response.getArticleId()));
+			}
+		}
 	}
 
 	// 編輯自己的文章
@@ -330,6 +361,8 @@ public class ArticleServiceImpl implements ArticleService {
 				result.add(response);
 			}
 		}
+		// 整批一次帶回讚／收藏狀態，避免逐層查詢
+		applyBatchMemberInteraction(result, memberId);
 		return result;
 	}
 
@@ -467,7 +500,10 @@ public class ArticleServiceImpl implements ArticleService {
 				.viewCount(article.getViewCount())
 				.likeCount(article.getLikeCount())
 				.commentCount(article.getCommentCount())
-				.floorCount((int) articleRepository.countByParentArticle_ArticleId(article.getArticleId()))
+				// 樓層底下不會再有樓層（樓中樓在建立時就被擋掉），所以樓層的 floorCount 結構上恆為 0，
+				// 不需要為每一層都查一次資料庫
+				.floorCount(article.getParentArticle() != null ? 0
+						: (int) articleRepository.countByParentArticle_ArticleId(article.getArticleId()))
 				.coverImage(visible ? article.getCoverImage() : null)
 				.status(article.getStatus().name())
 				.isPinned(article.getIsPinned())
