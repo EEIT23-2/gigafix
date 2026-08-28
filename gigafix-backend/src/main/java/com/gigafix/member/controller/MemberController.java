@@ -28,7 +28,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController("gigaFixUsersController")
-@RequestMapping("/gigafix/members")
+@RequestMapping("/api/gigafix/members")
 @RequiredArgsConstructor
 public class MemberController {
 	private final MemberService memberService;

@@ -1,7 +1,4 @@
 <script setup>
-import { getRoleLabel } from '../util/roleMap.js';
-import { formatDateTime } from '../util/timeMap.js';
-
 const props = defineProps({
   modelValue: Boolean,
   adminInfo: {
@@ -28,27 +25,6 @@ const close = () => emit('update:modelValue', false)
             </div>
 
             <div class="modal-body">
-              <div v-if="adminInfo" class="admin-info-card mb-3">
-                <div class="info-row">
-                  <div class="info-label">管理員編號</div>
-                  <div class="info-value">{{ adminInfo.adminId }}</div>
-                </div>
-                <div class="info-row">
-                  <div class="info-label">管理員名稱</div>
-                  <div class="info-value">{{ adminInfo.adminName }}</div>
-                </div>
-                <div class="info-row">
-                  <div class="info-label">目前角色</div>
-                  <div class="info-value">
-                    <span class="badge bg-secondary">{{ getRoleLabel(adminInfo.role) }}</span>
-                  </div>
-                </div>
-                <div class="info-row">
-                  <div class="info-label">創建時間</div>
-                  <div class="info-value">{{ formatDateTime(adminInfo.createDateTime) }}</div>
-                </div>
-              </div>
-
               <slot />
             </div>
             <div class="modal-footer">
@@ -81,9 +57,66 @@ const close = () => emit('update:modelValue', false)
 .modal-fade-leave-to .modal-dialog {
   transform: translateY(-30px);
 }
+
+/* ===== 套用網站配色風格 ===== */
+
+.modal-content {
+  border-radius: 1rem !important;
+  overflow: hidden;
+}
+
+.modal-header {
+  background-color: #1e3557;
+  padding: 1.25rem 1.5rem;
+}
+
+.modal-header .modal-title {
+  color: #ffffff;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.modal-header .btn-close {
+  filter: brightness(0) invert(1); /* 讓預設黑色 X 變成白色，配合深藍底色 */
+  opacity: 0.85;
+}
+
+.modal-header .btn-close:hover {
+  opacity: 1;
+}
+
+.modal-body {
+  padding: 1.75rem 1.5rem;
+}
+
+.modal-footer {
+  border-top: 1px solid #eaeaea;
+  padding: 1rem 1.5rem;
+}
+
+.modal-footer .btn-primary {
+  background-color: #2b77c5;
+  border-color: #2b77c5;
+  border-radius: 0.6rem;
+  font-weight: 600;
+  padding: 0.5rem 1.5rem;
+}
+
+.modal-footer .btn-primary:hover {
+  background-color: #1d324b;
+  border-color: #1d324b;
+}
+
+.modal-footer .btn-secondary,
+.modal-footer .btn-outline-secondary {
+  border-radius: 0.6rem;
+  font-weight: 500;
+}
+
 .admin-info-card {
-  background-color: #eef1f6;
-  border: 1px solid #dee2e6;
+  background-color: #eef4fb;
+  border: 1px solid #d9e6f5;
   border-radius: 0.75rem;
   padding: 1rem 1.25rem;
 }
@@ -102,13 +135,13 @@ const close = () => emit('update:modelValue', false)
   flex: 0 0 100px;
   font-size: 0.85rem;
   color: #6c757d;
-  font-weight: 400; /* 標籤維持正常字重 */
+  font-weight: 400;
 }
 
 .info-value {
-  font-size: 1rem;        /* 用字級拉開差異,而不是加粗 */
-  font-weight: 500;       /* 中文字 500(介於正常跟粗體之間)通常比 600/700 好看 */
-  color: #1a1d20;         /* 用更深的顏色對比取代粗體的視覺效果 */
+  font-size: 1rem;
+  font-weight: 500;
+  color: #1d324b;
   letter-spacing: 0.01em;
 }
 </style>

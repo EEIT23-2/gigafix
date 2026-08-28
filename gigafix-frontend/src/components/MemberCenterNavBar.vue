@@ -14,7 +14,7 @@ import { RouterLink } from 'vue-router'
     <nav class="nav flex-column sidebar-nav">
         <RouterLink to="/gigafix/member-center/memberInfo" class="nav-link sidebar-link" exact-active-class="active">
             <i class="bi bi-house-door"></i>
-            <span>會員總覽</span>
+            <span>會員資料</span>
         </RouterLink>
 
         <RouterLink to="/gigafix/member-center/profile" class="nav-link sidebar-link" active-class="active">

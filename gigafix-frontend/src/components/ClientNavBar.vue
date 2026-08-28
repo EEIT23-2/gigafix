@@ -1,5 +1,44 @@
-<script>
+<script setup>
+import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import { useRouter } from 'vue-router'
+import LoginRegisterModal from './LoginRegisterModal.vue';
+import axios from 'axios';
+import { useFetchMemberInfoStore } from '@/stores/member';
+import { storeToRefs } from 'pinia'
+
+//跟登入有關的變數宣告
+const mail = ref('')
+const password = ref('')
+const loginErrorMsg =ref('')
+const showloginModal = ref(false)
+
+//取得Member資料
+const fetchMemberInfoStore = useFetchMemberInfoStore()
+const { memberInfo } = storeToRefs(fetchMemberInfoStore)
+//==登入相關==
+const openLoginModal = () => {
+  password.value = null
+  mail.value = null
+  showloginModal.value = true
+}
+const login =async () => {
+  try {
+        const resp = await axios.post('/api/gigafix/members/login',{
+            email: mail.value,
+            password: password.value
+        })
+        showloginModal.value = false
+        alert(`${resp.data.nickName}您好~登入成功！`)
+    } catch (err) { //回傳4xx,5xx
+        const message = err.response?.data?.message || '請稍後再試'
+        alert(`登入失敗，原因: ${message}`)
+    }finally{
+        password.value = ''
+    }
+}
+
+const router = useRouter()
 </script>
 
 <template>
@@ -19,10 +58,16 @@ import { RouterLink } from 'vue-router'
                 <i class="bi bi-search icon"></i>
               </span>
             </RouterLink>
-            <RouterLink class="action-item" active-class="active" to="/gigafix/member-center"><!-- 小人icon，連結到member center path -->
-              <span class="icon-box">
-                <i class="bi bi-person-fill icon icon-person"></i>
-              </span>
+
+            <!-- 用使用者是否登入決定要顯示某個標籤 -->
+            <button v-if="!memberInfo" type="button" class="action-item" @click="openLoginModal()">
+              <span class="icon-box"><i class="bi bi-person icon icon-person"></i></span>
+              <span class="action-text">登入</span>
+            </button>
+            <!-- 小人icon，連結到member center path -->
+            <RouterLink v-if="memberInfo" class="action-item" active-class="active" to="/gigafix/member-center">
+              <span class="icon-box"><i class="bi bi-person-fill icon icon-person"></i></span>
+              <span class="action-text">{{ memberInfo.nickName }}</span>
             </RouterLink>
 
             <RouterLink class="action-item"><!-- 購物車icon -->
@@ -54,6 +99,20 @@ import { RouterLink } from 'vue-router'
       </div>
     </div>
   </header>
+
+  <!-- 登入的彈窗 -->
+  <LoginRegisterModal v-model="showloginModal">
+    <template #title>會員登入</template>
+    <label class="form-label">Email</label>
+    <input type="email" class="form-control mb-3" v-model="mail" :disabled="loginLoading">
+    <label class="form-label">密碼</label>
+    <input type="password" class="form-control" v-model="password" :disabled="loginLoading">
+
+    <template #footer>
+      <button class="btn btn-primary" @click="login()">送出</button>
+    </template>
+
+  </LoginRegisterModal>
 </template>
 
 <style scoped>
@@ -90,11 +149,20 @@ import { RouterLink } from 'vue-router'
 .action-item {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 6px;              /* icon 跟文字之間的間距 */
   cursor: pointer;
   outline: none;
   text-decoration: none;
   color: #666666;
+  background: none;      /* 蓋掉 <button> 原生底色 */
+  border: none;           /* 蓋掉 <button> 原生框線 */
+  padding: 0;              /* 蓋掉 <button> 原生內距 */
+  font: inherit;           /* 讓 <button> 文字跟其他 nav 項目字型一致 */
+}
+
+.action-text {
+  font-size: 15px;
+  white-space: nowrap;
 }
 
 .action-item:focus,
