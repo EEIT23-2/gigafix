@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useRouter } from 'vue-router'
 import LoginRegisterModal from './LoginRegisterModal.vue';
@@ -12,6 +12,23 @@ const mail = ref('')
 const password = ref('')
 const loginErrorMsg =ref('')
 const showloginModal = ref(false)
+
+//跟註冊有關的變數宣告
+const regPassword = ref('')
+const regRealName = ref('')
+const regNickName = ref('')
+const regEmail = ref('')
+const regPhone = ref('')
+const regAddress = ref('')
+const regGender = ref('')
+const showRegisterModal = ref(false)
+//登入視窗跟註冊視窗共用同一層背景遮罩，只要其中一個開著就要顯示，
+//這樣互切的時候背景遮罩不會重新觸發淡入淡出，只有裡面的視窗內容在交叉淡出/淡入，感覺才會絲滑
+const anyModalOpen = computed(() => showloginModal.value || showRegisterModal.value)
+const closeAllModals = () => {
+  showloginModal.value = false
+  showRegisterModal.value = false
+}
 
 //取得Member資料
 const fetchMemberInfoStore = useFetchMemberInfoStore()
@@ -35,6 +52,41 @@ const login =async () => {
         alert(`登入失敗，原因: ${message}`)
     }finally{
         password.value = ''
+    }
+}
+
+//==註冊相關==
+const openRegisterModal = () => {
+  regPassword.value = ''
+  regRealName.value = ''
+  regNickName.value = ''
+  regEmail.value = ''
+  regPhone.value = ''
+  regAddress.value = ''
+  regGender.value = ''
+  showloginModal.value = false //關閉登入視窗，改開註冊視窗
+  showRegisterModal.value = true
+}
+const register = async () => {
+  try {
+        const resp = await axios.post('/api/gigafix/members/register',{
+            password: regPassword.value,
+            realName: regRealName.value,
+            nickName: regNickName.value,
+            email: regEmail.value,
+            phone: regPhone.value,
+            address: regAddress.value,
+            gender: regGender.value
+        })
+        showRegisterModal.value = false
+        alert(`${resp.data.nickName}註冊成功！`)
+    } catch (err) { //回傳4xx,5xx
+        const message = err.response?.data?.message || '請稍後再試'
+        alert(`註冊失敗，原因: ${message}`)
+    }finally{
+        regPassword.value = ''
+        //註冊成功後，後端會直接簽發JWT讓使用者保持登入狀態(等同自動登入)
+        //所以這裡不需要再把showloginModal打開讓使用者重新輸入帳密登入一次
     }
 }
 
@@ -100,8 +152,16 @@ const router = useRouter()
     </div>
   </header>
 
+  <!-- 登入/註冊共用的背景遮罩，只跟著「是否有任一視窗開著」淡入淡出，
+       兩個視窗互切時不會重新觸發，才不會有疊加變深或不夠絲滑的問題 -->
+  <Teleport to="body">
+    <Transition name="backdrop-fade">
+      <div v-if="anyModalOpen" class="modal-backdrop fade show" @click="closeAllModals()"></div>
+    </Transition>
+  </Teleport>
+
   <!-- 登入的彈窗 -->
-  <LoginRegisterModal v-model="showloginModal">
+  <LoginRegisterModal v-model="showloginModal" :showBackdrop="false">
     <template #title>會員登入</template>
     <label class="form-label">Email</label>
     <input type="email" class="form-control mb-3" v-model="mail" :disabled="loginLoading">
@@ -109,13 +169,102 @@ const router = useRouter()
     <input type="password" class="form-control" v-model="password" :disabled="loginLoading">
 
     <template #footer>
+      <button class="btn btn-secondary" @click="openRegisterModal()">註冊</button>
       <button class="btn btn-primary" @click="login()">送出</button>
+    </template>
+
+  </LoginRegisterModal>
+
+  <!-- 註冊的彈窗 -->
+  <LoginRegisterModal v-model="showRegisterModal" :showBackdrop="false">
+    <template #title>會員註冊</template>
+    <label class="form-label">Email</label>
+    <input type="email" class="form-control mb-3" v-model="regEmail">
+    <label class="form-label">密碼</label>
+    <input type="password" class="form-control mb-3" v-model="regPassword">
+    <label class="form-label">真實姓名</label>
+    <input type="text" class="form-control mb-3" v-model="regRealName" maxlength="40">
+    <label class="form-label">暱稱</label>
+    <input type="text" class="form-control mb-3" v-model="regNickName" maxlength="40">
+    <label class="form-label">手機號碼</label>
+    <input type="text" class="form-control mb-3" v-model="regPhone" placeholder="09xxxxxxxx">
+    <label class="form-label">地址</label>
+    <input type="text" class="form-control mb-3" v-model="regAddress">
+    <label class="form-label d-block">性別</label>
+    <div class="gender-group" role="group" aria-label="性別">
+      <input type="radio" class="btn-check" id="regGenderMale" value="MALE" v-model="regGender" autocomplete="off">
+      <label class="gender-circle" for="regGenderMale">男</label>
+
+      <input type="radio" class="btn-check" id="regGenderFemale" value="FEMALE" v-model="regGender" autocomplete="off">
+      <label class="gender-circle" for="regGenderFemale">女</label>
+    </div>
+
+    <template #footer>
+      <button class="btn btn-primary" @click="register()">送出</button>
     </template>
 
   </LoginRegisterModal>
 </template>
 
 <style scoped>
+/* 登入/註冊視窗內的表單文字整體放大一點
+   這幾個class只有在這兩個彈窗裡用到，scoped不會影響到其他元件 */
+.form-label {
+  font-size: 1.05rem;
+  margin-bottom: 0.4rem;
+}
+
+.form-control {
+  font-size: 1.05rem;
+  padding: 0.55rem 0.75rem;
+}
+
+.btn {
+  font-size: 1.05rem;
+}
+
+/* 性別：把文字圈在圓形按鈕裡，選取時填色比視窗header的深藍淺很多 */
+.gender-group {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.gender-circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  border: 2px solid #2b77c5;
+  color: #2b77c5;
+  font-size: 1.05rem;
+  font-weight: 600;
+  background-color: #ffffff;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.gender-circle:hover {
+  background-color: #eef4fb;
+}
+
+.btn-check:checked + .gender-circle {
+  background-color: #bcd9f2; /* 選取時的淺藍，比header的深藍(#1e3557)淺很多 */
+  border-color: #2b77c5;
+  color: #1e3557;
+}
+
+.backdrop-fade-enter-active,
+.backdrop-fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+
+.backdrop-fade-enter-from,
+.backdrop-fade-leave-to {
+  opacity: 0;
+}
+
 .top-announcement-bar {
   background-color: #1e3557;
   color: #ffffff;
