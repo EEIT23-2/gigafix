@@ -57,7 +57,7 @@ public class MemberController {
 		//寫完要去把刪除使用者那邊補好，因為刪除使用者會順便把使用者登出
 	}
 	
-	@GetMapping("/me") //進入個人資訊page
+	@GetMapping("/me") //取得個人資料的請求
 	public ResponseEntity<GetMemberInfoResp> getMemberInfo(@RequestAttribute("memberId") Long memberId){
 		GetMemberInfoResp memberInfo = memberService.getMemberInfo(memberId);
 		return ResponseEntity.ok(memberInfo);
