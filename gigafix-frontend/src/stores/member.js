@@ -9,16 +9,18 @@ export const useFetchMemberInfoStore = defineStore('testMemberInfo123', {
         fetched: false
     }),
     actions: {
-        async fetchMember() {
-            if (this.fetched || this.loading) return
+        async fetchMember(force = false) {
+            if (this.loading) return
+            //如果已經抓取過個人資料(而且不是強制用force抓取的話)，就強制跳出函數
+            if (this.fetched && !force) return
                 this.loading = true
             try {
                 const res = await axios('/api/gigafix/members/me')
                 this.memberInfo = res.data
-                this.fetched = true
             } catch (error) {
                 this.memberInfo = null
             }
+            this.fetched = true
             this.loading = false
         },
         async logoutMember(){

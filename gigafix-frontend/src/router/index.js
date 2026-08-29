@@ -87,7 +87,7 @@ router.beforeEach(async (to) => {
   }
 })
 
-const fetchMemberExcludedPaths = ['/gigafix', '/admin']
+const fetchMemberExcludedPaths = ['/admin']
 router.beforeEach(async (to) => {
   if (fetchMemberExcludedPaths.includes(to.path)) {
     return // 排除的路徑直接放行，不觸發抓取使用者資料

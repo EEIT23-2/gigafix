@@ -22,6 +22,7 @@ const regPhone = ref('')
 const regAddress = ref('')
 const regGender = ref('')
 const showRegisterModal = ref(false)
+
 //登入視窗跟註冊視窗共用同一層背景遮罩，只要其中一個開著就要顯示，
 //這樣互切的時候背景遮罩不會重新觸發淡入淡出，只有裡面的視窗內容在交叉淡出/淡入，感覺才會絲滑
 const anyModalOpen = computed(() => showloginModal.value || showRegisterModal.value)
@@ -45,6 +46,7 @@ const login =async () => {
             email: mail.value,
             password: password.value
         })
+        await fetchMemberInfoStore.fetchMember(true) //登入成功後強制重抓一次會員資料，讓畫面上的icon等能即時切換
         showloginModal.value = false
         alert(`${resp.data.nickName}您好~登入成功！`)
     } catch (err) { //回傳4xx,5xx
@@ -52,7 +54,7 @@ const login =async () => {
         alert(`登入失敗，原因: ${message}`)
     }finally{
         password.value = ''
-    }
+  }
 }
 
 //==註冊相關==
@@ -78,6 +80,7 @@ const register = async () => {
             address: regAddress.value,
             gender: regGender.value
         })
+        await fetchMemberInfoStore.fetchMember(true) //註冊成功後端會自動簽發JWT等同自動登入，強制重抓一次會員資料讓畫面同步
         showRegisterModal.value = false
         alert(`${resp.data.nickName}註冊成功！`)
     } catch (err) { //回傳4xx,5xx
