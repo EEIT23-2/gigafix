@@ -145,8 +145,11 @@ async function handleReportSubmit(commentId) {
     reportReason.value = ''
     reportSuccessMessage.value = '已送出檢舉'
   } catch (error) {
-    const fieldError = error.response?.data?.errors?.[0]?.message
-    reportErrorMessage.value = fieldError || '檢舉失敗，請稍後再試'
+    // 兩種錯誤格式都要接：@Valid 失敗是 { errors: [...] }，
+    // 後端商業規則（重複檢舉、檢舉自己的留言）走 ForumExceptionHandler，回的是 { errorCode, message }
+    const data = error.response?.data
+    reportErrorMessage.value =
+      data?.errors?.[0]?.message || data?.message || '檢舉失敗，請稍後再試'
   } finally {
     reportSubmitting.value = false
   }

@@ -77,6 +77,16 @@ public class CommentController {
 		return ResponseEntity.ok(response);
 	}
 
+	// 後台的文章留言串：不受狀態限制，已下架的留言也會回傳（前台版本會過濾掉）
+	// TODO: 角色系統做好後要加 moderator/admin 權限檢查，目前任何呼叫者都可以執行
+	@GetMapping("/api/admin/articles/{articleId}/comments")
+	public ResponseEntity<List<CommentResponse>> getCommentsForAdmin(@PathVariable Long articleId) {
+
+		List<CommentResponse> responses = commentService.getCommentsForAdmin(articleId);
+
+		return ResponseEntity.ok(responses);
+	}
+
 	// 後台直接設定留言狀態（隱藏／下架／恢復）
 	// TODO: 角色系統做好後要加 moderator/admin 權限檢查，目前任何呼叫者都可以執行
 	@PatchMapping("/api/admin/comments/{commentId}/status")
