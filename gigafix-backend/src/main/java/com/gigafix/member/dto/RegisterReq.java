@@ -31,5 +31,8 @@ public record RegisterReq(
 		String address,
 		@NotNull(message = "性別不可為空")
 		Gender gender,
+		@NotBlank(message = "OTP驗證碼不可為空")
+		@Pattern(regexp = "^\\d{6}$", message = "OTP驗證碼格式錯誤")
+		String otp,
 		//在controller才創建這個帳號創立時間，所以不去檢查，因為這個物件在controller跟service共用
 		LocalDateTime createDateTime) {}
