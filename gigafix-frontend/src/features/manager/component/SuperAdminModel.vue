@@ -1,6 +1,5 @@
 <script setup>
 import axios from 'axios';
-import { Modal } from 'bootstrap'
 import { ref, computed, onMounted } from 'vue';
 import BaseModal from './BaseModal.vue';
 import { getRoleLabel } from '../util/roleMap.js';
@@ -283,7 +282,7 @@ onMounted(() => {
             <p  v-if="createErrorMsg" class="text-danger small mb-3">{{ createErrorMsg }}</p>
             <button type="button" class="btn btn-secondary" @click="showCreateModal = false" :disabled="createAdminLoading">取消</button>
             <button v-if="createErrorMsg" type="button" class="btn btn-primary" disabled>請輸入正確資訊</button>
-            <button v-if="createErrorMsg == ''" type="button" class="btn btn-primary" @click="createAdmin" :disabled="createAdminLoading">{{ createAdminLoading ? '創建會員中' : '送出' }}</button>
+            <button v-if="createErrorMsg == ''" type="button" class="btn btn-primary" @click="createAdmin()" :disabled="createAdminLoading">{{ createAdminLoading ? '創建會員中' : '送出' }}</button>
         </template>
     </BaseModal>
 

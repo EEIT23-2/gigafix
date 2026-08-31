@@ -2,11 +2,6 @@ import { defineStore } from 'pinia'
 import axios from 'axios'
 
 
-const fetchAdminInfo = async () =>{
-    const response =await axios.get("/api/admin/account/me")
-    adminInfo.value = response.data
-}
-
 export const useFetchAdminInfoStore = defineStore('adminInfo', {
     state: () => ({
         adminInfo: null,
@@ -16,12 +11,11 @@ export const useFetchAdminInfoStore = defineStore('adminInfo', {
     actions: {
         async fetchAdmin() {
             if (this.fetched || this.loading) return //避免同一份資料被重複抓取
-            this.loading = true
+                this.loading = true
             try {
                 const res = await axios('/api/admin/account/me')
                 this.adminInfo = res.data
             } catch (error) {
-                // console.error('抓取使用者資料失敗', error)
                 this.adminInfo = null //清空避免前端null exception
             } finally {
                 this.loading = false

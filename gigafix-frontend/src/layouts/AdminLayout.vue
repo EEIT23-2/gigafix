@@ -3,10 +3,9 @@ import AdminNavBar from '@/components/AdminNavBar.vue';
 //抓使用者資料的import
 import { useFetchAdminInfoStore } from '@/stores/admin';
 import { storeToRefs } from 'pinia'
-import axios from 'axios';
 import { useRouter } from 'vue-router'
 
-//抓使用者資料
+//抓管理員資料
 const fetchAdminInfoStore = useFetchAdminInfoStore()
 const { adminInfo } = storeToRefs(fetchAdminInfoStore)
 //登出後強制轉跳頁面需要使用router

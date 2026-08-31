@@ -1,5 +1,23 @@
 <script setup>
-import { RouterLink } from 'vue-router'
+import { onMounted } from 'vue'
+import { RouterLink, useRouter } from 'vue-router'
+import { useFetchMemberInfoStore } from '@/stores/member'
+
+const router = useRouter()
+const fetchMemberInfoStore = useFetchMemberInfoStore()
+
+//進入會員中心時檢查是否已登入，沒登入就踢回首頁
+onMounted(() => {
+  if (!fetchMemberInfoStore.memberInfo) {
+    router.push('/gigafix')
+  }
+})
+
+//登出的非同步請求
+const logout = async () => {
+  await fetchMemberInfoStore.logoutMember()
+  router.push('/gigafix')
+}
 </script>
 
 <template>
@@ -14,7 +32,7 @@ import { RouterLink } from 'vue-router'
     <nav class="nav flex-column sidebar-nav">
         <RouterLink to="/gigafix/member-center/memberInfo" class="nav-link sidebar-link" exact-active-class="active">
             <i class="bi bi-house-door"></i>
-            <span>會員總覽</span>
+            <span>會員資料</span>
         </RouterLink>
 
         <RouterLink to="/gigafix/member-center/profile" class="nav-link sidebar-link" active-class="active">
@@ -38,7 +56,7 @@ import { RouterLink } from 'vue-router'
         </RouterLink>
 
         <hr class="sidebar-divider" />
-        <button class="nav-link sidebar-link logout-link" type="button">
+        <button class="nav-link sidebar-link logout-link" type="button" @click="logout()">
             <i class="bi bi-box-arrow-left"></i>
             <span>登出</span>
         </button>

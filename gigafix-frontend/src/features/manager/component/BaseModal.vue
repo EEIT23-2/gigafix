@@ -28,28 +28,28 @@ const close = () => emit('update:modelValue', false)
             </div>
 
             <div class="modal-body">
-            <div v-if="adminInfo" class="admin-info-card mb-3">
+              <div v-if="adminInfo" class="admin-info-card mb-3">
                 <div class="info-row">
-                <div class="info-label">管理員編號</div>
-                <div class="info-value">{{ adminInfo.adminId }}</div>
+                  <div class="info-label">管理員編號</div>
+                  <div class="info-value">{{ adminInfo.adminId }}</div>
                 </div>
                 <div class="info-row">
-                <div class="info-label">管理員名稱</div>
-                <div class="info-value">{{ adminInfo.adminName }}</div>
+                  <div class="info-label">管理員名稱</div>
+                  <div class="info-value">{{ adminInfo.adminName }}</div>
                 </div>
                 <div class="info-row">
-                <div class="info-label">目前角色</div>
-                <div class="info-value">
+                  <div class="info-label">目前角色</div>
+                  <div class="info-value">
                     <span class="badge bg-secondary">{{ getRoleLabel(adminInfo.role) }}</span>
-                </div>
+                  </div>
                 </div>
                 <div class="info-row">
-                <div class="info-label">創建時間</div>
-                <div class="info-value">{{ formatDateTime(adminInfo.createDateTime) }}</div>
+                  <div class="info-label">創建時間</div>
+                  <div class="info-value">{{ formatDateTime(adminInfo.createDateTime) }}</div>
                 </div>
-            </div>
+              </div>
 
-            <slot />
+              <slot />
             </div>
             <div class="modal-footer">
               <slot name="footer" />
