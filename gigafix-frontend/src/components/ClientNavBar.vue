@@ -61,12 +61,14 @@ const openLoginModal = () => {
   loginErrorMsg.value = '請輸入Email'
   showloginModal.value = true
 }
-//依序檢查Email、密碼有沒有填，任一沒填就把對應訊息放進loginErrorMsg，讓送出鈕保持disabled防呆
+//依序檢查Email、密碼有沒有填、密碼長度夠不夠，任一沒過就把對應訊息放進loginErrorMsg，讓送出鈕保持disabled防呆
 const checkLoginError = () => {
   if (!mail.value) {
     loginErrorMsg.value = '請輸入Email'
   } else if (!password.value) {
     loginErrorMsg.value = '請輸入密碼'
+  } else if (password.value.length < 8) {
+    loginErrorMsg.value = '密碼長度必須至少8位數'
   } else {
     loginErrorMsg.value = ''
   }
@@ -330,10 +332,10 @@ const router = useRouter()
     <input type="email" class="form-control mb-3" v-model="mail" :disabled="loginLoading" placeholder="請輸入Email" @input="checkLoginError()">
     <label class="form-label">密碼</label>
     <input type="password" class="form-control" v-model="password" :disabled="loginLoading" placeholder="請輸入密碼" @input="checkLoginError()">
+    <p v-if="loginErrorMsg" class="text-danger form-error-msg">{{ loginErrorMsg }}</p>
 
     <template #footer>
       <button class="btn btn-link forgot-password-link" @click="openForgotPasswordModal()">忘記密碼？</button>
-      <p v-if="loginErrorMsg" class="text-danger form-error-msg">{{ loginErrorMsg }}</p>
       <button class="btn btn-secondary" @click="openRegisterModal()">註冊</button>
       <span v-if="loginErrorMsg" class="btn btn-primary disabled">請輸入正確資訊</span>
       <button v-else class="btn btn-primary" @click="login()">送出</button>
@@ -371,9 +373,9 @@ const router = useRouter()
       <input type="radio" class="btn-check" id="regGenderFemale" value="FEMALE" v-model="regGender" autocomplete="off" @change="checkRegisterError()">
       <label class="gender-circle" for="regGenderFemale">女</label>
     </div>
+    <p v-if="registerErrorMsg" class="text-danger form-error-msg">{{ registerErrorMsg }}</p>
 
     <template #footer>
-      <p v-if="registerErrorMsg" class="text-danger form-error-msg">{{ registerErrorMsg }}</p>
       <span v-if="registerErrorMsg" class="btn btn-primary disabled">請輸入正確資訊</span>
       <button v-else class="btn btn-primary" @click="register()">送出</button>
     </template>
@@ -394,9 +396,9 @@ const router = useRouter()
         {{ fpOtpCooldown > 0 ? `${fpOtpCooldown}秒後重寄` : (fpOtpSending ? '寄送中...' : '寄送驗證碼') }}
       </button>
     </div>
+    <p v-if="fpErrorMsg" class="text-danger form-error-msg">{{ fpErrorMsg }}</p>
 
     <template #footer>
-      <p v-if="fpErrorMsg" class="text-danger form-error-msg">{{ fpErrorMsg }}</p>
       <span v-if="fpErrorMsg" class="btn btn-primary disabled">請輸入正確資訊</span>
       <button v-else class="btn btn-primary" @click="forgotPassword()">重設密碼</button>
     </template>
@@ -452,11 +454,12 @@ const router = useRouter()
 
 /* footer裡的錯誤提示文字，字級跟旁邊的按鈕(1.05rem)對齊，並去掉<p>預設的margin，
    避免在flex排列的footer裡被撐開高度，導致跟按鈕、其他文字沒有對齊在同一條基準線上 */
+/* 錯誤訊息放在modal-body最底部，但故意讓它「貼著下面的分隔線」而不是貼著上面的輸入框：
+   margin-top拉大跟表單欄位的距離，margin-bottom用負值把modal-body原本的底部padding吃掉一部分，
+   讓文字往下靠近footer的分隔線，感覺跟上面的表單是分開的兩塊 */
 .form-error-msg {
-  margin: 0;
+  margin: 1.25rem 0 -1.25rem;
   font-size: 1.05rem;
-  display: flex;
-  align-items: center;
 }
 
 /* 性別：把文字圈在圓形按鈕裡，選取時填色比視窗header的深藍淺很多 */
