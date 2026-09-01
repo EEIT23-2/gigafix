@@ -19,6 +19,7 @@ import {
   statusBadgeClass,
   statusLabel,
 } from '../../adminStatusMaps'
+import { sanitizeHtml } from '../../htmlContent'
 
 const route = useRoute()
 const router = useRouter()
@@ -423,7 +424,7 @@ onMounted(fetchAll)
             </div>
 
             <!-- 檢舉留言時文章內文一樣要顯示，那是判斷留言是否違規的上下文 -->
-            <div class="article-content">{{ article.content }}</div>
+            <div class="article-content" v-html="sanitizeHtml(article.content)"></div>
           </div>
 
           <!-- 檢舉文章：留言串預設收合 -->

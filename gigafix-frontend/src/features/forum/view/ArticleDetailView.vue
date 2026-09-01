@@ -15,6 +15,8 @@ import {
 } from '../api'
 import CommentSection from '../components/CommentSection.vue'
 import MoreActionsMenu from '../components/MoreActionsMenu.vue'
+import { sanitizeHtml, isHtmlEmpty } from '../htmlContent'
+import RichTextEditor from '../components/RichTextEditor.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -32,7 +34,6 @@ const floors = ref([])
 const floorContent = ref('')
 const floorSubmitting = ref(false)
 const floorErrorMessage = ref('')
-const floorTextareaRef = ref(null)
 
 // 首篇留言區預設展開；樓層的留言區預設收合，點該層的「留言 N」才展開
 const commentsOpen = ref(true)
@@ -173,13 +174,13 @@ async function toggleBookmarkOn(target) {
 }
 
 async function handleCreateFloor() {
-  if (!floorContent.value.trim()) return
+  // 蓋樓內容也是 HTML 了，空編輯器輸出是 <p></p>，不能用 trim 判斷
+  if (isHtmlEmpty(floorContent.value)) return
   floorSubmitting.value = true
   floorErrorMessage.value = ''
   try {
     await createFloor(articleId.value, floorContent.value)
     floorContent.value = ''
-    if (floorTextareaRef.value) floorTextareaRef.value.style.height = 'auto'
     await loadFloors()
   } catch (error) {
     const fieldError = error.response?.data?.errors?.[0]?.message
@@ -304,7 +305,7 @@ async function handleDeleteFloor(floorId) {
 
                   <img v-if="article.coverImage" class="cover" :src="article.coverImage" alt="" />
 
-                  <div class="op-content" v-html="article.content"></div>
+                  <div class="op-content" v-html="sanitizeHtml(article.content)"></div>
                 </div>
 
                 <!-- 文章操作列 -->
@@ -424,7 +425,7 @@ async function handleDeleteFloor(floorId) {
                        底下的留言區也一併不顯示（樓層都收回了，留言不該還看得到） -->
                   <p v-if="!floor.visible" class="floor-mask">{{ floor.visibilityMessage }}</p>
                   <template v-else>
-                    <p class="floor-content">{{ floor.content }}</p>
+                    <div class="floor-content" v-html="sanitizeHtml(floor.content)"></div>
 
                     <div class="floor-actions">
                       <button
@@ -496,13 +497,7 @@ async function handleDeleteFloor(floorId) {
                 <form v-else class="floor-form" @submit.prevent="handleCreateFloor">
                   <span class="avatar avatar-md">{{ initial('我') }}</span>
                   <div class="floor-form-main">
-                    <textarea
-                      ref="floorTextareaRef"
-                      v-model="floorContent"
-                      rows="3"
-                      placeholder="回覆這篇文章（蓋樓）..."
-                      @input="autoResize"
-                    />
+                    <RichTextEditor v-model="floorContent" placeholder="回覆這篇文章（蓋樓）..." />
                     <div class="form-footer">
                       <button type="submit" class="submit-btn" :disabled="floorSubmitting">
                         {{ floorSubmitting ? '送出中...' : '送出' }}

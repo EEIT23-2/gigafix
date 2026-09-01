@@ -100,6 +100,14 @@
 			<artifactId>spring-boot-starter-security-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!-- 文章內文改成富文本後是使用者產生的 HTML，寫入前用 jsoup 消毒，
+		     避免 stored XSS。前端 DOMPurify 是第二道防線，兩層的允許清單要一致 -->
+		<dependency>
+			<groupId>org.jsoup</groupId>
+			<artifactId>jsoup</artifactId>
+			<version>1.18.3</version>
+		</dependency>
+
 	</dependencies>
 
 	<build>

@@ -25,6 +25,7 @@ import com.gigafix.forum.repository.ArticleRepository;
 import com.gigafix.forum.repository.BookmarkRepository;
 import com.gigafix.forum.repository.CategoryRepository;
 import com.gigafix.forum.repository.LikeRepository;
+import com.gigafix.forum.util.HtmlSanitizer;
 import com.gigafix.member.entity.Member;
 import com.gigafix.member.repository.MemberRepository;
 
@@ -93,8 +94,9 @@ public class ArticleServiceImpl implements ArticleService {
 			throw ForumException.badRequest("建立文章時狀態僅能為草稿或發布");
 		}
 		// 只有要直接發布時才驗證標題/內文不能空白；草稿允許空白，供自動儲存流程使用
+		// 內文是富文本 HTML，空編輯器會送來 <p></p>，isBlank 擋不住，要用 isEmptyContent
 		if (requestedStatus == Article.ArticleStatus.PUBLISHED
-				&& (isBlank(request.getTitle()) || isBlank(request.getContent()))) {
+				&& (isBlank(request.getTitle()) || HtmlSanitizer.isEmptyContent(request.getContent()))) {
 			throw ForumException.badRequest("標題與內文不能為空");
 		}
 
@@ -103,7 +105,7 @@ public class ArticleServiceImpl implements ArticleService {
 		article.setAuthor(author);
 		article.setCategory(category);
 		article.setTitle(emptyIfNull(request.getTitle()));
-		article.setContent(emptyIfNull(request.getContent()));
+		article.setContent(HtmlSanitizer.clean(emptyIfNull(request.getContent())));
 		article.setCoverImage(request.getCoverImage());
 		article.setStatus(requestedStatus);
 
@@ -251,14 +253,14 @@ public class ArticleServiceImpl implements ArticleService {
 
 		// 草稿階段允許標題/內文空白（自動儲存用）；非草稿狀態才驗證不能為空
 		if (article.getStatus() != Article.ArticleStatus.DRAFT
-				&& (isBlank(request.getTitle()) || isBlank(request.getContent()))) {
+				&& (isBlank(request.getTitle()) || HtmlSanitizer.isEmptyContent(request.getContent()))) {
 			throw ForumException.badRequest("標題與內文不能為空");
 		}
 
 		// 更新文章內容
 		article.setCategory(category);
 		article.setTitle(request.getTitle());
-		article.setContent(request.getContent());
+		article.setContent(HtmlSanitizer.clean(request.getContent()));
 		article.setCoverImage(request.getCoverImage());
 
 		Article savedArticle = articleRepository.save(article);
@@ -319,7 +321,7 @@ public class ArticleServiceImpl implements ArticleService {
 		}
 		// 發布時要驗證標題/內文不能為空
 		if (request.getStatus() == Article.ArticleStatus.PUBLISHED
-				&& (isBlank(article.getTitle()) || isBlank(article.getContent()))) {
+				&& (isBlank(article.getTitle()) || HtmlSanitizer.isEmptyContent(article.getContent()))) {
 			throw ForumException.badRequest("標題與內文不能為空，無法發布");
 		}
 
@@ -377,6 +379,11 @@ public class ArticleServiceImpl implements ArticleService {
 		Article root = articleRepository.findById(articleId)
 				.orElseThrow(() -> new IllegalArgumentException("文章不存在，articleId：" + articleId));
 
+		// 樓層內容也是富文本，空編輯器輸出是 <p></p>，@NotBlank 擋不住
+		if (HtmlSanitizer.isEmptyContent(request.getContent())) {
+			throw ForumException.badRequest("樓層內容不能為空");
+		}
+
 		// 防止樓中樓：只有頂層文章能被蓋樓
 		if (root.getParentArticle() != null) {
 			throw new IllegalStateException("不可在樓層下再建立樓層");
@@ -394,7 +401,7 @@ public class ArticleServiceImpl implements ArticleService {
 		floor.setParentArticle(root);
 		floor.setCategory(root.getCategory()); // 樓層繼承根文章分類
 		floor.setTitle(root.getTitle() + "(" + floorNumber + "樓)");
-		floor.setContent(request.getContent());
+		floor.setContent(HtmlSanitizer.clean(request.getContent()));
 		floor.setStatus(Article.ArticleStatus.PUBLISHED); // 樓層不走草稿，直接發布
 
 		Article saved = articleRepository.save(floor);
