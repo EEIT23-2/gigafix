@@ -1,10 +1,12 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import axios from 'axios'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import { useFetchMemberInfoStore } from '@/stores/member'
 import BaseModal from '../component/BaseModal.vue'
+import AddressSelect from '@/components/AddressSelect.vue'
+import { parseTaiwanAddress } from '@/static/taiwanDistricts'
 
 //========== 變數宣告 ==========
 
@@ -23,7 +25,9 @@ const genderLabelMap = {
 const showEditModal = ref(false)
 const editNickName = ref('')
 const editPhone = ref('')
-const editAddress = ref('')
+const editAddressCity = ref('')
+const editAddressDistrict = ref('')
+const editAddressDetail = ref('')
 const editGender = ref('')
 const editSubmitting = ref(false)
 const editErrorMsg = ref('') //不是空字串時代表欄位不符預期，畫面上會擋住送出按鈕
@@ -58,7 +62,10 @@ const genderLabel = (gender) => genderLabelMap[gender] ?? '未提供'
 const openEditModal = () => {
   editNickName.value = memberInfo.value.nickName
   editPhone.value = memberInfo.value.phone
-  editAddress.value = memberInfo.value.address
+  const parsedAddress = parseTaiwanAddress(memberInfo.value.address) //把既有地址字串拆回縣市/行政區/詳細地址，帶回下拉選單
+  editAddressCity.value = parsedAddress.city
+  editAddressDistrict.value = parsedAddress.district
+  editAddressDetail.value = parsedAddress.detail
   editGender.value = memberInfo.value.gender
   checkEditError() //資料是既有的會員資料，理論上都合法，這裡順便算一次讓按鈕正確顯示成可送出
   showEditModal.value = true
@@ -71,7 +78,7 @@ const submitEdit = async () => {
     await axios.patch('/api/gigafix/members/me', {
       nickName: editNickName.value,
       phone: editPhone.value,
-      address: editAddress.value,
+      address: `${editAddressCity.value}${editAddressDistrict.value}${editAddressDetail.value}`,
       gender: editGender.value
     })
     await fetchMemberInfoStore.fetchMember(true) //強制重抓最新資料，讓這頁跟上方導覽列同步更新
@@ -95,14 +102,20 @@ const checkEditError = () => {
     editErrorMsg.value = '手機號碼不可為空'
   } else if (!/^09\d{8}$/.test(editPhone.value)) {
     editErrorMsg.value = '手機號碼格式錯誤，需為09開頭的10碼數字'
-  } else if (!editAddress.value.trim()) {
-    editErrorMsg.value = '地址不可為空'
+  } else if (!editAddressCity.value) {
+    editErrorMsg.value = '請選擇縣市'
+  } else if (!editAddressDistrict.value) {
+    editErrorMsg.value = '請選擇行政區'
+  } else if (!editAddressDetail.value.trim()) {
+    editErrorMsg.value = '請輸入詳細地址'
   } else if (!editGender.value) {
     editErrorMsg.value = '請選擇性別'
   } else {
     editErrorMsg.value = ''
   }
 }
+//AddressSelect選縣市/行政區或打詳細地址都會更新這三個值，一併重新驗證讓送出鈕即時反映
+watch([editAddressCity, editAddressDistrict, editAddressDetail], () => checkEditError())
 
 //==修改密碼相關函式==
 //開啟彈窗前先清空欄位，避免殘留上次輸入的密碼
@@ -263,7 +276,9 @@ const checkDeleteError = () => {
       <input type="text" class="form-control mb-3" v-model="editPhone" placeholder="09xxxxxxxx" :disabled="editSubmitting" @input="checkEditError()">
 
       <label class="form-label">地址</label>
-      <input type="text" class="form-control mb-3" v-model="editAddress" :disabled="editSubmitting" @input="checkEditError()">
+      <div class="mb-3">
+        <AddressSelect v-model:city="editAddressCity" v-model:district="editAddressDistrict" v-model:detail="editAddressDetail" :disabled="editSubmitting" />
+      </div>
 
       <label class="form-label d-block">性別</label>
       <div class="gender-group" role="group" aria-label="性別">
@@ -491,6 +506,13 @@ const checkDeleteError = () => {
 }
 
 .form-control {
+  font-size: 1.05rem;
+  padding: 0.55rem 0.75rem;
+}
+
+/* AddressSelect是子元件，樣式有scoped隔開，用:deep()讓裡面的select/input跟本頁其他欄位同一套字級/內距 */
+:deep(.address-select .form-select),
+:deep(.address-select .form-control) {
   font-size: 1.05rem;
   padding: 0.55rem 0.75rem;
 }

@@ -19,7 +19,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
 						excludePathPatterns(
 								"/api/gigafix/members/login",
 								"/api/gigafix/members/register",
+								"/api/gigafix/members/register/otp",
 								"/api/gigafix/members/forgot-password",
+								"/api/gigafix/members/forgot-password/otp",
 		                        "/error"
 								);
 	}
