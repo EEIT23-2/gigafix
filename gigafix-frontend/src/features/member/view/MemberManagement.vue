@@ -144,42 +144,49 @@ onMounted(() => {
     <h1>這是會員管理頁</h1>
 
     <!-- 所有會員的資料 -->
-    <div class="card shadow mb-4">
+    <div class="card shadow mb-4 overflow-hidden">
         <div class="card-header py-3">
             <h6 class="m-0 fw-bold text-primary">會員列表</h6>
         </div>
-        <div class="card-body">
-            <p v-if="errorMsg" class="text-danger">{{ errorMsg }}</p>
-            <div class="row mb-2 text-muted fw-bold">
-                <div class="col-1">編號</div>
-                <div class="col-1">真實姓名</div>
-                <div class="col-1">暱稱</div>
-                <div class="col-2">Email</div>
-                <div class="col-1">手機號碼</div>
-                <div class="col-1">地址</div>
-                <div class="col-1">性別</div>
-                <div class="col-3">加入時間</div>
-                <div class="col-1">操作</div>
-            </div>
-
-            <div class="row align-items-center py-2 border-top" v-for="member in allMembers" :key="member.id">
-                <div class="col-1">{{ member.id }}</div>
-                <div class="col-1 text-truncate">{{ member.realName }}</div>
-                <div class="col-1 text-truncate">{{ member.nickName }}</div>
-                <div class="col-2 text-truncate">{{ member.email }}</div>
-                <div class="col-1 text-truncate">{{ member.phone }}</div>
-                <div class="col-1 text-truncate">{{ member.address }}</div>
-                <div class="col-1">{{ genderLabel(member.gender) }}</div>
-                <div class="col-3 text-truncate">{{ formatDateTime(member.createTime) }}</div>
-                <div class="col-1 d-flex gap-2 justify-content-center">
-                    <button class="btn btn-sm btn-outline-warning square-btn" title="修改該會員資料" @click="openEditModal(member)">
-                        <i class="bi bi-pencil-square"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger square-btn" title="刪除該會員" @click="deleteMember(member)">
-                        <i class="bi bi-trash-fill"></i>
-                    </button>
-                </div>
-            </div>
+        <p v-if="errorMsg" class="text-danger px-3 pt-3 mb-0">{{ errorMsg }}</p>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr class="text-muted">
+                        <th>編號</th>
+                        <th>真實姓名</th>
+                        <th>暱稱</th>
+                        <th>Email</th>
+                        <th>手機號碼</th>
+                        <th>地址</th>
+                        <th>性別</th>
+                        <th>加入時間</th>
+                        <th class="text-center">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="member in allMembers" :key="member.id">
+                        <td>{{ member.id }}</td>
+                        <td class="cell-truncate">{{ member.realName }}</td>
+                        <td class="cell-truncate">{{ member.nickName }}</td>
+                        <td class="cell-truncate">{{ member.email }}</td>
+                        <td>{{ member.phone }}</td>
+                        <td class="cell-truncate">{{ member.address }}</td>
+                        <td>{{ genderLabel(member.gender) }}</td>
+                        <td>{{ formatDateTime(member.createTime) }}</td>
+                        <td>
+                            <div class="d-flex gap-2 justify-content-center">
+                                <button class="btn btn-sm btn-outline-warning square-btn" title="修改該會員資料" @click="openEditModal(member)">
+                                    <i class="bi bi-pencil-square"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger square-btn" title="刪除該會員" @click="deleteMember(member)">
+                                    <i class="bi bi-trash-fill"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -221,6 +228,13 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.cell-truncate {
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .square-btn {
     width: 34px;
     height: 34px;

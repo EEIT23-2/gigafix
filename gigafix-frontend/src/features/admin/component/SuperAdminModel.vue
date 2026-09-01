@@ -207,52 +207,59 @@ onMounted(() => {
 
 <template>
     <!-- 所有管理員的資料 -->
-    <div class="card shadow mb-4">
+    <div class="card shadow mb-4 overflow-hidden">
         <div class="card-header py-3 d-flex justify-content-between align-items-center">
             <h6 class="m-0 fw-bold text-primary">管理員列表</h6>
             <button class="btn btn-primary btn-sm shadow-sm" @click="openCreateAdminModal">
                 <i class="bi bi-plus-lg me-1"></i>創建新管理員
             </button>
         </div>
-        <div class="card-body">
-            <p v-if="errorMsg" class="text-danger">{{ errorMsg }}</p>
-            <div class="row mb-2 text-muted fw-bold">
-                <div class="col-1">編號</div>
-                <div class="col-3">名稱</div>
-                <div class="col-3">角色</div>
-                <div class="col-2">建立時間</div>
-                <div class="col-3">操作</div>
-            </div>
+        <p v-if="errorMsg" class="text-danger px-3 pt-3 mb-0">{{ errorMsg }}</p>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr class="text-muted">
+                        <th>編號</th>
+                        <th>名稱</th>
+                        <th>角色</th>
+                        <th>建立時間</th>
+                        <th class="text-center">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="superAdmin">
+                        <td>{{ superAdmin.adminId }}</td>
+                        <td class="cell-truncate">{{ superAdmin.adminName }}</td>
+                        <td>
+                            <span class="badge bg-danger">{{ getRoleLabel(superAdmin.role) }}</span>
+                        </td>
+                        <td>{{ formatDateTime(superAdmin.createDateTime) }}</td>
+                        <td></td>
+                    </tr>
 
-            <div class="row align-items-center py-2 border-top" v-if="superAdmin">
-                <div class="col-1">{{ superAdmin.adminId }}</div>
-                <div class="col-3">{{ superAdmin.adminName }}</div>
-                <div class="col-3">
-                    <span class="badge bg-danger">{{ getRoleLabel(superAdmin.role) }}</span>
-                </div>
-                <div class="col-2 text-truncate">{{ formatDateTime(superAdmin.createDateTime) }}</div>
-                <div class="col-3"></div>
-            </div>
-
-            <div class="row align-items-center py-2 border-top" v-for="admin in otherAdmins" :key="admin.adminId">
-                <div class="col-1">{{ admin.adminId }}</div>
-                <div class="col-3">{{ admin.adminName }}</div>
-                <div class="col-3">
-                    <span class="badge bg-danger">{{ getRoleLabel(admin.role) }}</span>
-                </div>
-                <div class="col-2 text-truncate">{{ formatDateTime(admin.createDateTime) }}</div>
-                <div class="col-3 d-flex gap-2 justify-content-end">
-                    <button class="btn btn-sm btn-outline-warning square-btn" title="修改該管理員角色" @click="openUpdateRoleModal(admin)">
-                        <i class="bi bi-person-gear"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-primary square-btn" title="重設該管理員密碼" @click="openResetPasswordModal(admin)">
-                        <i class="bi bi-key-fill rotate-45"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger square-btn" title="刪除該管理員" @click="openDeleteModal(admin)">
-                        <i class="bi bi-trash-fill"></i>
-                    </button>
-                </div>
-            </div>
+                    <tr v-for="admin in otherAdmins" :key="admin.adminId">
+                        <td>{{ admin.adminId }}</td>
+                        <td class="cell-truncate">{{ admin.adminName }}</td>
+                        <td>
+                            <span class="badge bg-danger">{{ getRoleLabel(admin.role) }}</span>
+                        </td>
+                        <td>{{ formatDateTime(admin.createDateTime) }}</td>
+                        <td>
+                            <div class="d-flex gap-2 justify-content-center">
+                                <button class="btn btn-sm btn-outline-warning square-btn" title="修改該管理員角色" @click="openUpdateRoleModal(admin)">
+                                    <i class="bi bi-person-gear"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-primary square-btn" title="重設該管理員密碼" @click="openResetPasswordModal(admin)">
+                                    <i class="bi bi-key-fill rotate-45"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger square-btn" title="刪除該管理員" @click="openDeleteModal(admin)">
+                                    <i class="bi bi-trash-fill"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -333,6 +340,13 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.cell-truncate {
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .square-btn {
     width: 34px;
     height: 34px;

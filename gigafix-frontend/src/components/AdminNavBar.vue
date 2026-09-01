@@ -9,7 +9,7 @@ import { RouterLink } from "vue-router";
       <span>管理員資訊</span>
     </RouterLink>
     <RouterLink to="/admin/member-management" class="nav-item">
-      <span class="icon">👥</span>
+      <span class="icon"><i class="bi bi-people-fill"></i></span>
       <span>會員管理</span>
     </RouterLink>
 
@@ -53,7 +53,7 @@ import { RouterLink } from "vue-router";
 }
 
 .nav-heading {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   color: rgba(255, 255, 255, 0.4);
   padding: 16px 12px 6px 12px;
@@ -64,10 +64,10 @@ import { RouterLink } from "vue-router";
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px;
-  color: rgba(255, 255, 255, 0.8);
+  padding: 12px 14px;
+  color: rgba(255, 255, 255, 0.95);
   text-decoration: none;
-  font-size: 13px;
+  font-size: 18px;
   border-radius: 6px;
   transition:
     background-color 0.2s,
@@ -91,7 +91,7 @@ import { RouterLink } from "vue-router";
 }
 
 .arrow {
-  font-size: 14px;
+  font-size: 16px;
   opacity: 0.6;
 }
 </style>
