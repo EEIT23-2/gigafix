@@ -113,8 +113,7 @@ const openUpdateRoleModal = (adminInfo) =>{
 
 const updateRoleAdmin = async () => {
     try {
-        await axios.patch('/api/admin/account/role',{
-            id: updateOrDeleteAdmin.value.adminId,
+        await axios.patch(`/api/admin/account/${updateOrDeleteAdmin.value.adminId}/role`,{
             role: updateAdminRole.value
         })
         showUpdateRoleModal.value = false
@@ -144,8 +143,7 @@ const openResetPasswordModal = (adminInfo) =>{
 
 const resetAdminPassword = async () => {
     try {
-        await axios.patch('/api/admin/account/password',{
-            id: updateOrDeleteAdmin.value.adminId,
+        await axios.patch(`/api/admin/account/${updateOrDeleteAdmin.value.adminId}/password`,{
             newPassword: updateAdminPassword.value
         })
         showRestPasswordModal.value = false
@@ -177,11 +175,10 @@ const openDeleteModal = (adminInfo) => {
 
 const deleteAdmin = async () => {
     try {
-        await axios.delete('/api/admin/account',{
+        await axios.delete(`/api/admin/account/${updateOrDeleteAdmin.value.adminId}`,{
             // delete:第二個參數是 config,body 要包在 config.data 裡面
             data: {
-                SAPassword: superAdminComfirmPWD.value,
-                adminId: updateOrDeleteAdmin.value.adminId
+                SAPassword: superAdminComfirmPWD.value
             }
         })
         showDeleteModal.value = false
@@ -226,7 +223,7 @@ onMounted(() => {
                 <div class="col-2">建立時間</div>
                 <div class="col-3">操作</div>
             </div>
-            
+
             <div class="row align-items-center py-2 border-top" v-if="superAdmin">
                 <div class="col-1">{{ superAdmin.adminId }}</div>
                 <div class="col-3">{{ superAdmin.adminName }}</div>

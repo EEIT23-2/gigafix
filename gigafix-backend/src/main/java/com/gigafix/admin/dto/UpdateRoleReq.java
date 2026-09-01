@@ -6,9 +6,7 @@ import jakarta.validation.constraints.NotNull;
 
 public record UpdateRoleReq(
 		@NotNull(message = "admin權限不可為空")
-		Role role,
-		@NotNull(message = "admin id不可為空")
-		Integer id
+		Role role
 		) {
 
 }

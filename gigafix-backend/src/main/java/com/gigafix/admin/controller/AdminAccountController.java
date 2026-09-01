@@ -10,6 +10,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -65,18 +66,18 @@ public class AdminAccountController {
         		.build());
     }
 	
-	//總管理員幫某個管理員重設的帳密(被改的人要重新登入才會變)
-	@PatchMapping("/password")
+	//總管理員幫某個管理員重設的帳密(被改的人要重新登入才會變)，操作對象的id放路徑，body只帶要改的新密碼
+	@PatchMapping("/{adminId}/password")
 	@PreAuthorize("hasRole('ROLE_SUPER_ADMIN')")
-	public ResponseEntity<AdminInfoDto> resetPassword(@Valid @RequestBody ResetPasswordReq resetPasswordReq) {
-	    return ResponseEntity.ok(accountService.resetPassword(resetPasswordReq.id(), resetPasswordReq.newPassword()));
+	public ResponseEntity<AdminInfoDto> resetPassword(@PathVariable Integer adminId, @Valid @RequestBody ResetPasswordReq resetPasswordReq) {
+	    return ResponseEntity.ok(accountService.resetPassword(adminId, resetPasswordReq.newPassword()));
 	}
-	
-	//總管理員改某個管理員的權限(權限只有總管理員可以改)
-	@PatchMapping("/role")
+
+	//總管理員改某個管理員的權限(權限只有總管理員可以改)，操作對象的id放路徑，body只帶要改的角色
+	@PatchMapping("/{adminId}/role")
 	@PreAuthorize("hasRole('ROLE_SUPER_ADMIN')")
-	public ResponseEntity<AdminInfoDto> updateRole(@Valid @RequestBody UpdateRoleReq updateRoleReq) {
-	    return ResponseEntity.ok(accountService.updateRole(updateRoleReq.id(), updateRoleReq.role()));
+	public ResponseEntity<AdminInfoDto> updateRole(@PathVariable Integer adminId, @Valid @RequestBody UpdateRoleReq updateRoleReq) {
+	    return ResponseEntity.ok(accountService.updateRole(adminId, updateRoleReq.role()));
 	}
 	
 	//自己的名稱(只有名稱可以改，創建時間跟id不能改)
@@ -94,11 +95,11 @@ public class AdminAccountController {
         return ResponseEntity.ok().build(); //200
     }
 	
-	//總管理員刪除其他管理員
-    @DeleteMapping
+	//總管理員刪除其他管理員，操作對象的id放路徑，body只帶總管理員自己的密碼做確認
+    @DeleteMapping("/{adminId}")
     @PreAuthorize("hasRole('ROLE_SUPER_ADMIN')")
-    public ResponseEntity<Void> deleteAdmin(@Valid @RequestBody DeleteAdminReq deleteAdminReq) {
-    	accountService.deleteAccount(deleteAdminReq);
+    public ResponseEntity<Void> deleteAdmin(@PathVariable Integer adminId, @Valid @RequestBody DeleteAdminReq deleteAdminReq) {
+    	accountService.deleteAccount(adminId, deleteAdminReq.SAPassword());
         return ResponseEntity.noContent().build(); //204
     }
 	

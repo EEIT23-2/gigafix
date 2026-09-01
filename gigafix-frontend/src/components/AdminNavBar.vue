@@ -8,6 +8,10 @@ import { RouterLink } from "vue-router";
       <span class="icon">📊</span>
       <span>管理員資訊</span>
     </RouterLink>
+    <RouterLink to="/admin/member-management" class="nav-item">
+      <span class="icon">👥</span>
+      <span>會員管理</span>
+    </RouterLink>
 
     <div class="nav-heading">商品訂單相關</div>
     <RouterLink class="nav-item" to="/admin/products">

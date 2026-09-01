@@ -3,8 +3,9 @@ import { createRouter, createWebHistory } from "vue-router";
 import ClientLayout from "@/layouts/ClientLayout.vue";
 
 //載入member的前後台views陣列
-import managerAdminRoutes from "@/features/manager/adminRoutes";
+import managerAdminRoutes from "@/features/admin/adminRoutes";
 import memberInfoMembercenter from "@/features/member/router/membercenter";
+import memberAdminRoutes from "@/features/member/router/adminRoutes";
 //載入cart的views陣列
 import cartClient from "@/features/cart/router/client";
 import cartAdminRoutes from "@/features/cart/router/adminRoutes";
@@ -57,6 +58,7 @@ const router = createRouter({
       component: () => import("@/layouts/AdminLayout.vue"),
       children: [
         ...managerAdminRoutes,
+        ...memberAdminRoutes,
         ...cartAdminRoutes,
         ...productAdminRoutes,
         ...forumAdminRoutes,
@@ -66,12 +68,12 @@ const router = createRouter({
     {
       path: "/adminLogin",
       name: "adminLogin",
-      component: () => import("@/features/manager/view/AdminLogin.vue")
+      component: () => import("@/features/admin/view/AdminLogin.vue")
     },
     {
       path: "/creatSuperAdminView",
       name: "creatSuperAdminView",
-      component: () => import("@/features/manager/view/CreatSuperAdminView.vue")
+      component: () => import("@/features/admin/view/CreatSuperAdminView.vue")
     },
   ],
 });
