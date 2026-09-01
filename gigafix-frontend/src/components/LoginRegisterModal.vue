@@ -21,7 +21,7 @@ const close = () => emit('update:modelValue', false)
     </Transition>
     <Transition name="modal-fade">
       <div v-if="modelValue" class="modal fade show d-block" tabindex="-1" @keyup.esc="close">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
           <div class="modal-content border-0 shadow-lg rounded-4">
             <div class="modal-header border-0">
               <h5 class="modal-title"><slot name="title" /></h5>

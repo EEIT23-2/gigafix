@@ -1,10 +1,21 @@
 <script setup>
 import axios from 'axios'
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import BaseModal from '../component/BaseModal.vue'
+import AddressSelect from '@/components/AddressSelect.vue'
+import { parseTaiwanAddress } from '@/static/taiwanDistricts'
+import MemberGrowthChart from '../component/MemberGrowthChart.vue'
+import MemberDistrictHeatmap from '../component/MemberDistrictHeatmap.vue'
 
-const allMembers = ref([])
+const allMembers = ref([]) //目前這一頁的會員(給表格用)
+const allMembersForStats = ref([]) //全部會員(不分頁，給上面兩個圖表統計用)
 const errorMsg = ref('')
+
+// ====分頁相關====
+const currentPage = ref(0) //跟後端一樣從0開始算
+const pageSize = 20
+const totalPages = ref(0)
+const totalElements = ref(0)
 
 //性別代碼轉中文顯示用的對照表
 const genderLabelMap = {
@@ -30,16 +41,37 @@ const formatDateTime = (ldtString) => {
     return `${year}/${month}/${day} ${hour}:${minute}:${second}`
 }
 
-//====取得所有的會員====
-const fetchAllMembers = async () => {
+//====取得會員列表(分頁，一次20筆，給表格用)====
+const fetchAllMembers = async (page = 0) => {
     errorMsg.value = ''
     try {
-        const rep = await axios.get('/api/admin/members')
-        allMembers.value = rep.data
+        const rep = await axios.get('/api/admin/members', { params: { page, size: pageSize } })
+        allMembers.value = rep.data.content
+        currentPage.value = rep.data.number
+        totalPages.value = rep.data.totalPages
+        totalElements.value = rep.data.totalElements
     } catch (err) {
         alert(`會員列表讀取失敗，原因: ${err.response.data.message}`)
         errorMsg.value = '無法載入會員列表,請稍後再試'
     }
+}
+
+//====取得全部會員(不分頁，只給上面兩個統計圖表用，跟表格的分頁資料分開抓，避免圖表只統計到當頁20筆)====
+const fetchAllMembersForStats = async () => {
+    try {
+        const rep = await axios.get('/api/admin/members', { params: { page: 0, size: 1000 } }) //size給大一點，一次撈全部會員
+        allMembersForStats.value = rep.data.content
+    } catch (err) {
+        //統計圖表載入失敗不影響會員列表的主要功能，不特別跳alert打擾使用者
+    }
+}
+
+//切換分頁頁碼，超出範圍或點目前這頁就不動作
+const goToPage = (page) => {
+    if (page < 0 || page >= totalPages.value || page === currentPage.value) {
+        return
+    }
+    fetchAllMembers(page)
 }
 
 // ====修改會員資料的相關宣告====
@@ -49,7 +81,9 @@ const editRealName = ref('')
 const editNickName = ref('')
 const editEmail = ref('')
 const editPhone = ref('')
-const editAddress = ref('')
+const editAddressCity = ref('')
+const editAddressDistrict = ref('')
+const editAddressDetail = ref('')
 const editGender = ref('')
 const editSubmitting = ref(false)
 const editErrorMsg = ref('')
@@ -61,7 +95,10 @@ const openEditModal = (member) => {
     editNickName.value = member.nickName
     editEmail.value = member.email
     editPhone.value = member.phone
-    editAddress.value = member.address
+    const parsedAddress = parseTaiwanAddress(member.address) //把既有地址字串拆回縣市/行政區/詳細地址，帶回下拉選單
+    editAddressCity.value = parsedAddress.city
+    editAddressDistrict.value = parsedAddress.district
+    editAddressDetail.value = parsedAddress.detail
     editGender.value = member.gender
     checkEditError() //資料是既有的會員資料，理論上都合法，這裡順便算一次讓按鈕正確顯示成可送出
     showEditModal.value = true
@@ -85,14 +122,20 @@ const checkEditError = () => {
         editErrorMsg.value = '手機號碼不可為空'
     } else if (!/^09\d{8}$/.test(editPhone.value)) {
         editErrorMsg.value = '手機號碼格式錯誤，需為09開頭的10碼數字'
-    } else if (!editAddress.value.trim()) {
-        editErrorMsg.value = '地址不可為空'
+    } else if (!editAddressCity.value) {
+        editErrorMsg.value = '請選擇縣市'
+    } else if (!editAddressDistrict.value) {
+        editErrorMsg.value = '請選擇行政區'
+    } else if (!editAddressDetail.value.trim()) {
+        editErrorMsg.value = '請輸入詳細地址'
     } else if (!editGender.value) {
         editErrorMsg.value = '請選擇性別'
     } else {
         editErrorMsg.value = ''
     }
 }
+//AddressSelect選縣市/行政區或打詳細地址都會更新這三個值，一併重新驗證讓送出鈕即時反映
+watch([editAddressCity, editAddressDistrict, editAddressDetail], () => checkEditError())
 
 //送出修改會員資料表單(整包資料送給後端PUT /api/admin/members/{memberId})
 const submitEdit = async () => {
@@ -103,10 +146,11 @@ const submitEdit = async () => {
             nickName: editNickName.value,
             email: editEmail.value,
             phone: editPhone.value,
-            address: editAddress.value,
+            address: `${editAddressCity.value}${editAddressDistrict.value}${editAddressDetail.value}`,
             gender: editGender.value
         })
-        await fetchAllMembers()
+        await fetchAllMembers(currentPage.value) //留在原本那一頁重新整理
+        await fetchAllMembersForStats() //地址可能改了，圖表的統計也要跟著更新
         showEditModal.value = false
         alert('會員資料修改成功！')
     } catch (err) { //回傳4xx,5xx，後端Bean Validation的錯誤訊息會放在message
@@ -126,7 +170,10 @@ const deleteMember = async (member) => {
     }
     try {
         await axios.delete(`/api/admin/members/${member.id}`)
-        await fetchAllMembers()
+        //如果刪掉的是目前這頁最後一筆(例如最後一頁只剩1筆)，留在原頁會變成空頁，往回一頁比較合理
+        const pageToShow = (allMembers.value.length === 1 && currentPage.value > 0) ? currentPage.value - 1 : currentPage.value
+        await fetchAllMembers(pageToShow)
+        await fetchAllMembersForStats() //會員總數變了，圖表的統計也要跟著更新
         alert('刪除成功')
     } catch (err) { //回傳4xx,5xx
         const message = err.response?.data?.message || '請稍後再試'
@@ -134,14 +181,25 @@ const deleteMember = async (member) => {
     }
 }
 
-//只要元件掛載就去抓所有會員出來
+//只要元件掛載就去抓會員列表(第一頁)跟圖表用的全部會員
 onMounted(() => {
     fetchAllMembers()
+    fetchAllMembersForStats()
 })
 </script>
 
 <template>
-    <h1>這是會員管理頁</h1>
+    <h1>會員管理</h1>
+
+    <!-- 會員累計成長曲線 + 行政區分布熱點圖，左右並排 -->
+    <div class="row g-3">
+        <div class="col-md-6">
+            <MemberGrowthChart />
+        </div>
+        <div class="col-md-6">
+            <MemberDistrictHeatmap :members="allMembersForStats" />
+        </div>
+    </div>
 
     <!-- 所有會員的資料 -->
     <div class="card shadow mb-4 overflow-hidden">
@@ -188,6 +246,24 @@ onMounted(() => {
                 </tbody>
             </table>
         </div>
+
+        <!-- 分頁控制，一頁20筆 -->
+        <div v-if="totalElements > 0" class="d-flex flex-column align-items-center gap-2 py-3 border-top">
+            <p class="text-muted small mb-0">共 {{ totalElements }} 筆會員</p>
+            <nav v-if="totalPages > 1" aria-label="會員列表分頁">
+                <ul class="pagination mb-0">
+                    <li class="page-item" :class="{ disabled: currentPage === 0 }">
+                        <button class="page-link" @click="goToPage(currentPage - 1)">上一頁</button>
+                    </li>
+                    <li v-for="pageNum in totalPages" :key="pageNum" class="page-item" :class="{ active: pageNum - 1 === currentPage }">
+                        <button class="page-link" @click="goToPage(pageNum - 1)">{{ pageNum }}</button>
+                    </li>
+                    <li class="page-item" :class="{ disabled: currentPage === totalPages - 1 }">
+                        <button class="page-link" @click="goToPage(currentPage + 1)">下一頁</button>
+                    </li>
+                </ul>
+            </nav>
+        </div>
     </div>
 
     <!-- 修改會員資料的彈窗 -->
@@ -207,7 +283,9 @@ onMounted(() => {
         <input type="text" class="form-control mb-3" v-model="editPhone" placeholder="09xxxxxxxx" :disabled="editSubmitting" @input="checkEditError()">
 
         <label class="form-label">地址</label>
-        <input type="text" class="form-control mb-3" v-model="editAddress" :disabled="editSubmitting" @input="checkEditError()">
+        <div class="mb-3">
+            <AddressSelect v-model:city="editAddressCity" v-model:district="editAddressDistrict" v-model:detail="editAddressDetail" :disabled="editSubmitting" />
+        </div>
 
         <label class="form-label">性別</label>
         <select class="form-select" v-model="editGender" :disabled="editSubmitting" @change="checkEditError()">

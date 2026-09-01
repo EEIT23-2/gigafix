@@ -1,8 +1,9 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useRouter } from 'vue-router'
 import LoginRegisterModal from './LoginRegisterModal.vue';
+import AddressSelect from './AddressSelect.vue';
 import axios from 'axios';
 import { useFetchMemberInfoStore } from '@/stores/member';
 import { storeToRefs } from 'pinia'
@@ -19,7 +20,9 @@ const regRealName = ref('')
 const regNickName = ref('')
 const regEmail = ref('')
 const regPhone = ref('')
-const regAddress = ref('')
+const regAddressCity = ref('')
+const regAddressDistrict = ref('')
+const regAddressDetail = ref('')
 const regGender = ref('')
 const regOtp = ref('')
 const registerErrorMsg = ref('')
@@ -97,7 +100,9 @@ const openRegisterModal = () => {
   regNickName.value = ''
   regEmail.value = ''
   regPhone.value = ''
-  regAddress.value = ''
+  regAddressCity.value = ''
+  regAddressDistrict.value = ''
+  regAddressDetail.value = ''
   regGender.value = ''
   regOtp.value = ''
   registerErrorMsg.value = '請輸入Email'
@@ -124,14 +129,21 @@ const checkRegisterError = () => {
     registerErrorMsg.value = '請輸入暱稱'
   } else if (!/^09\d{8}$/.test(regPhone.value)) {
     registerErrorMsg.value = '手機號碼格式錯誤，需為09開頭的10碼數字'
-  } else if (!regAddress.value.trim()) {
-    registerErrorMsg.value = '請輸入地址'
+  } else if (!regAddressCity.value) {
+    registerErrorMsg.value = '請選擇縣市'
+  } else if (!regAddressDistrict.value) {
+    registerErrorMsg.value = '請選擇行政區'
+  } else if (!regAddressDetail.value.trim()) {
+    registerErrorMsg.value = '請輸入詳細地址'
   } else if (!regGender.value) {
     registerErrorMsg.value = '請選擇性別'
   } else {
     registerErrorMsg.value = ''
   }
 }
+//AddressSelect選縣市/行政區或打詳細地址都會更新這三個值，一併重新驗證讓送出鈕即時反映
+watch([regAddressCity, regAddressDistrict, regAddressDetail], () => checkRegisterError())
+
 const register = async () => {
   try {
         const resp = await axios.post('/api/gigafix/members/register',{
@@ -140,7 +152,7 @@ const register = async () => {
             nickName: regNickName.value,
             email: regEmail.value,
             phone: regPhone.value,
-            address: regAddress.value,
+            address: `${regAddressCity.value}${regAddressDistrict.value}${regAddressDetail.value}`,
             gender: regGender.value,
             otp: regOtp.value
         })
@@ -347,24 +359,33 @@ const router = useRouter()
   <LoginRegisterModal v-model="showRegisterModal" :showBackdrop="false">
     <template #title>會員註冊</template>
     <label class="form-label">Email</label>
-    <input type="email" class="form-control mb-3" v-model="regEmail" placeholder="請輸入Email" @input="checkRegisterError()">
+    <input type="email" class="form-control mb-2" v-model="regEmail" placeholder="請輸入Email" @input="checkRegisterError()">
     <label class="form-label">OTP驗證碼</label>
-    <div class="otp-row mb-3">
+    <div class="otp-row mb-2">
       <input type="text" class="form-control" v-model="regOtp" maxlength="6" placeholder="請輸入6碼驗證碼" @input="checkRegisterError()">
       <button type="button" class="btn btn-outline-primary otp-btn" @click="sendRegisterOtp()" :disabled="otpSending || otpCooldown > 0">
         {{ otpCooldown > 0 ? `${otpCooldown}秒後重寄` : (otpSending ? '寄送中...' : '寄送驗證碼') }}
       </button>
     </div>
     <label class="form-label">密碼</label>
-    <input type="password" class="form-control mb-3" v-model="regPassword" placeholder="請輸入密碼(至少8碼)" @input="checkRegisterError()">
-    <label class="form-label">真實姓名</label>
-    <input type="text" class="form-control mb-3" v-model="regRealName" maxlength="40" placeholder="請輸入真實姓名" @input="checkRegisterError()">
-    <label class="form-label">暱稱</label>
-    <input type="text" class="form-control mb-3" v-model="regNickName" maxlength="40" placeholder="請輸入暱稱" @input="checkRegisterError()">
+    <input type="password" class="form-control mb-2" v-model="regPassword" placeholder="請輸入密碼(至少8碼)" @input="checkRegisterError()">
+    <!-- 真實姓名+暱稱併成一排，縮短表單高度，密碼/手機號碼維持獨立一排避免看起來擁擠 -->
+    <div class="row g-2 mb-2">
+      <div class="col-6">
+        <label class="form-label">真實姓名</label>
+        <input type="text" class="form-control" v-model="regRealName" maxlength="40" placeholder="請輸入真實姓名" @input="checkRegisterError()">
+      </div>
+      <div class="col-6">
+        <label class="form-label">暱稱</label>
+        <input type="text" class="form-control" v-model="regNickName" maxlength="40" placeholder="請輸入暱稱" @input="checkRegisterError()">
+      </div>
+    </div>
     <label class="form-label">手機號碼</label>
-    <input type="text" class="form-control mb-3" v-model="regPhone" placeholder="09xxxxxxxx" @input="checkRegisterError()">
+    <input type="text" class="form-control mb-2" v-model="regPhone" placeholder="09xxxxxxxx" @input="checkRegisterError()">
     <label class="form-label">地址</label>
-    <input type="text" class="form-control mb-3" v-model="regAddress" placeholder="請輸入地址" @input="checkRegisterError()">
+    <div class="mb-2">
+      <AddressSelect v-model:city="regAddressCity" v-model:district="regAddressDistrict" v-model:detail="regAddressDetail" />
+    </div>
     <label class="form-label d-block">性別</label>
     <div class="gender-group" role="group" aria-label="性別">
       <input type="radio" class="btn-check" id="regGenderMale" value="MALE" v-model="regGender" autocomplete="off" @change="checkRegisterError()">
@@ -421,6 +442,13 @@ const router = useRouter()
 
 .btn {
   font-size: 1.05rem;
+}
+
+/* AddressSelect是子元件，樣式有scoped隔開，用:deep()讓裡面的select/input跟本頁其他欄位同一套字級/內距 */
+:deep(.address-select .form-select),
+:deep(.address-select .form-control) {
+  font-size: 1.05rem;
+  padding: 0.55rem 0.75rem;
 }
 
 /* OTP輸入框跟寄送按鈕排在同一列，按鈕寬度固定不隨輸入框被擠壓 */
