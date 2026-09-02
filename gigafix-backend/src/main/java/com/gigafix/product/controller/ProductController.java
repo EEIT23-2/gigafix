@@ -35,7 +35,7 @@ public class    ProductController {
 
 
     //Id搜尋商品的路由controller
-        @GetMapping("/products/{productId}")
+    @GetMapping("/products/{productId}")
     public ResponseEntity<Product> getProduct(@PathVariable Long productId){
         Product product = productService.getProductById(productId);
         //回傳狀態 ,若找不到 回傳404並用.build()建body
