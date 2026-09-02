@@ -1,6 +1,6 @@
 package com.gigafix.product.service;
 
-import com.gigafix.product.entity.Product;
+
 import com.gigafix.product.entity.RecycleApplication;
 
 public interface RecycleApplicationService {
