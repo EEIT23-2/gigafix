@@ -77,6 +77,13 @@ export function createFloor(articleId, content) {
     .then((res) => res.data)
 }
 
+// 編輯樓層只送內文；標題與分類由後端擁有，走的是樓層專用端點而不是 updateArticle
+export function updateFloor(floorId, content) {
+  return http
+    .put(`/api/members/${TEST_MEMBER_ID}/floors/${floorId}`, { content })
+    .then((res) => res.data)
+}
+
 // ---------------- 留言 ----------------
 
 export function getComments(articleId) {

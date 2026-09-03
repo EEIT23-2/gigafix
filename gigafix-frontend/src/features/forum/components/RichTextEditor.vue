@@ -1,5 +1,5 @@
 <script setup>
-import { computed, watch, onBeforeUnmount } from 'vue'
+import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
@@ -15,6 +15,8 @@ import ColorPopover from './ColorPopover.vue'
 // 兩邊要一起改，否則會出現「前端選得到、存進去卻被濾掉」
 const MIN_FONT_SIZE = 8
 const MAX_FONT_SIZE = 32
+// 沒有套用字級時輸入框要顯示的值。不能留空——空值時原生微調鈕的第一下會直接跳到 min
+const BASE_FONT_SIZE = 16
 
 const TEXT_COLORS = [
   '#212529', '#c0392b', '#a15c00', '#1e7e34', '#2b77c5',
@@ -57,7 +59,10 @@ const editor = useEditor({
   ],
   onUpdate: ({ editor: instance }) => {
     emit('update:modelValue', instance.getHTML())
+    syncFontSize()
   },
+  // 游標移到別段時，字級輸入框要跟著顯示該處的實際字級
+  onSelectionUpdate: syncFontSize,
 })
 
 // 外部值變動時才回寫（例如編輯模式載入既有文章）。
@@ -74,36 +79,79 @@ watch(
 
 onBeforeUnmount(() => editor.value?.destroy())
 
+// 使用者常常只打 example.com。那會變成相對路徑的 href，而前端 DOMPurify 與後端 jsoup
+// 都只放行 http/https/mailto，結果是「當下看起來有連結、存檔後變純文字」。這裡先補上協定。
+function normalizeUrl(url) {
+  const trimmed = url.trim()
+  if (/^(https?:\/\/|mailto:)/i.test(trimmed)) return trimmed
+  // 站內路徑與錨點維持原樣，消毒層允許它們
+  if (/^[/#]/.test(trimmed)) return trimmed
+  return `https://${trimmed}`
+}
+
 function setLink() {
   const previous = editor.value.getAttributes('link').href ?? ''
-  const url = window.prompt('連結網址', previous)
-  if (url === null) return // 使用者按取消
-  if (url === '') {
+  const input = window.prompt('連結網址', previous)
+  if (input === null) return // 使用者按取消
+
+  if (input.trim() === '') {
     editor.value.chain().focus().extendMarkRange('link').unsetLink().run()
     return
   }
-  editor.value.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
-}
 
-// 目前選取範圍的字級，去掉 px 只留數字給 number input 用
-const currentFontSize = computed(() => {
-  const raw = editor.value?.getAttributes('textStyle')?.fontSize
-  return raw ? Number.parseInt(raw, 10) : null
-})
+  const href = normalizeUrl(input)
+  const { from, to } = editor.value.state.selection
+
+  if (from === to) {
+    // 游標是收合的，沒有選取任何文字。
+    // setLink 套用的是「標記」，標記必須附著在文字上——這時候直接呼叫它會什麼都不發生，
+    // 所以改成插入一段「文字是網址、並帶 link 標記」的內容
+    editor.value
+      .chain()
+      .focus()
+      .insertContent({
+        type: 'text',
+        text: href,
+        marks: [{ type: 'link', attrs: { href } }],
+      })
+      .run()
+    return
+  }
+
+  editor.value.chain().focus().extendMarkRange('link').setLink({ href }).run()
+}
 
 const currentColor = computed(() => editor.value?.getAttributes('textStyle')?.color ?? '')
 const currentBackground = computed(
   () => editor.value?.getAttributes('textStyle')?.backgroundColor ?? '',
 )
 
-function applyFontSize(event) {
-  const value = Number.parseInt(event.target.value, 10)
-  // 超出範圍就不套用——後端也會濾掉，這裡先擋住免得使用者以為成功了
-  if (!Number.isFinite(value) || value < MIN_FONT_SIZE || value > MAX_FONT_SIZE) return
-  editor.value.chain().focus().setFontSize(`${value}px`).run()
+// 字級用「本地 ref + 明確同步」而不是 computed：
+// computed 讀的是 ProseMirror 的內部狀態，Vue 追蹤不到它的變化，不會可靠地重算，
+// 結果是輸入框顯示的值與編輯器實際狀態各走各的（要點兩下才生效就是這樣來的）
+const fontSize = ref(BASE_FONT_SIZE)
+
+function syncFontSize() {
+  const raw = editor.value?.getAttributes('textStyle')?.fontSize
+  fontSize.value = raw ? Number.parseInt(raw, 10) : BASE_FONT_SIZE
+}
+
+function applyFontSize(size) {
+  const value = Number.parseInt(size, 10)
+  // 超出範圍就夾回邊界，不要靜靜地不做事——使用者才知道上下限在哪
+  const clamped = Number.isFinite(value)
+    ? Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, value))
+    : BASE_FONT_SIZE
+  fontSize.value = clamped
+  editor.value.chain().focus().setFontSize(`${clamped}px`).run()
+}
+
+function stepFontSize(delta) {
+  applyFontSize(fontSize.value + delta)
 }
 
 function resetFontSize() {
+  fontSize.value = BASE_FONT_SIZE
   editor.value.chain().focus().unsetFontSize().run()
 }
 
@@ -202,17 +250,36 @@ function addImage() {
       </button>
       <span class="divider"></span>
 
+      <!-- 用自訂的 −/+ 而不是原生 number 微調鈕：原生微調鈕在空值時第一下會跳到 min，
+           而且每次套用都會把焦點搶回編輯器，造成「點兩下才生效」 -->
       <span class="size-group">
+        <button
+          type="button"
+          class="size-step"
+          title="縮小字級"
+          :disabled="fontSize <= MIN_FONT_SIZE"
+          @click="stepFontSize(-1)"
+        >
+          −
+        </button>
         <input
+          v-model.number="fontSize"
           class="size-input"
-          type="number"
-          :min="MIN_FONT_SIZE"
-          :max="MAX_FONT_SIZE"
-          :value="currentFontSize"
+          type="text"
+          inputmode="numeric"
           :title="`字級（${MIN_FONT_SIZE}~${MAX_FONT_SIZE}px）`"
-          placeholder="16"
-          @change="applyFontSize"
+          @change="applyFontSize(fontSize)"
+          @keyup.enter="applyFontSize(fontSize)"
         />
+        <button
+          type="button"
+          class="size-step"
+          title="放大字級"
+          :disabled="fontSize >= MAX_FONT_SIZE"
+          @click="stepFontSize(1)"
+        >
+          ＋
+        </button>
         <button type="button" class="size-reset" title="字級恢復預設" @click="resetFontSize">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="19" x2="19" y2="5"></line></svg>
         </button>
@@ -340,15 +407,39 @@ function addImage() {
 }
 
 .size-input {
-  width: 52px;
+  width: 34px;
   height: 30px;
   border: 1px solid #d7dce5;
   border-radius: 4px;
   background: #ffffff;
   color: #5a5c69;
   font-size: 13px;
-  padding: 0 4px;
+  padding: 0 2px;
   text-align: center;
+}
+
+.size-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 30px;
+  border: 1px solid #d7dce5;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #5a5c69;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.size-step:hover:not(:disabled) {
+  background: #eaeef5;
+}
+
+.size-step:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .size-reset {
@@ -373,6 +464,9 @@ function addImage() {
   min-height: 280px;
   padding: 14px 16px;
   outline: none;
+  /* 沒有空白的長字串（網址、連續英數）要能斷行，否則會把容器撐寬 */
+  overflow-wrap: break-word;
+  word-break: break-word;
   line-height: 1.75;
   color: #333333;
 }

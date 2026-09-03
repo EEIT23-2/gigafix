@@ -16,6 +16,10 @@ const props = defineProps({
   status: { type: String, default: null },
 })
 
+// 留言數變動時通知父層。父層不能直接重抓文章來更新計數——getArticle 會讓瀏覽數 +1。
+// 公開端點回傳的是「非下架」的留言，跟後端維護的 commentCount 定義一致，長度可以直接當計數用
+const emit = defineEmits(['count-change'])
+
 const MAX_LENGTH = 1000
 const REPORT_MAX_LENGTH = 250
 
@@ -77,6 +81,7 @@ function resetTextareaHeight() {
 async function loadComments() {
   try {
     comments.value = await getComments(props.articleId)
+    emit('count-change', comments.value.length)
     loadError.value = ''
   } catch {
     loadError.value = '留言載入失敗，請確認後端服務是否啟動'

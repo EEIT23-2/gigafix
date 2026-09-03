@@ -10,6 +10,7 @@ import {
   removeBookmark,
   getFloors,
   createFloor,
+  updateFloor,
   reportArticle,
   TEST_MEMBER_ID,
 } from '../api'
@@ -34,6 +35,13 @@ const floors = ref([])
 const floorContent = ref('')
 const floorSubmitting = ref(false)
 const floorErrorMessage = ref('')
+
+// 樓層編輯：同時間只有一個樓層在編輯狀態
+// （與 CategoryAdminPanel 的 editingCategoryId 同一種模式）
+const editingFloorId = ref(null)
+const editingFloorContent = ref('')
+const floorSaving = ref(false)
+const floorEditError = ref('')
 
 // 首篇留言區預設展開；樓層的留言區預設收合，點該層的「留言 N」才展開
 const commentsOpen = ref(true)
@@ -187,6 +195,54 @@ async function handleCreateFloor() {
     floorErrorMessage.value = fieldError || '蓋樓失敗，請確認文章目前是否可以蓋樓'
   } finally {
     floorSubmitting.value = false
+  }
+}
+
+// 樓層可否編輯：與後端 updateFloor 的守衛一對一。
+// 刻意不用 floor.visible——被管理員隱藏（FORCE_HIDDEN）的樓層，作者本人拿到的 visible 仍是 true，
+// 用它當條件等於允許「被隱藏後自行改稿」
+function canEditFloor(floor) {
+  return (
+    floor.authorId === TEST_MEMBER_ID &&
+    floor.status === 'PUBLISHED' &&
+    article.value?.status === 'PUBLISHED'
+  )
+}
+
+function startEditFloor(floor) {
+  floorEditError.value = ''
+  // 舊資料早於消毒層，載進編輯器前先洗一次
+  editingFloorContent.value = sanitizeHtml(floor.content)
+  editingFloorId.value = floor.articleId
+  // 不讓同一頁同時展開檢舉表單與編輯器
+  reportingArticleId.value = null
+}
+
+function cancelEditFloor() {
+  editingFloorId.value = null
+  editingFloorContent.value = ''
+  floorEditError.value = ''
+}
+
+async function handleSaveFloor(floor) {
+  // 空編輯器輸出是 <p></p>，不能用 trim 判斷
+  if (isHtmlEmpty(editingFloorContent.value)) return
+  floorSaving.value = true
+  floorEditError.value = ''
+  try {
+    const updated = await updateFloor(floor.articleId, editingFloorContent.value)
+    // 只回填這兩個欄位。toArticleResponse 不會產生 floorNumber，讚/收藏旗標也是列表查詢時
+    // 才另外補上的，整包替換會讓樓層編號消失、讚與收藏狀態歸零。
+    // content 取回傳值而不是本地值，這樣畫面顯示的才等於資料庫裡消毒後實際存的內容
+    floor.content = updated.content
+    floor.articleUpdatedTime = updated.articleUpdatedTime
+    cancelEditFloor()
+  } catch (error) {
+    const data = error.response?.data
+    floorEditError.value =
+      data?.errors?.[0]?.message || data?.message || '儲存失敗，請確認這個樓層目前是否可以編輯'
+  } finally {
+    floorSaving.value = false
   }
 }
 
@@ -386,6 +442,7 @@ async function handleDeleteFloor(floorId) {
                     v-if="commentsOpen"
                     :article-id="articleId"
                     :status="article.status"
+                    @count-change="article.commentCount = $event"
                   />
                 </div>
               </section>
@@ -400,18 +457,29 @@ async function handleDeleteFloor(floorId) {
                   <span class="floor-badge">{{ floor.floorNumber }}樓</span>
                   <span class="author-name">{{ floor.authorNickName }}</span>
                   <span class="floor-time">{{ formatDateTime(floor.articleCreatedTime) }}</span>
+                  <!-- articleUpdatedTime 是 @PreUpdate 寫的，任何欄位變動都會動到它（含軟刪除改狀態），
+                       不是精準的「內容被編輯過」。至少在內容被遮蔽時不要標，否則已下架的樓層也會掛著「已編輯」 -->
+                  <span v-if="floor.visible && floor.articleUpdatedTime" class="floor-time">已編輯</span>
                   <div class="ms-auto">
                     <MoreActionsMenu>
                       <template #default="{ close }">
-                        <!-- 樓層沒有「編輯」：標題由後端自動生成、分類繼承樓主，套文章編輯頁語意不對 -->
-                        <button
-                          v-if="floor.authorId === TEST_MEMBER_ID"
-                          type="button"
-                          class="danger"
-                          @click="close(); handleDeleteFloor(floor.articleId)"
-                        >
-                          刪除
-                        </button>
+                        <template v-if="floor.authorId === TEST_MEMBER_ID">
+                          <!-- 樓層的編輯是原地展開，不導向文章編輯頁：樓層沒有標題、分類、封面圖 -->
+                          <button
+                            v-if="canEditFloor(floor)"
+                            type="button"
+                            @click="close(); startEditFloor(floor)"
+                          >
+                            編輯
+                          </button>
+                          <button
+                            type="button"
+                            class="danger"
+                            @click="close(); handleDeleteFloor(floor.articleId)"
+                          >
+                            刪除
+                          </button>
+                        </template>
                         <button v-else type="button" @click="close(); toggleReportForm(floor.articleId)">
                           檢舉
                         </button>
@@ -425,7 +493,22 @@ async function handleDeleteFloor(floorId) {
                        底下的留言區也一併不顯示（樓層都收回了，留言不該還看得到） -->
                   <p v-if="!floor.visible" class="floor-mask">{{ floor.visibilityMessage }}</p>
                   <template v-else>
-                    <div class="floor-content" v-html="sanitizeHtml(floor.content)"></div>
+                    <div v-if="editingFloorId === floor.articleId" class="floor-edit">
+                      <RichTextEditor v-model="editingFloorContent" placeholder="編輯這個樓層..." />
+                      <div class="form-footer">
+                        <button type="button" class="cancel" @click="cancelEditFloor">取消</button>
+                        <button
+                          type="button"
+                          class="submit-btn"
+                          :disabled="floorSaving"
+                          @click="handleSaveFloor(floor)"
+                        >
+                          {{ floorSaving ? '儲存中...' : '儲存' }}
+                        </button>
+                      </div>
+                      <p v-if="floorEditError" class="error">{{ floorEditError }}</p>
+                    </div>
+                    <div v-else class="floor-content" v-html="sanitizeHtml(floor.content)"></div>
 
                     <div class="floor-actions">
                       <button
@@ -485,7 +568,11 @@ async function handleDeleteFloor(floorId) {
                 </div>
 
                 <div v-if="floor.visible && expandedFloors[floor.articleId]" class="floor-comments">
-                  <CommentSection :article-id="floor.articleId" :status="floor.status" />
+                  <CommentSection
+                    :article-id="floor.articleId"
+                    :status="floor.status"
+                    @count-change="floor.commentCount = $event"
+                  />
                 </div>
               </section>
 
@@ -837,6 +924,31 @@ async function handleDeleteFloor(floorId) {
   text-align: center;
 }
 
+/* 原地編輯：排法比照蓋樓輸入的 .floor-form-main。
+   min-width: 0 是保險——.floor-body 是 column flex，主軸不在水平方向，
+   不會踩到 .floor-form 當初那個被長字串撐破的坑，但編輯器裡放得下的東西一樣不該撐開卡片 */
+.floor-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.floor-edit .form-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.floor-edit .cancel {
+  padding: 8px 20px;
+  font-size: 14px;
+  background: none;
+  border: 1px solid #d0d0d0;
+  border-radius: 0.375rem;
+  cursor: pointer;
+}
+
 .floor-actions {
   display: flex;
   align-items: center;
@@ -863,6 +975,10 @@ async function handleDeleteFloor(floorId) {
 
 .floor-form-main {
   flex: 1;
+  /* min-width: 0 不能省。flex 子項預設 min-width: auto，不會縮到比內容固有寬度還窄，
+     編輯器裡的長字串會把整欄撐開而不換行，連帶把送出按鈕推到框外。
+     原本的 <textarea> 沒這問題（它的固有寬度與內容無關），換成 contenteditable 才暴露出來 */
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;

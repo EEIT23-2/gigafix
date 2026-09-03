@@ -18,6 +18,7 @@ import com.gigafix.forum.dto.CreateArticleRequest;
 import com.gigafix.forum.dto.CreateFloorRequest;
 import com.gigafix.forum.dto.UpdateArticleRequest;
 import com.gigafix.forum.dto.UpdateArticleStatusRequest;
+import com.gigafix.forum.dto.UpdateFloorRequest;
 import com.gigafix.forum.entity.Article;
 import com.gigafix.forum.entity.Category;
 import com.gigafix.forum.exception.ForumException;
@@ -246,6 +247,12 @@ public class ArticleServiceImpl implements ArticleService {
 			throw new IllegalStateException("無權限操作此文章");
 		}
 
+		// 樓層擋在這裡：樓層也是一筆 article，不擋的話這支端點會變成改樓層標題與分類的後門
+		// （兩者都是後端依樓主推導出來的，不該由呼叫者決定）
+		if (article.getParentArticle() != null) {
+			throw ForumException.badRequest("樓層請改用樓層編輯端點");
+		}
+
 		// 檢查分類是否存在
 		Category category = categoryRepository.findById(request.getCategoryId())
 				.orElseThrow(
@@ -409,6 +416,55 @@ public class ArticleServiceImpl implements ArticleService {
 		ArticleResponse response = toArticleResponse(saved);
 		response.setFloorNumber(floorNumber);
 		return response;
+	}
+
+	// 編輯樓層：只換內文。標題（樓主標題+樓層數）與分類是後端產生的，這支端點刻意不接受它們，
+	// 前端也就不需要（也不可能）把伺服器自己算出來的值再送回來
+	@Override
+	@Transactional
+	public ArticleResponse updateFloor(Long memberId, Long floorId, UpdateFloorRequest request) {
+
+		// 檢查會員是否存在
+		if (!memberRepository.existsById(memberId)) {
+			throw new IllegalArgumentException("會員不存在，memberId：" + memberId);
+		}
+
+		Article floor = articleRepository.findById(floorId)
+				.orElseThrow(() -> new IllegalArgumentException("文章不存在，articleId：" + floorId));
+
+		// 這支端點只處理樓層；一般文章請走 updateArticle（那邊才有標題與分類）
+		Article root = floor.getParentArticle();
+		if (root == null) {
+			throw ForumException.badRequest("此文章不是樓層");
+		}
+
+		// 確認為樓層作者本人
+		if (!floor.getAuthor().getId().equals(memberId)) {
+			throw new IllegalStateException("無權限操作此文章");
+		}
+
+		// 樓層自己的狀態必須是發布中。
+		// 不能只靠前端的 visible 判斷：resolveVisibility 對 FORCE_HIDDEN 的樓層，
+		// 作者本人拿到的 visible 仍是 true，等於「被管理員隱藏後還能自行改稿」
+		if (floor.getStatus() != Article.ArticleStatus.PUBLISHED) {
+			throw new IllegalStateException("此樓層目前無法編輯");
+		}
+
+		// 樓主文章也必須是發布中，與 createFloor 同一道守衛。
+		// 這條同時涵蓋了關閉（CLOSED/FORCE_CLOSED）：討論串凍結後既有內容也不該再被改動
+		if (root.getStatus() != Article.ArticleStatus.PUBLISHED) {
+			throw new IllegalStateException("文章目前無法編輯樓層");
+		}
+
+		// 空編輯器輸出是 <p></p>，@NotBlank 擋不住
+		if (HtmlSanitizer.isEmptyContent(request.getContent())) {
+			throw ForumException.badRequest("樓層內容不能為空");
+		}
+
+		// articleUpdatedTime 由 Article 的 @PreUpdate 自動帶上，不用手動設
+		floor.setContent(HtmlSanitizer.clean(request.getContent()));
+
+		return toArticleResponse(articleRepository.save(floor));
 	}
 
 	// ---------------後台管理功能（暫無權限檢查）----------------------
