@@ -40,7 +40,9 @@ const reportSubmitting = ref(false)
 const reportErrorMessage = ref('')
 const reportSuccessMessage = ref('')
 
-const locked = computed(() => props.status === 'CLOSED' || props.status === 'FORCE_CLOSED')
+// 只有發布中才能留言（後端 CommentServiceImpl.createComment 的規則），非發布中一律預先鎖住輸入框，
+// 不用等使用者送出才發現失敗——涵蓋 CLOSED/FORCE_CLOSED，也涵蓋 HIDDEN/FORCE_HIDDEN/TAKEN_DOWN/DRAFT
+const locked = computed(() => props.status !== 'PUBLISHED')
 
 // 沒有頭像欄位，用暱稱首字當頭像。用展開運算子取字，避免 emoji 之類的字元被切成半個
 function initial(nickName) {
@@ -240,7 +242,7 @@ async function handleReportSubmit(commentId) {
     <p v-if="reportSuccessMessage" class="report-success">{{ reportSuccessMessage }}</p>
 
     <p v-if="locked" class="locked-message">
-      <i class="bi bi-lock"></i>留言功能已關閉
+      <i class="bi bi-lock"></i>目前無法留言
     </p>
     <!-- 撰寫框放在留言列表下方 -->
     <form v-else class="comment-form" @submit.prevent="handleSubmit">

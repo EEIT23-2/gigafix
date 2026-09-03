@@ -59,6 +59,9 @@ const reportSuccessTargetId = ref(null)
 
 const articleId = computed(() => route.params.articleId)
 const isAuthor = computed(() => article.value?.authorId === TEST_MEMBER_ID)
+// 跟後端 EDIT_BLOCKED_STATUSES 一致：只有討論串關閉（凍結）或下架才不能編輯，隱藏／強制隱藏都還能編輯
+const EDIT_BLOCKED_STATUSES = ['CLOSED', 'FORCE_CLOSED', 'TAKEN_DOWN']
+const canEditArticle = computed(() => !!article.value && !EDIT_BLOCKED_STATUSES.includes(article.value.status))
 // 只有根文章（不是樓層本身）才能被蓋樓
 const canAddFloor = computed(() => !!article.value && article.value.parentArticleId == null)
 const floorLocked = computed(
@@ -198,14 +201,14 @@ async function handleCreateFloor() {
   }
 }
 
-// 樓層可否編輯：與後端 updateFloor 的守衛一對一。
+// 樓層可否編輯：與後端 updateFloor 的守衛一對一（隱藏／強制隱藏都還能編輯，只有關閉/下架不行）。
 // 刻意不用 floor.visible——被管理員隱藏（FORCE_HIDDEN）的樓層，作者本人拿到的 visible 仍是 true，
-// 用它當條件等於允許「被隱藏後自行改稿」
+// 用它當條件等於任何狀態都能編輯，繞過了 EDIT_BLOCKED_STATUSES 這道實際的限制
 function canEditFloor(floor) {
   return (
     floor.authorId === TEST_MEMBER_ID &&
-    floor.status === 'PUBLISHED' &&
-    article.value?.status === 'PUBLISHED'
+    !EDIT_BLOCKED_STATUSES.includes(floor.status) &&
+    !EDIT_BLOCKED_STATUSES.includes(article.value?.status)
   )
 }
 
@@ -332,8 +335,14 @@ async function handleDeleteFloor(floorId) {
             <!-- ──────── 主欄 ──────── -->
             <div class="col-lg-8">
               <!-- 首篇group：文章與它的留言在同一張卡片內，和下方樓層明確區隔 -->
-              <section class="card op-card">
+              <section class="card op-card" :class="{ 'op-card--author-preview': article.visible && article.visibilityMessage }">
                 <div class="card-body op-body">
+                  <!-- 作者預覽自己被隱藏的內容：visible=true 但仍帶了 visibilityMessage（見後端 resolveVisibility） -->
+                  <div v-if="article.visible && article.visibilityMessage" class="alert alert-warning d-flex align-items-center gap-2 mb-0" role="alert">
+                    <i class="bi bi-eye-slash"></i>
+                    <span>{{ article.visibilityMessage }}</span>
+                  </div>
+
                   <!-- ⋮ 放在卡片右上角，跟樓層卡頭（floor-head）同一種排法，不跟下面的讚/收藏擠一列 -->
                   <div class="op-header">
                     <div class="badge-row">
@@ -346,7 +355,12 @@ async function handleDeleteFloor(floorId) {
                       <MoreActionsMenu>
                         <template #default="{ close }">
                           <template v-if="isAuthor">
-                            <RouterLink :to="{ name: 'forumEdit', params: { articleId } }">編輯</RouterLink>
+                            <RouterLink
+                              v-if="canEditArticle"
+                              :to="{ name: 'forumEdit', params: { articleId } }"
+                            >
+                              編輯
+                            </RouterLink>
                             <button type="button" class="danger" @click="close(); handleDelete()">
                               刪除
                             </button>
@@ -455,6 +469,7 @@ async function handleDeleteFloor(floorId) {
                 v-for="floor in floors"
                 :key="floor.articleId"
                 class="card floor-card"
+                :class="{ 'floor-card--author-preview': floor.visible && floor.visibilityMessage }"
               >
                 <div class="floor-head">
                   <span class="floor-badge">{{ floor.floorNumber }}樓</span>
@@ -497,6 +512,10 @@ async function handleDeleteFloor(floorId) {
                        底下的留言區也一併不顯示（樓層都收回了，留言不該還看得到） -->
                   <p v-if="!floor.visible" class="floor-mask">{{ floor.visibilityMessage }}</p>
                   <template v-else>
+                    <!-- 作者預覽自己被隱藏的樓層：能進到這裡就代表 visible=true，不用再判斷一次 -->
+                    <p v-if="floor.visibilityMessage" class="floor-author-preview-notice">
+                      <i class="bi bi-eye-slash"></i>{{ floor.visibilityMessage }}
+                    </p>
                     <div v-if="editingFloorId === floor.articleId" class="floor-edit">
                       <RichTextEditor v-model="editingFloorContent" placeholder="編輯這個樓層..." />
                       <div class="form-footer">
@@ -751,6 +770,14 @@ async function handleDeleteFloor(floorId) {
   margin-bottom: 24px;
 }
 
+/* 作者預覽自己被隱藏/強制隱藏的內容：淡黃底色＋邊框做持續性的視覺提示，
+   不動文字顏色、不加不透明遮罩——內容本身要維持完全清晰可讀 */
+.op-card--author-preview,
+.floor-card--author-preview {
+  background-color: #fffbea;
+  border-color: #ffe69c;
+}
+
 .op-body {
   padding: 24px;
   display: flex;
@@ -932,6 +959,20 @@ async function handleDeleteFloor(floorId) {
   color: #888888;
   font-size: 13px;
   text-align: center;
+}
+
+/* 作者預覽自己被隱藏的樓層：黃底提示列，配色比照 Bootstrap alert-warning，但字級跟樓層卡片本身一致 */
+.floor-author-preview-notice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 12px;
+  background-color: #fff3cd;
+  border: 1px solid #ffe69c;
+  border-radius: 0.375rem;
+  color: #664d03;
+  font-size: 13px;
 }
 
 /* 原地編輯：排法比照蓋樓輸入的 .floor-form-main。

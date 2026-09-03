@@ -73,6 +73,12 @@ public class ArticleServiceImpl implements ArticleService {
 	private static final Set<Article.ArticleStatus> ADMIN_ALLOWED_SOURCES = EnumSet.of(Article.ArticleStatus.PUBLISHED,
 			Article.ArticleStatus.CLOSED, Article.ArticleStatus.FORCE_HIDDEN, Article.ArticleStatus.FORCE_CLOSED);
 
+	// 編輯（含樓層）唯一擋下的狀態：討論串被關閉（含強制關閉）或已下架。
+	// 隱藏／強制隱藏都還能編輯——隱藏是可逆狀態，被強制隱藏的內容在重新公開前本來就只有作者自己看得到，
+	// 讓作者趁這段時間把內容改好，不會讓被下架的東西提早曝光
+	private static final Set<Article.ArticleStatus> EDIT_BLOCKED_STATUSES = EnumSet.of(
+			Article.ArticleStatus.CLOSED, Article.ArticleStatus.FORCE_CLOSED, Article.ArticleStatus.TAKEN_DOWN);
+
 	// ---------------會員前台功能----------------------
 
 	// 發文
@@ -171,10 +177,14 @@ public class ArticleServiceImpl implements ArticleService {
 				response.setViewCount(response.getViewCount() + 1);
 			}
 		} else if (status == Article.ArticleStatus.HIDDEN) {
-			response = isAuthor ? toArticleResponse(article, true, null)
+			// isAuthor 分支也帶說明文字：作者本人雖然看得到完整內容，但要有明顯提示，
+			// 不能跟一篇正常發布的文章長得一模一樣
+			response = isAuthor
+					? toArticleResponse(article, true, "此內容目前為隱藏狀態，只有你自己看得到")
 					: toArticleResponse(article, false, "此文章目前已被作者隱藏");
 		} else if (status == Article.ArticleStatus.FORCE_HIDDEN) {
-			response = isAuthor ? toArticleResponse(article, true, null)
+			response = isAuthor
+					? toArticleResponse(article, true, "此內容已被管理員隱藏，只有你自己看得到")
 					: toArticleResponse(article, false, "此文章已被管理員隱藏");
 		} else if (status == Article.ArticleStatus.TAKEN_DOWN) {
 			// 連作者本人透過這個公開端點都看不到完整內容，完整內容只有後台端點看得到
@@ -252,6 +262,11 @@ public class ArticleServiceImpl implements ArticleService {
 		// （兩者都是後端依樓主推導出來的，不該由呼叫者決定）
 		if (article.getParentArticle() != null) {
 			throw ForumException.badRequest("樓層請改用樓層編輯端點");
+		}
+
+		// 討論串關閉或已下架就不能再編輯；隱藏／強制隱藏仍可編輯，見 EDIT_BLOCKED_STATUSES 的宣告說明
+		if (EDIT_BLOCKED_STATUSES.contains(article.getStatus())) {
+			throw new IllegalStateException("目前狀態不允許編輯：" + article.getStatus());
 		}
 
 		// 檢查分類是否存在
@@ -445,16 +460,16 @@ public class ArticleServiceImpl implements ArticleService {
 			throw new IllegalStateException("無權限操作此文章");
 		}
 
-		// 樓層自己的狀態必須是發布中。
-		// 不能只靠前端的 visible 判斷：resolveVisibility 對 FORCE_HIDDEN 的樓層，
-		// 作者本人拿到的 visible 仍是 true，等於「被管理員隱藏後還能自行改稿」
-		if (floor.getStatus() != Article.ArticleStatus.PUBLISHED) {
+		// 樓層自己不能處於討論串關閉或已下架狀態；隱藏／強制隱藏都還能編輯，
+		// 見 EDIT_BLOCKED_STATUSES 的宣告說明——編輯完在重新公開前一樣只有作者自己看得到
+		if (EDIT_BLOCKED_STATUSES.contains(floor.getStatus())) {
 			throw new IllegalStateException("此樓層目前無法編輯");
 		}
 
-		// 樓主文章也必須是發布中，與 createFloor 同一道守衛。
-		// 這條同時涵蓋了關閉（CLOSED/FORCE_CLOSED）：討論串凍結後既有內容也不該再被改動
-		if (root.getStatus() != Article.ArticleStatus.PUBLISHED) {
+		// 樓主文章也要通過同一道守衛：討論串被關閉或下架後，底下樓層也不能再編輯。
+		// 這裡比 createFloor（新增樓層仍嚴格要求 root 是 PUBLISHED）寬鬆——已存在的樓層在樓主隱藏期間
+		// 還能修正內容，但不能在隱藏期間長出新樓層
+		if (EDIT_BLOCKED_STATUSES.contains(root.getStatus())) {
 			throw new IllegalStateException("文章目前無法編輯樓層");
 		}
 
