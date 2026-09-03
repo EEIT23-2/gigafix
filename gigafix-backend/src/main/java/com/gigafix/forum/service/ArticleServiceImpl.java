@@ -1,5 +1,6 @@
 package com.gigafix.forum.service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashSet;
@@ -269,6 +270,7 @@ public class ArticleServiceImpl implements ArticleService {
 		article.setTitle(request.getTitle());
 		article.setContent(HtmlSanitizer.clean(request.getContent()));
 		article.setCoverImage(request.getCoverImage());
+		article.setArticleEditedTime(LocalDateTime.now()); // 真的編輯內文才寫入，跟 articleUpdatedTime（任何欄位變動都會動）分開
 
 		Article savedArticle = articleRepository.save(article);
 
@@ -461,8 +463,10 @@ public class ArticleServiceImpl implements ArticleService {
 			throw ForumException.badRequest("樓層內容不能為空");
 		}
 
-		// articleUpdatedTime 由 Article 的 @PreUpdate 自動帶上，不用手動設
+		// articleUpdatedTime 由 Article 的 @PreUpdate 自動帶上，不用手動設；
+		// articleEditedTime 則要手動寫，這才是「內容真的被編輯過」的旗標
 		floor.setContent(HtmlSanitizer.clean(request.getContent()));
+		floor.setArticleEditedTime(LocalDateTime.now());
 
 		return toArticleResponse(articleRepository.save(floor));
 	}
@@ -572,6 +576,7 @@ public class ArticleServiceImpl implements ArticleService {
 				.isPinned(article.getIsPinned())
 				.articleCreatedTime(article.getArticleCreatedTime())
 				.articleUpdatedTime(article.getArticleUpdatedTime())
+				.articleEditedTime(article.getArticleEditedTime())
 				.parentArticleId(article.getParentArticle() != null ? article.getParentArticle().getArticleId() : null)
 				.visible(visible)
 				.visibilityMessage(visibilityMessage)

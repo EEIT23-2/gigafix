@@ -235,7 +235,7 @@ async function handleSaveFloor(floor) {
     // 才另外補上的，整包替換會讓樓層編號消失、讚與收藏狀態歸零。
     // content 取回傳值而不是本地值，這樣畫面顯示的才等於資料庫裡消毒後實際存的內容
     floor.content = updated.content
-    floor.articleUpdatedTime = updated.articleUpdatedTime
+    floor.articleEditedTime = updated.articleEditedTime
     cancelEditFloor()
   } catch (error) {
     const data = error.response?.data
@@ -334,11 +334,33 @@ async function handleDeleteFloor(floorId) {
               <!-- 首篇group：文章與它的留言在同一張卡片內，和下方樓層明確區隔 -->
               <section class="card op-card">
                 <div class="card-body op-body">
-                  <div class="badge-row">
-                    <span class="tag tag-category">{{ article.categoryName }}</span>
-                    <span v-if="article.isPinned" class="tag tag-pinned">
-                      <i class="bi bi-pin-angle-fill"></i>置頂
-                    </span>
+                  <!-- ⋮ 放在卡片右上角，跟樓層卡頭（floor-head）同一種排法，不跟下面的讚/收藏擠一列 -->
+                  <div class="op-header">
+                    <div class="badge-row">
+                      <span class="tag tag-category">{{ article.categoryName }}</span>
+                      <span v-if="article.isPinned" class="tag tag-pinned">
+                        <i class="bi bi-pin-angle-fill"></i>置頂
+                      </span>
+                    </div>
+                    <div class="ms-auto">
+                      <MoreActionsMenu>
+                        <template #default="{ close }">
+                          <template v-if="isAuthor">
+                            <RouterLink :to="{ name: 'forumEdit', params: { articleId } }">編輯</RouterLink>
+                            <button type="button" class="danger" @click="close(); handleDelete()">
+                              刪除
+                            </button>
+                          </template>
+                          <button
+                            v-else
+                            type="button"
+                            @click="close(); toggleReportForm(article.articleId)"
+                          >
+                            檢舉
+                          </button>
+                        </template>
+                      </MoreActionsMenu>
+                    </div>
                   </div>
 
                   <h1 class="op-title">{{ article.title }}</h1>
@@ -351,8 +373,8 @@ async function handleDeleteFloor(floorId) {
                     <span class="meta-item">
                       <i class="bi bi-clock"></i>{{ formatDateTime(article.articleCreatedTime) }}
                     </span>
-                    <span v-if="article.articleUpdatedTime" class="meta-item">
-                      <i class="bi bi-pencil"></i>{{ formatDateTime(article.articleUpdatedTime) }} 編輯
+                    <span v-if="article.articleEditedTime" class="meta-item">
+                      <i class="bi bi-pencil"></i>{{ formatDateTime(article.articleEditedTime) }} 編輯
                     </span>
                     <span class="meta-item">
                       <i class="bi bi-eye"></i>{{ article.viewCount }}
@@ -383,25 +405,6 @@ async function handleDeleteFloor(floorId) {
                     <i :class="article.bookmarkedByCurrentMember ? 'bi bi-bookmark-fill' : 'bi bi-bookmark'"></i>
                     {{ article.bookmarkedByCurrentMember ? '已收藏' : '收藏' }}
                   </button>
-                  <div class="ms-auto">
-                    <MoreActionsMenu>
-                      <template #default="{ close }">
-                        <template v-if="isAuthor">
-                          <RouterLink :to="{ name: 'forumEdit', params: { articleId } }">編輯</RouterLink>
-                          <button type="button" class="danger" @click="close(); handleDelete()">
-                            刪除
-                          </button>
-                        </template>
-                        <button
-                          v-else
-                          type="button"
-                          @click="close(); toggleReportForm(article.articleId)"
-                        >
-                          檢舉
-                        </button>
-                      </template>
-                    </MoreActionsMenu>
-                  </div>
                 </div>
 
                 <form
@@ -457,10 +460,11 @@ async function handleDeleteFloor(floorId) {
                   <span class="floor-badge">{{ floor.floorNumber }}樓</span>
                   <span class="author-name">{{ floor.authorNickName }}</span>
                   <span class="floor-time">{{ formatDateTime(floor.articleCreatedTime) }}</span>
-                  <!-- articleUpdatedTime 是 @PreUpdate 寫的，任何欄位變動都會動到它（含軟刪除改狀態），
-                       不是精準的「內容被編輯過」。至少在內容被遮蔽時不要標，否則已下架的樓層也會掛著「已編輯」 -->
-                  <span v-if="floor.visible && floor.articleUpdatedTime" class="floor-time">已編輯</span>
-                  <div class="ms-auto">
+                  <!-- articleEditedTime 只在 updateFloor 真的存新內文時才會寫入，狀態變更/刪除不會動到它。
+                       floor.visible 這道還是留著：內容看不到時本來就不該顯示任何提示文字 -->
+                  <span v-if="floor.visible && floor.articleEditedTime" class="floor-time">已編輯</span>
+                  <!-- 內容看不到時（已刪除/被隱藏）不顯示任何選單：編輯、刪除、檢舉對看不到的內容都沒有意義 -->
+                  <div v-if="floor.visible" class="ms-auto">
                     <MoreActionsMenu>
                       <template #default="{ close }">
                         <template v-if="floor.authorId === TEST_MEMBER_ID">
@@ -752,6 +756,12 @@ async function handleDeleteFloor(floorId) {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.op-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .badge-row {
