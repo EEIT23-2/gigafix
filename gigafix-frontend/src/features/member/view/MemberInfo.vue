@@ -181,7 +181,7 @@ const submitDelete = async () => {
     memberInfo.value = null //帳號已刪除，直接把store清空，行為比照登出
     fetchMemberInfoStore.fetched = false
     alert('帳號已刪除，感謝您曾經使用Gigafix！')
-    router.push('/gigafix')
+    router.push('/')
   } catch (err) { //回傳4xx,5xx，後端Bean Validation的錯誤訊息會放在message
     const message = err.response?.data?.message || '請稍後再試'
     alert(`刪除失敗，原因: ${message}`)

@@ -294,7 +294,7 @@ const router = useRouter()
               <span class="action-text">登入</span>
             </button>
             <!-- 小人icon，連結到member center path -->
-            <RouterLink v-if="memberInfo" class="action-item" active-class="active" to="/gigafix/member-center">
+            <RouterLink v-if="memberInfo" class="action-item" active-class="active" to="/member-center">
               <span class="icon-box"><i class="bi bi-person-fill icon icon-person"></i></span>
               <span class="action-text">{{ memberInfo.nickName }}</span>
             </RouterLink>
@@ -321,7 +321,7 @@ const router = useRouter()
             <router-link class="nav-item" >最新活動 ▾</router-link>
             <router-link class="nav-item" >二手手機 ▾</router-link>
             <router-link class="nav-item" >維修手機 ▾</router-link>
-            <router-link class="nav-item" to="/gigafix/forum">Gigafix討論區</router-link>
+            <router-link class="nav-item" to="/forum">Gigafix討論區</router-link>
             <router-link class="nav-item">關於Gigafix</router-link>
           </ul>
         </nav>
