@@ -46,11 +46,17 @@ services:
         condition: service_healthy
     volumes: #把根目錄的init複製到docker內並且作為讀掛載(因為:前面的是路徑所以是把本機的資料跟docker容器內的資料綁定，:ro則是讓容器只能讀)
       - ./db-init:/db-init:ro
+    #sqlcmd支援從SQLCMDPASSWORD這個環境變數讀密碼，不用-P直接寫在command參數裡
+    #跟docker login用--password-stdin是同樣的考量：command參數會被docker inspect/ps看到明碼，環境變數不會出現在那份清單裡
+    environment:
+      SQLCMDPASSWORD: ${MSSQL_SA_PASSWORD}
     #將原本image的entrypoint覆蓋掉(原本程式是啟動SQL Server資料庫引擎本身)，改成指向sqlcmd這個mssql裡面的命令列執行檔
     #因為把「啟動SQL Server資料庫引擎本身」的預設entrypoint程式碼替換掉，所以也不需要設定環境變數「ACCEPT_EULA: "Y"」
     entrypoint: ["/opt/mssql-tools18/bin/sqlcmd"]
     #下sqlcmd指令，登入後執行init-db.sql(因為上面已經啟動db了，不需要)
-    command: ["-S", "db", "-U", "sa", "-P", "${MSSQL_SA_PASSWORD}", "-C", "-i", "/db-init/init-db.sql"]
+    #密碼改由上面的SQLCMDPASSWORD提供，不用再帶-P(sqlcmd 只要看到指令列沒有 -P 這個參數，就會自動去檢查有沒有一個叫 SQLCMDPASSWORD 的環境變數存在，有的話就直接拿來當登入密碼用)
+    #-C 讓 sqlcmd 連線時不要因為憑證不受信任就擋下連線
+    command: ["-S", "db", "-U", "sa", "-C", "-i", "/db-init/init-db.sql"]
     networks:
       - gigafix-net
     #docker的restart預設本來就no，這個除了讓別人讀之外，確保這個服務不會不小心套用到別的設訂的重新啟動(例如別人複製或是環境變數)
