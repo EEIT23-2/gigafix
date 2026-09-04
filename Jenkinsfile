@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DOCKERHUB_NAMESPACE   = 'yoyopoke'=
+        DOCKERHUB_NAMESPACE   = 'yoyopoke'
         BACKEND_IMAGE         = "${DOCKERHUB_NAMESPACE}/gigafix-backend"
         FRONTEND_IMAGE        = "${DOCKERHUB_NAMESPACE}/gigafix-frontend"
         //BUILD_NUMBER(該資料build過幾次)是 Jenkins 系統本身自動維護的計數器， Jenkins 幫算好、自動塞進 env 這個全域變數裡
