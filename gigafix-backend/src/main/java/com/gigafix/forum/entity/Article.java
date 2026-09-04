@@ -84,6 +84,12 @@ public class Article {
 	@Column(name = "article_updated_time")
 	private LocalDateTime articleUpdatedTime;
 
+	// 只在使用者真的編輯內文時（updateArticle / updateFloor）手動寫入，不放進 @PreUpdate——
+	// articleUpdatedTime 那個舊欄位的教訓就是任何欄位變動（含軟刪除改狀態、管理員操作）都會動到它，
+	// 沒辦法拿來判斷「內容是否被編輯過」
+	@Column(name = "article_edited_time")
+	private LocalDateTime articleEditedTime;
+
 	@PrePersist
 	private void prePersist() {
 		if (viewCount == null) {

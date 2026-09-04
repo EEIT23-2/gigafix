@@ -128,6 +128,7 @@ public class BookmarkServiceImpl implements BookmarkService {
 				.parentArticleId(article.getParentArticle() != null ? article.getParentArticle().getArticleId() : null)
 				.articleCreatedTime(article.getArticleCreatedTime())
 				.articleUpdatedTime(article.getArticleUpdatedTime())
+				.articleEditedTime(article.getArticleEditedTime())
 				// 能被收藏的文章一定通過了上面的 FULLY_PUBLIC_STATUSES 過濾，這裡固定完整可見
 				.visible(true)
 				.visibilityMessage(null)
