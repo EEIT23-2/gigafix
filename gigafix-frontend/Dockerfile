@@ -21,5 +21,5 @@ FROM nginx:1.30-alpine
 #去到build裡面會有剛剛執行npm run build後所產生的dist資料夾，裡面會有專案的靜態資源
 #NginX的靜態資源要放在/usr/share/nginx/html才會被讀取
 COPY --from=build /app/dist /usr/share/nginx/html
-#把根目錄的nginx.conf複製到/etc/nginx/conf.d/default.conf，這樣自己定義的NginX設定檔才會生效
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+#把根目錄的default.conf複製到/etc/nginx/conf.d/default.conf，這樣自己定義的NginX設定檔才會生效
+COPY default.conf /etc/nginx/conf.d/default.conf
