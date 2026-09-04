@@ -3,9 +3,9 @@ import { createRouter, createWebHistory } from "vue-router";
 import ClientLayout from "@/layouts/ClientLayout.vue";
 
 //載入member的前後台views陣列
-import memberClient from "@/features/member/router/client";
-import managerAdminRoutes from "@/features/manager/adminRoutes";
+import managerAdminRoutes from "@/features/admin/adminRoutes";
 import memberInfoMembercenter from "@/features/member/router/membercenter";
+import memberAdminRoutes from "@/features/member/router/adminRoutes";
 //載入cart的views陣列
 import cartClient from "@/features/cart/router/client";
 import cartAdminRoutes from "@/features/cart/router/adminRoutes";
@@ -24,16 +24,16 @@ import repairAdminRoutes from "@/features/repair/router/adminRoutes";
 import repairMembercenter from "@/features/repair/router/membercenter";
 
 import { useFetchAdminInfoStore } from '@/stores/admin'
+import { useFetchMemberInfoStore } from "@/stores/member";
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
-      path: "/gigafix",
+      path: "/",
       name: "home",
       component: ClientLayout, //待寫
       children: [
-        ...memberClient,
         ...cartClient,
         ...forumClient,
         ...productClient,
@@ -58,6 +58,7 @@ const router = createRouter({
       component: () => import("@/layouts/AdminLayout.vue"),
       children: [
         ...managerAdminRoutes,
+        ...memberAdminRoutes,
         ...cartAdminRoutes,
         ...productAdminRoutes,
         ...forumAdminRoutes,
@@ -67,26 +68,36 @@ const router = createRouter({
     {
       path: "/adminLogin",
       name: "adminLogin",
-      component: () => import("@/features/manager/view/AdminLogin.vue")
+      component: () => import("@/features/admin/view/AdminLogin.vue")
     },
     {
       path: "/creatSuperAdminView",
       name: "creatSuperAdminView",
-      component: () => import("@/features/manager/view/CreatSuperAdminView.vue")
+      component: () => import("@/features/admin/view/CreatSuperAdminView.vue")
     },
   ],
 });
 
-const excludedPaths = ['/adminLogin', '/gigafix', '/creatSuperAdminView']
-
+const fetchAdminExcludedPaths = ['/adminLogin', '/', '/creatSuperAdminView']
 router.beforeEach(async (to) => {
-  if (excludedPaths.includes(to.path)) {
+  if (fetchAdminExcludedPaths.includes(to.path)) {
     return // 排除的路徑直接放行，不觸發抓取使用者資料
   }
-
   const fetchAdminInfoStore = useFetchAdminInfoStore()
   if (!fetchAdminInfoStore.fetched) {
     await fetchAdminInfoStore.fetchAdmin() // 真正觸發抓資料的動作
+  }
+})
+
+const fetchMemberExcludedPaths = ['/admin']
+router.beforeEach(async (to) => {
+  if (fetchMemberExcludedPaths.includes(to.path)) {
+    return // 排除的路徑直接放行，不觸發抓取使用者資料
+  }
+
+  const fetchMemberInfoStore = useFetchMemberInfoStore()
+  if (!fetchMemberInfoStore.fetched) {
+    await fetchMemberInfoStore.fetchMember() // 向後端請求member的資訊
   }
 })
 

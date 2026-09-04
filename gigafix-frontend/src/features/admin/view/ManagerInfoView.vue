@@ -1,6 +1,6 @@
 <script setup>
-import AdminInfoModel from '@/features/manager/component/AdminInfoModel.vue'
-import SuperAdminModel from '@/features/manager/component/SuperAdminModel.vue'
+import AdminInfoModel from '@/features/admin/component/AdminInfoModel.vue'
+import SuperAdminModel from '@/features/admin/component/SuperAdminModel.vue'
 
 import { useFetchAdminInfoStore } from '@/stores/admin';
 import { storeToRefs } from 'pinia'

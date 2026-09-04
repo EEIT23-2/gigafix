@@ -9,6 +9,7 @@ import org.springframework.validation.annotation.Validated;
 import com.gigafix.common.util.JwtUtils;
 import com.gigafix.member.dto.UpdatePasswordReq;
 import com.gigafix.member.dto.CreateJwtDto;
+import com.gigafix.member.dto.ForgotPasswordReq;
 import com.gigafix.member.dto.GetMemberInfoResp;
 import com.gigafix.member.dto.LoginReq;
 import com.gigafix.member.dto.LoginResp;
@@ -35,12 +36,14 @@ public class MemberService {
 	private final MemberRepository memberRepository;
 	private final JwtUtils jwtUtils;
 	private final ObjectMapper objectMapper;
+	private final MailSenderService mailSenderService;
 	//註冊
 	public void register(@Valid RegisterReq registerReq) throws Exception {
 		Member member = memberRepository.findByEmail(registerReq.email());
 		if (member != null) {
 			throw new DuplicateEmailException();//如果使用者註冊過了，就拋出自訂的錯誤
 		}
+		mailSenderService.verifyRegisterOtp(registerReq.email(), registerReq.otp());//驗證OTP，錯誤或逾期會拋出InvalidOtpException
 		member = Member.builder()
 				.password(registerReq.password())
 				.realName(registerReq.realName())
@@ -113,6 +116,16 @@ public class MemberService {
 				.gender(member.getGender()).build();
 	}
 	
+	//忘記密碼(登入前使用)：mail、新密碼、OTP三者都驗證通過才會真的改密碼
+	public void forgotPassword(ForgotPasswordReq forgotPasswordReq) {
+		Member member = memberRepository.findByEmail(forgotPasswordReq.email());
+		if (member == null) {
+			throw new MemberNotFoundException();
+		}
+		mailSenderService.verifyForgotPasswordOtp(forgotPasswordReq.email(), forgotPasswordReq.otp());//OTP錯誤或逾期會拋出InvalidOtpException
+		member.setPassword(forgotPasswordReq.newPassword());//因為是永續狀態所以不需要用repository save
+	}
+
     public void updatePassword(UpdatePasswordReq updatePasswordReq, Long id) {
     	Member member = memberRepository.findById(id).orElseThrow(() -> new MemberNotFoundException());
     	//因為不在意使用者新舊密碼使否相同，新舊密碼是否相同的邏輯在前端檢查，目的是提升使用者體驗(舊密碼使否跟資料庫相同還是有檢查)

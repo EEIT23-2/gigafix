@@ -18,8 +18,12 @@
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",
     "dompurify": "^3.4.14",
+    "echarts": "^5.5.0",
     "pinia": "^4.0.2",
+    "taiwan-atlas": "^2021.9.20",
+    "topojson-client": "^3.1.0",
     "vue": "^3.5.40",
+    "vue-echarts": "^7.0.0",
     "vue-router": "^5.2.0"
   },
   "devDependencies": {

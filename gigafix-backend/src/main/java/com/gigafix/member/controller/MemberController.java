@@ -15,31 +15,42 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.gigafix.member.dto.UpdatePasswordReq;
 import com.gigafix.member.dto.DeleteMemberReq;
+import com.gigafix.member.dto.ForgotPasswordReq;
+import com.gigafix.member.dto.ForgotPasswordResp;
 import com.gigafix.member.dto.GetMemberInfoResp;
 import com.gigafix.member.dto.LoginReq;
 import com.gigafix.member.dto.LoginResp;
 import com.gigafix.member.dto.LoginResult;
 import com.gigafix.member.dto.RegisterReq;
+import com.gigafix.member.dto.SendOtpReq;
 import com.gigafix.member.dto.UpdateMemberInfoReq;
 import com.gigafix.member.dto.UpdatedMemberInfoResp;
+import com.gigafix.member.service.MailSenderService;
 import com.gigafix.member.service.MemberService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController("gigaFixUsersController")
-@RequestMapping("/gigafix/members")
+@RequestMapping("/api/gigafix/members")
 @RequiredArgsConstructor
 public class MemberController {
 	private final MemberService memberService;
-	
-	
+	private final MailSenderService mailSenderService;
+
+
 	@PostMapping("/register") //註冊,因為不是只資源操作，而是還有包含驗證所以不適用restful原則
 	public ResponseEntity<LoginResp> register(@Valid @RequestBody RegisterReq registerReq) throws Exception {
 		//寄信
-		memberService.register(registerReq);//註冊及登入，所以回傳登入的dto
+		memberService.register(registerReq);//會先驗證OTP，通過才會真的註冊及登入，所以回傳登入的dto
 		LoginResult loginResult = memberService.login(LoginReq.builder().email(registerReq.email()).password(registerReq.password()).build());
 		return ResponseEntity.status(HttpStatus.CREATED).header(HttpHeaders.SET_COOKIE, loginResult.responseCookie().toString()).body(loginResult.loginResp()); //201
+	}
+
+	@PostMapping("/register/otp") //寄送註冊用的OTP驗證碼，掛在register底下代表這是註冊流程要用的子資源，同樣不套用restful原則
+	public ResponseEntity<Void> sendRegisterOtp(@Valid @RequestBody SendOtpReq sendOtpReq) throws Exception {
+		mailSenderService.sendRegisterOtp(sendOtpReq.email());
+		return ResponseEntity.accepted().build(); //202，代表已受理寄送請求
 	}
 	
 	@PostMapping("/login") //登入，因為不是只資源操作，所以不適用restful原則
@@ -57,7 +68,7 @@ public class MemberController {
 		//寫完要去把刪除使用者那邊補好，因為刪除使用者會順便把使用者登出
 	}
 	
-	@GetMapping("/me") //進入個人資訊page
+	@GetMapping("/me") //取得個人資料的請求
 	public ResponseEntity<GetMemberInfoResp> getMemberInfo(@RequestAttribute("memberId") Long memberId){
 		GetMemberInfoResp memberInfo = memberService.getMemberInfo(memberId);
 		return ResponseEntity.ok(memberInfo);
@@ -71,8 +82,19 @@ public class MemberController {
 	}
 	
 	// 忘記密碼(登入前)
-	
-	
+	@PostMapping("/forgot-password/otp") //寄送忘記密碼用的OTP驗證碼，登入前流程，不套用restful原則
+	public ResponseEntity<Void> sendForgotPasswordOtp(@Valid @RequestBody SendOtpReq sendOtpReq) throws Exception {
+		mailSenderService.sendForgotPasswordOtp(sendOtpReq.email());
+		return ResponseEntity.accepted().build(); //202，代表已受理寄送請求
+	}
+
+	@PostMapping("/forgot-password") //忘記密碼(登入前)，mail、新密碼、OTP三者都驗證通過才會真的改密碼
+	public ResponseEntity<ForgotPasswordResp> forgotPassword(@Valid @RequestBody ForgotPasswordReq forgotPasswordReq) {
+		memberService.forgotPassword(forgotPasswordReq); //內部會先驗證OTP，不符合會拋出InvalidOtpException
+		return ResponseEntity.ok(ForgotPasswordResp.builder().email(forgotPasswordReq.email()).build());
+	}
+
+
 	@PatchMapping("/me/password")   //登入後想修改密碼
     public ResponseEntity<String> updatePassword(@Valid @RequestBody UpdatePasswordReq updatePasswordReq,@RequestAttribute("memberId") Long memberId){
 		//雖然ChangePasswordReq只有接收前端一個屬性值，但包裝成DTO就可以享有spring 的jackson和validation的支援，而且統一資料的流程控制

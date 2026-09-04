@@ -11,7 +11,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.gigafix.admin.dto.AdminCreateReq;
 import com.gigafix.admin.dto.AdminInfoDto;
-import com.gigafix.admin.dto.DeleteAdminReq;
 import com.gigafix.admin.dto.SuperAdminSetupReq;
 import com.gigafix.admin.dto.UpdateOwnPasswordReq;
 import com.gigafix.admin.entity.AdminAccount;
@@ -131,12 +130,12 @@ public class AdminAccountService {
     
     
     //總管理員刪除帳號
-    public void deleteAccount(DeleteAdminReq deleteAdminReq) {
+    public void deleteAccount(Integer adminId, String saPassword) {
     	List<AdminAccount> SuperAdmin = adminRepository.findByRole(Role.ROLE_SUPER_ADMIN); //雖然理論上只會有一個但防止例外所以用List
     	for (AdminAccount admin : SuperAdmin) {
-			if (passwordEncoder.matches(deleteAdminReq.SAPassword(), admin.getPassword())) { //matches(明文密碼, 資料庫雜湊值)
+			if (passwordEncoder.matches(saPassword, admin.getPassword())) { //matches(明文密碼, 資料庫雜湊值)
 				//如果總管理員密碼輸入正確的話，就刪除指定的使用者
-				AdminAccount deleteAdmin = adminRepository.findById(deleteAdminReq.adminId()).orElseThrow(() -> new AdminAccountNotFoundException());
+				AdminAccount deleteAdmin = adminRepository.findById(adminId).orElseThrow(() -> new AdminAccountNotFoundException());
 				forceLogout(deleteAdmin.getName());//更改後把人踢下線
 				adminRepository.deleteById(deleteAdmin.getId());
 			return;
