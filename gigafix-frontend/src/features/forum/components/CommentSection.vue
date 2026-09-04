@@ -16,6 +16,10 @@ const props = defineProps({
   status: { type: String, default: null },
 })
 
+// 留言數變動時通知父層。父層不能直接重抓文章來更新計數——getArticle 會讓瀏覽數 +1。
+// 公開端點回傳的是「非下架」的留言，跟後端維護的 commentCount 定義一致，長度可以直接當計數用
+const emit = defineEmits(['count-change'])
+
 const MAX_LENGTH = 1000
 const REPORT_MAX_LENGTH = 250
 
@@ -36,7 +40,26 @@ const reportSubmitting = ref(false)
 const reportErrorMessage = ref('')
 const reportSuccessMessage = ref('')
 
-const locked = computed(() => props.status === 'CLOSED' || props.status === 'FORCE_CLOSED')
+// 只有發布中才能留言（後端 CommentServiceImpl.createComment 的規則），非發布中一律預先鎖住輸入框，
+// 不用等使用者送出才發現失敗——涵蓋 CLOSED/FORCE_CLOSED，也涵蓋 HIDDEN/FORCE_HIDDEN/TAKEN_DOWN/DRAFT
+const locked = computed(() => props.status !== 'PUBLISHED')
+
+// 沒有頭像欄位，用暱稱首字當頭像。用展開運算子取字，避免 emoji 之類的字元被切成半個
+function initial(nickName) {
+  return nickName ? [...nickName][0] : '?'
+}
+
+function formatDateTime(value) {
+  if (!value) return ''
+  return new Date(value).toLocaleString('zh-TW', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+}
 
 // 防呆：不只依賴 textarea 的 maxlength，貼上超長文字時也要能立刻裁切、讓字數顯示反映出來
 watch(newContent, (value) => {
@@ -60,6 +83,7 @@ function resetTextareaHeight() {
 async function loadComments() {
   try {
     comments.value = await getComments(props.articleId)
+    emit('count-change', comments.value.length)
     loadError.value = ''
   } catch {
     loadError.value = '留言載入失敗，請確認後端服務是否啟動'
@@ -128,8 +152,11 @@ async function handleReportSubmit(commentId) {
     reportReason.value = ''
     reportSuccessMessage.value = '已送出檢舉'
   } catch (error) {
-    const fieldError = error.response?.data?.errors?.[0]?.message
-    reportErrorMessage.value = fieldError || '檢舉失敗，請稍後再試'
+    // 兩種錯誤格式都要接：@Valid 失敗是 { errors: [...] }，
+    // 後端商業規則（重複檢舉、檢舉自己的留言）走 ForumExceptionHandler，回的是 { errorCode, message }
+    const data = error.response?.data
+    reportErrorMessage.value =
+      data?.errors?.[0]?.message || data?.message || '檢舉失敗，請稍後再試'
   } finally {
     reportSubmitting.value = false
   }
@@ -141,118 +168,256 @@ async function handleReportSubmit(commentId) {
     <p v-if="loadError" class="error">{{ loadError }}</p>
     <ul v-else class="comment-list">
       <li v-for="comment in comments" :key="comment.commentId" class="comment-item">
-        <button
-          v-if="comment.status === 'HIDDEN' && !revealed[comment.commentId]"
-          type="button"
-          class="hidden-mask"
-          @click="revealComment(comment.commentId)"
-        >
-          此留言已被系統隱藏，點擊以顯示
-        </button>
-        <template v-else>
+        <span class="avatar" :class="{ 'avatar-masked': comment.status === 'HIDDEN' && !revealed[comment.commentId] }">
+          {{ comment.status === 'HIDDEN' && !revealed[comment.commentId] ? '?' : initial(comment.authorNickName) }}
+        </span>
+        <div class="comment-main">
           <div class="comment-header">
             <span class="author">{{ comment.authorNickName }}</span>
-            <span class="time">{{ new Date(comment.commentCreatedTime).toLocaleString() }}</span>
+            <span class="time">{{ formatDateTime(comment.commentCreatedTime) }}</span>
           </div>
-          <p class="content">{{ comment.content }}</p>
-          <div class="comment-actions">
-            <button
-              type="button"
-              class="like"
-              :class="{ liked: comment.likedByCurrentMember }"
-              @click="handleLike(comment)"
-            >
-              👍 {{ comment.likeCount }}
-            </button>
-            <MoreActionsMenu>
-              <template #default="{ close }">
-                <!-- 留言沒有「編輯」：後端只有新增/刪除/改狀態，沒有更新留言內容的端點 -->
-                <button
-                  v-if="comment.authorId === TEST_MEMBER_ID"
-                  type="button"
-                  class="danger"
-                  @click="close(); handleDelete(comment.commentId)"
-                >
-                  刪除
-                </button>
-                <button v-else type="button" @click="close(); toggleReportForm(comment.commentId)">
-                  檢舉
-                </button>
-              </template>
-            </MoreActionsMenu>
-          </div>
-          <form
-            v-if="reportingCommentId === comment.commentId"
-            class="report-form"
-            @submit.prevent="handleReportSubmit(comment.commentId)"
+          <button
+            v-if="comment.status === 'HIDDEN' && !revealed[comment.commentId]"
+            type="button"
+            class="hidden-mask"
+            @click="revealComment(comment.commentId)"
           >
-            <textarea
-              v-model="reportReason"
-              rows="1"
-              :maxlength="REPORT_MAX_LENGTH"
-              placeholder="請輸入檢舉原因..."
-              @input="autoResize"
-            />
-            <div class="form-footer">
-              <span class="char-count">{{ reportReason.length }}/{{ REPORT_MAX_LENGTH }}</span>
-              <button type="button" class="cancel" @click="toggleReportForm(comment.commentId)">取消</button>
-              <button type="submit" :disabled="reportSubmitting">
-                {{ reportSubmitting ? '送出中...' : '送出檢舉' }}
+            此留言已被系統隱藏，點擊以顯示
+          </button>
+          <template v-else>
+            <p class="content">{{ comment.content }}</p>
+            <div class="comment-actions">
+              <button
+                type="button"
+                class="chip"
+                :class="{ active: comment.likedByCurrentMember }"
+                @click="handleLike(comment)"
+              >
+                <i class="bi bi-hand-thumbs-up"></i>{{ comment.likeCount }}
               </button>
+              <MoreActionsMenu>
+                <template #default="{ close }">
+                  <!-- 留言沒有「編輯」：後端只有新增/刪除/改狀態，沒有更新留言內容的端點 -->
+                  <button
+                    v-if="comment.authorId === TEST_MEMBER_ID"
+                    type="button"
+                    class="danger"
+                    @click="close(); handleDelete(comment.commentId)"
+                  >
+                    刪除
+                  </button>
+                  <button v-else type="button" @click="close(); toggleReportForm(comment.commentId)">
+                    檢舉
+                  </button>
+                </template>
+              </MoreActionsMenu>
             </div>
-            <p v-if="reportErrorMessage" class="error">{{ reportErrorMessage }}</p>
-          </form>
-        </template>
+            <form
+              v-if="reportingCommentId === comment.commentId"
+              class="report-form"
+              @submit.prevent="handleReportSubmit(comment.commentId)"
+            >
+              <textarea
+                v-model="reportReason"
+                rows="1"
+                :maxlength="REPORT_MAX_LENGTH"
+                placeholder="請輸入檢舉原因..."
+                @input="autoResize"
+              />
+              <div class="form-footer">
+                <span class="char-count">{{ reportReason.length }}/{{ REPORT_MAX_LENGTH }}</span>
+                <button type="button" class="cancel" @click="toggleReportForm(comment.commentId)">取消</button>
+                <button type="submit" :disabled="reportSubmitting">
+                  {{ reportSubmitting ? '送出中...' : '送出檢舉' }}
+                </button>
+              </div>
+              <p v-if="reportErrorMessage" class="error">{{ reportErrorMessage }}</p>
+            </form>
+          </template>
+        </div>
       </li>
       <li v-if="comments.length === 0" class="empty">還沒有留言，來搶頭香吧！</li>
     </ul>
 
     <p v-if="reportSuccessMessage" class="report-success">{{ reportSuccessMessage }}</p>
 
-    <p v-if="locked" class="locked-message">留言功能已關閉</p>
+    <p v-if="locked" class="locked-message">
+      <i class="bi bi-lock"></i>目前無法留言
+    </p>
+    <!-- 撰寫框放在留言列表下方 -->
     <form v-else class="comment-form" @submit.prevent="handleSubmit">
-      <textarea
-        ref="textareaRef"
-        v-model="newContent"
-        rows="1"
-        :maxlength="MAX_LENGTH"
-        placeholder="寫下你的留言..."
-        @input="autoResize"
-      />
-      <div class="form-footer">
-        <span class="char-count">{{ newContent.length }}/{{ MAX_LENGTH }}</span>
-        <button type="submit" :disabled="submitting">送出</button>
+      <span class="avatar avatar-me">我</span>
+      <div class="comment-form-main">
+        <textarea
+          ref="textareaRef"
+          v-model="newContent"
+          rows="1"
+          :maxlength="MAX_LENGTH"
+          placeholder="寫下你的留言..."
+          @input="autoResize"
+        />
+        <div class="form-footer">
+          <span class="char-count">{{ newContent.length }}/{{ MAX_LENGTH }}</span>
+          <button type="submit" class="submit-btn" :disabled="submitting">送出</button>
+        </div>
+        <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
       </div>
-      <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
     </form>
   </section>
 </template>
 
 <style scoped>
+/* 這個元件現在活在文章卡片內，外框由卡片負責，所以不再自己畫上邊界 */
 .comment-section {
-  margin-top: 12px;
-  border-top: 1px solid #eaeaea;
-  padding-top: 10px;
-}
-
-.comment-section h3 {
-  margin: 0 0 8px;
-  font-size: 15px;
-}
-
-.comment-form {
   display: flex;
   flex-direction: column;
+}
+
+.comment-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.comment-item {
+  display: flex;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #eef1f5;
+}
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background-color: #e5e9f0;
+  color: #1d324b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.avatar-masked {
+  background-color: #f0f0f0;
+  color: #adb5bd;
+}
+
+.avatar-me {
+  background-color: #2b77c5;
+  color: #ffffff;
+}
+
+.comment-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.comment-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: #888888;
+}
+
+.comment-header .author {
+  font-weight: 600;
+  color: #333333;
+}
+
+.content {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #333333;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.comment-actions {
+  display: flex;
+  align-items: center;
   gap: 8px;
-  margin-top: 12px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  background-color: #ffffff;
+  color: #6c757d;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: #2b77c5;
+  color: #2b77c5;
+}
+
+.chip.active {
+  border-color: #2b77c5;
+  background-color: #eaf2fb;
+  color: #2b77c5;
+  font-weight: 600;
+}
+
+.hidden-mask {
+  width: 100%;
+  padding: 12px;
+  background-color: #f3f3f3;
+  border: 1px dashed #cccccc;
+  border-radius: 0.375rem;
+  color: #888888;
+  font-size: 13px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.hidden-mask:hover {
+  background-color: #ececec;
+}
+
+.empty {
+  padding: 20px 24px;
+  border-top: 1px solid #eef1f5;
+  color: #999999;
+  text-align: center;
+  font-size: 13px;
+}
+
+/* ── 撰寫框：列表下方 ── */
+.comment-form {
+  display: flex;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 1px solid #eef1f5;
+}
+
+.comment-form-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
 }
 
 .comment-form textarea,
 .report-form textarea {
-  padding: 8px;
-  border: 1px solid #d0d0d0;
-  border-radius: 4px;
+  padding: 10px 12px;
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
   font-family: inherit;
+  font-size: 14px;
   resize: none;
   overflow: hidden;
 }
@@ -268,98 +433,43 @@ async function handleReportSubmit(commentId) {
   color: #999999;
 }
 
-.comment-form button[type='submit'],
-.report-form button[type='submit'] {
-  padding: 4px 12px;
-  font-size: 13px;
+.submit-btn {
+  padding: 7px 18px;
+  border: 0;
+  border-radius: 0.375rem;
   background-color: #2b77c5;
   color: #ffffff;
-  border: none;
-  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
 }
 
-.comment-form button[type='submit']:disabled,
-.report-form button[type='submit']:disabled {
+.submit-btn:disabled {
   opacity: 0.6;
   cursor: default;
 }
 
 .locked-message {
-  margin-top: 12px;
-  color: #999999;
-  font-size: 13px;
-}
-
-.error {
-  color: #c0392b;
-  font-size: 13px;
-}
-
-.comment-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.comment-item {
-  padding: 6px 0;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.hidden-mask {
-  width: 100%;
-  padding: 8px;
-  background-color: #f3f3f3;
-  border: 1px dashed #cccccc;
-  border-radius: 4px;
-  color: #888888;
-  font-size: 13px;
-  text-align: center;
-  cursor: pointer;
-}
-
-.hidden-mask:hover {
-  background-color: #ececec;
-}
-
-.comment-header {
   display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  color: #888888;
-}
-
-.comment-header .author {
-  font-weight: 600;
-  color: #333333;
-}
-
-.content {
-  margin: 6px 0;
-  white-space: pre-wrap;
-}
-
-.comment-actions {
-  display: flex;
-  gap: 10px;
   align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 16px 24px;
+  border-top: 1px solid #eef1f5;
+  color: #6c757d;
+  font-size: 13px;
 }
 
-/* 用子代選擇器，避免這條規則透過 slot 蓋掉 ⋮ 選單內的選項樣式 */
-.comment-actions > button {
-  background: none;
-  border: 1px solid #d0d0d0;
-  border-radius: 4px;
-  padding: 2px 10px;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.comment-actions > .like.liked {
-  border-color: #2b77c5;
-  color: #2b77c5;
-  background-color: #eaf2fb;
+/* ── 檢舉表單 ── */
+.report-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 8px;
+  background-color: #fffaf0;
+  border: 1px solid #e8d3a0;
+  border-radius: 0.375rem;
 }
 
 /* .form-footer 是留言表單與檢舉表單共用的 space-between；檢舉表單多了字數會變成三個子元素，
@@ -373,36 +483,40 @@ async function handleReportSubmit(commentId) {
   margin-right: auto;
 }
 
-.report-form {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 6px;
-  padding: 8px;
-  background-color: #fffaf0;
-  border: 1px solid #e8d3a0;
-  border-radius: 4px;
-}
-
 .report-form .cancel {
   padding: 4px 12px;
   font-size: 13px;
   background: none;
   border: 1px solid #d0d0d0;
-  border-radius: 4px;
+  border-radius: 0.375rem;
   cursor: pointer;
 }
 
+.report-form button[type='submit'] {
+  padding: 4px 12px;
+  font-size: 13px;
+  background-color: #2b77c5;
+  color: #ffffff;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+}
+
+.report-form button[type='submit']:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .report-success {
-  margin: 8px 0 0;
+  margin: 0;
+  padding: 8px 24px 0;
   color: #1e7e34;
   font-size: 13px;
 }
 
-.empty {
-  color: #999999;
-  text-align: center;
-  padding: 10px 0;
+.error {
+  margin: 0;
+  color: #c0392b;
   font-size: 13px;
 }
 </style>

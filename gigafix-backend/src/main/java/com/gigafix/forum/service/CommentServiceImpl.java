@@ -145,6 +145,23 @@ public class CommentServiceImpl implements CommentService {
 				.orElseThrow(() -> new IllegalArgumentException("留言不存在，commentId：" + commentId));
 	}
 
+	// 後台的文章留言串
+	// 跟前台版 getComments 的差別只有一個：這裡不過濾 TAKEN_DOWN，已下架的留言也要回傳供管理員稽核
+	// TODO: 角色系統做好後要加 moderator/admin 權限檢查，目前任何呼叫者都可以執行
+	@Override
+	public List<CommentResponse> getCommentsForAdmin(Long articleId) {
+
+		// 檢查文章是否存在
+		if (!articleRepository.existsById(articleId)) {
+			throw new IllegalArgumentException("文章不存在，articleId：" + articleId);
+		}
+
+		// 後台沒有登入會員身份可代入，likedByCurrentMember 一律 false（後台也用不到）
+		return commentRepository.findByArticle_ArticleIdOrderByCommentCreatedTimeAsc(articleId).stream()
+				.map(comment -> toCommentResponse(comment, null))
+				.toList();
+	}
+
 	// 後台直接設定留言狀態，並同步文章的留言數
 	// TODO: 角色系統做好後要加 moderator/admin 權限檢查，目前任何呼叫者都可以執行
 	@Override
