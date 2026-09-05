@@ -65,6 +65,22 @@ function statusLabel(status) {
   return statusOptions.find((s) => s.value === status)?.label ?? status;
 }
 
+// 狀態對應的徽章顏色（Bootstrap badge 顏色），跟 RepairDetailView 用同一套，確保同狀態永遠同顏色
+const STATUS_BADGE_CLASS = {
+  PENDING_QUOTE: "text-bg-warning",
+  QUOTED: "text-bg-info",
+  IN_REPAIR: "text-bg-primary",
+  QUOTE_REJECTED: "text-bg-danger",
+  REPAIR_COMPLETED: "text-bg-success",
+  AWAITING_PICKUP: "text-bg-warning",
+  CLOSED: "text-bg-dark",
+  CANCELLED: "text-bg-secondary",
+  NOT_DROPPED_OFF: "text-bg-secondary",
+};
+function statusBadgeClass(status) {
+  return STATUS_BADGE_CLASS[status] ?? "text-bg-secondary";
+}
+
 // 把畫面上的搜尋條件整理成要傳給後端的 params，空的欄位不傳
 function buildParams() {
   const params = {};
@@ -214,7 +230,7 @@ onMounted(() => {
               <span v-else class="text-secondary">—</span>
             </td>
             <td>
-              <span class="badge text-bg-light border">{{
+              <span class="badge" :class="statusBadgeClass(r.repairStatus)">{{
                 statusLabel(r.repairStatus)
               }}</span>
             </td>
