@@ -582,11 +582,13 @@ onBeforeUnmount(() => {
   color: #555555;
 }
 
+/* 尺寸與 object-fit 刻意跟 ArticleCard 的 .thumb 一致（120×120 + contain），
+   這樣這裡看到的就是文章列表上會看到的樣子 */
 .cover-preview {
   position: relative;
   flex-shrink: 0;
-  width: 132px;
-  height: 78px;
+  width: 120px;
+  height: 120px;
   border: 1px solid #e5e9f0;
   border-radius: 6px;
   background: #f6f8fa;
@@ -597,9 +599,9 @@ onBeforeUnmount(() => {
 }
 
 .cover-preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 
 .cover-hint {

@@ -853,10 +853,15 @@ async function handleDeleteFloor(floorId) {
   gap: 5px;
 }
 
+/* 顯示原圖：不裁切，只在超過上限時等比縮小。
+   手機直向截圖在這個欄寬下自然高度約 1300px，不設限會把內文推到很下面 */
 .cover {
-  width: 100%;
-  max-height: 300px;
-  object-fit: cover;
+  display: block;
+  max-width: 100%;
+  max-height: 600px;
+  width: auto;
+  height: auto;
+  margin: 0 auto;
   border-radius: 0.5rem;
 }
 
