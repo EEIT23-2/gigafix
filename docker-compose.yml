@@ -1,0 +1,107 @@
+#這份docker compose是用來開發完後，直接compose up，讓專案build好直接再本機端跑
+
+#所有服務，如果使用docker compose up的時候，就會讀取compose file底下有哪寫services並逐一處理
+services:
+  #建立一個服務叫做db(database)
+  db:
+    #base image，如果run compose的時候服務底下有image的話就會去創建一個container(沒有build的情況下=docker run)
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: gigafix-db #container name，宿主機看得到的這個服務的這個容器名稱
+    #設定環境變數，在run MSSQL的image時通常會附帶這兩個-e，ACCEPT_EULA是同意微軟的授權條款，MSSQL_SA_PASSWORD則是要給資料庫密碼(寫在外面的.evn
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+    #指定宿主機的port值與這個容器的對應為 14330:1433，等於平時docker run的 -p
+    # ports: #沒必要讓宿主機透過SSMS對14330mapping直接操作container內的SQL的話就註解掉不要用
+    #   - "14330:1433"
+
+    #如果有次compose up時重新建立資料庫(通常是image、環境變數有變或是手動強制重新創建容器)，所以要掛一個volumn持久化資料
+    #如果要部屬網站的話，資料沒有持久化image新版本會初始化資料庫(而且網頁的data本來就需要持久化)
+    volumes: 
+      - mssql_data:/var/opt/mssql
+    #healthcheck讓docker定期自己去檢查這個容器裡的服務是不是真的能正常運作
+    healthcheck:
+      #會對這個容器「/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" || exit 1」指令
+      #-S localhost是連線到自己，-U-P是使用者跟密碼(在上面需告)，「-Q "SELECT 1" || exit 1」不是查詢東西，而是看資料庫會不會有回應
+      #$$MSSQL_SA_PASSWORD是讓dockercompose up時不要先去解析這個變數，等到在run的時候healthcheck才會執行，那時候再去解析MSSQL_SA_PASSWORD
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q \"SELECT 1\" || exit 1"]
+      #每隔10秒檢查一次
+      interval: 10s
+      #每次檢查如果5秒內沒回應就是失敗
+      timeout: 5s
+      #連續失敗10次,才會判定整個容器是unhealthy(不健康)
+      retries: 10
+      #容器剛啟動的前30秒,不管檢查失敗幾次都不列入計算
+      start_period: 30s
+    #使用compose自定義網路(在最下面)，讓db/frontend/backend可以共用一個網路對彼此發送請求
+    networks:
+      - gigafix-net
+
+  # 一次性容器：等 db healthy 後建立 giga_fix 資料庫，沒有透過這個image建立backend連線會直接失敗
+  # SQL Server 的 JDBC driver 不會像 MySQL 一樣自動建 database，而spring 的Hibernate只能自動建立table
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    depends_on: #指定如果db的狀態(condition)是health才會執行
+      db:
+        condition: service_healthy
+    volumes: #把根目錄的init複製到docker內並且作為讀掛載(因為:前面的是路徑所以是把本機的資料跟docker容器內的資料綁定，:ro則是讓容器只能讀)
+      - ./db-init:/db-init:ro
+    #sqlcmd支援從SQLCMDPASSWORD這個環境變數讀密碼，不用-P直接寫在command參數裡
+    #跟docker login用--password-stdin是同樣的考量：command參數會被docker inspect/ps看到明碼，環境變數不會出現在那份清單裡
+    environment:
+      SQLCMDPASSWORD: ${MSSQL_SA_PASSWORD}
+    #將原本image的entrypoint覆蓋掉(原本程式是啟動SQL Server資料庫引擎本身)，改成指向sqlcmd這個mssql裡面的命令列執行檔
+    #因為把「啟動SQL Server資料庫引擎本身」的預設entrypoint程式碼替換掉，所以也不需要設定環境變數「ACCEPT_EULA: "Y"」
+    entrypoint: ["/opt/mssql-tools18/bin/sqlcmd"]
+    #下sqlcmd指令，登入後執行init-db.sql(因為上面已經啟動db了，不需要)
+    #密碼改由上面的SQLCMDPASSWORD提供，不用再帶-P(sqlcmd 只要看到指令列沒有 -P 這個參數，就會自動去檢查有沒有一個叫 SQLCMDPASSWORD 的環境變數存在，有的話就直接拿來當登入密碼用)
+    #-C 讓 sqlcmd 連線時不要因為憑證不受信任就擋下連線
+    command: ["-S", "db", "-U", "sa", "-C", "-i", "/db-init/init-db.sql"]
+    networks:
+      - gigafix-net
+    #docker的restart預設本來就no，這個除了讓別人讀之外，確保這個服務不會不小心套用到別的設訂的重新啟動(例如別人複製或是環境變數)
+    restart: "no"
+
+  backend:
+    #在本機將後端的程式碼打包(dockerfile做)後build成image
+    build:
+      context: ./gigafix-backend #指定doocker build的根目錄
+      dockerfile: Dockerfile #docker build指定的dockerfile
+    container_name: gigafix-backend #該image run時的容器名稱
+    depends_on: #這個服務如果上面的db-init跑完而且執行結果是成功的才會做
+      db-init:
+        condition: service_completed_successfully
+    environment: #設定環境變數
+      #因為是同一份compose設定三個容器是同一個網路，所以可以直接用://db透過服務名稱指定連線
+      SPRING_DATASOURCE_URL: "jdbc:sqlserver://db:1433;databaseName=giga_fix;encrypt=true;trustServerCertificate=true;"
+      SPRING_DATASOURCE_USERNAME: sa
+      SPRING_DATASOURCE_PASSWORD: ${MSSQL_SA_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      GIGAFIX_GMAIL_USERNAME: ${GIGAFIX_GMAIL_USERNAME}
+      GIGAFIX_GMAIL_PASSWORD: ${GIGAFIX_GMAIL_PASSWORD}
+    ports: #容器的8080綁定宿主機的8080
+      - "8080:8080"
+    networks:
+      - gigafix-net
+
+  frontend:
+    build: #一樣透過下面的屬性指定docker build的workdir和dockerfile
+      context: ./gigafix-frontend
+      dockerfile: Dockerfile
+    container_name: gigafix-frontend
+    depends_on: #如果有後端服務才執行
+      - backend
+    ports: #綁定80port取得請求
+      #在瀏覽器直接用http直接查詢網址預設為80port，因此如果在本地run這個image，直接http:localhost，不加port號就會連到
+      - "80:80"
+      #在瀏覽器直接用https直接查詢網址預設為443port
+      # - "443:443"
+    networks:
+      - gigafix-net
+
+volumes:
+  mssql_data:
+
+networks:
+  gigafix-net:
+    driver: bridge

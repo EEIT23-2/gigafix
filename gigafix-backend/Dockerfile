@@ -30,13 +30,4 @@ COPY --from=build /app/target/*.jar app.jar
 #容器預期開放8080 port
 EXPOSE 8080
 
-# 下面這些是目前 application.properties 會用到、但建議正式環境改由環境變數注入的設定，
-# Spring Boot 的環境變數優先權高於 application.properties，直接 docker run -e 覆寫即可，
-# 不需要額外改程式碼。加進 docker-compose 前記得依實際狀況調整/移除。
-#   SPRING_DATASOURCE_URL=jdbc:sqlserver://<db-host>:1433;databaseName=giga_fix;encrypt=true;trustServerCertificate=true;
-#   SPRING_DATASOURCE_USERNAME=<db-user>
-#   SPRING_DATASOURCE_PASSWORD=<db-password>
-#   GIGAFIX_GMAIL_USERNAME=<gmail-account>
-#   GIGAFIX_GMAIL_PASSWORD=<gmail-app-password>
-
 ENTRYPOINT ["java", "-jar", "app.jar"]
