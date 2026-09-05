@@ -1,9 +1,9 @@
 <script setup>
 import axios from 'axios'
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import BaseModal from '../component/BaseModal.vue'
 import AddressSelect from '@/components/AddressSelect.vue'
-import { parseTaiwanAddress } from '@/static/taiwanDistricts'
+import { parseTaiwanAddress, taiwanDistricts } from '@/static/taiwanDistricts'
 import MemberGrowthChart from '../component/MemberGrowthChart.vue'
 import MemberDistrictHeatmap from '../component/MemberDistrictHeatmap.vue'
 
@@ -16,6 +16,15 @@ const currentPage = ref(0) //跟後端一樣從0開始算
 const pageSize = 20
 const totalPages = ref(0)
 const totalElements = ref(0)
+
+// ====篩選列相關(關鍵字/性別/縣市/加入時間區間)====
+const keyword = ref('') //模糊搜尋真實姓名/暱稱/Email/手機
+const genderFilter = ref('') //空字串代表不篩選性別
+const cityFilter = ref('') //空字串代表不篩選縣市
+const startDate = ref('') //加入時間區間(起)，<input type="date">格式為yyyy-MM-dd
+const endDate = ref('') //加入時間區間(迄)
+const cityOptions = taiwanDistricts.map(item => item.city) //縣市下拉選單選項，沿用註冊表單同一份縣市資料
+const filterErrorMsg = ref('') //篩選條件本身的錯誤訊息(例如起迄日期顛倒)，跟errorMsg(API錯誤)分開顯示
 
 //性別代碼轉中文顯示用的對照表
 const genderLabelMap = {
@@ -41,11 +50,22 @@ const formatDateTime = (ldtString) => {
     return `${year}/${month}/${day} ${hour}:${minute}:${second}`
 }
 
-//====取得會員列表(分頁，一次20筆，給表格用)====
+//====取得會員列表(分頁，一次20筆，給表格用)，依目前篩選列的條件查詢====
 const fetchAllMembers = async (page = 0) => {
     errorMsg.value = ''
     try {
-        const rep = await axios.get('/api/admin/members', { params: { page, size: pageSize } })
+        const rep = await axios.get('/api/admin/members', {
+            params: {
+                page,
+                size: pageSize,
+                //空字串當作沒有輸入，不要傳給後端，避免後端把空字串當成篩選條件
+                keyword: keyword.value.trim() || undefined,
+                gender: genderFilter.value || undefined,
+                city: cityFilter.value || undefined,
+                startDate: startDate.value || undefined,
+                endDate: endDate.value || undefined,
+            }
+        })
         allMembers.value = rep.data.content
         currentPage.value = rep.data.number
         totalPages.value = rep.data.totalPages
@@ -54,6 +74,27 @@ const fetchAllMembers = async (page = 0) => {
         alert(`會員列表讀取失敗，原因: ${err.response.data.message}`)
         errorMsg.value = '無法載入會員列表,請稍後再試'
     }
+}
+
+//====按下「搜尋」時觸發，檢查起迄日期合理後，帶著篩選條件重新查詢第一頁====
+const searchMembers = () => {
+    if (startDate.value && endDate.value && startDate.value > endDate.value) {
+        filterErrorMsg.value = '起始日期不能晚於結束日期'
+        return
+    }
+    filterErrorMsg.value = ''
+    fetchAllMembers(0)
+}
+
+//====清除所有篩選條件，回到未篩選狀態的第一頁====
+const resetFilters = () => {
+    keyword.value = ''
+    genderFilter.value = ''
+    cityFilter.value = ''
+    startDate.value = ''
+    endDate.value = ''
+    filterErrorMsg.value = ''
+    fetchAllMembers(0)
 }
 
 //====取得全部會員(不分頁，只給上面兩個統計圖表用，跟表格的分頁資料分開抓，避免圖表只統計到當頁20筆)====
@@ -73,6 +114,47 @@ const goToPage = (page) => {
     }
     fetchAllMembers(page)
 }
+
+//分頁列要顯示的頁碼(都是1開始算給畫面看)：固定顯示第1頁、目前頁前後各1頁、最後3頁，其餘用...省略
+//例如目前頁n超過3時會是 1 ... n-1 n n+1 ... m-2 m-1 m(m為總頁數)；範圍重疊或太靠近頭尾時會自動合併，不會出現多餘的...
+const pageWindow = computed(() => {
+    const currentPageNum = currentPage.value + 1 //換算成1開始的頁碼
+    const lastPageNum = totalPages.value
+    if (lastPageNum <= 0) return []
+
+    //目前頁前後各1頁，共3個連續頁碼；若因為太靠近頭尾被裁掉，往合法的那一側補足，讓這3個連續頁碼盡量湊滿
+    //例如目前在第1頁時，往下不能取到頁碼0，改往上延伸變成1 2 3，跟結尾固定顯示3頁(m-2 m-1 m)對稱
+    let clusterStart = currentPageNum - 1
+    let clusterEnd = currentPageNum + 1
+    if (clusterStart < 1) {
+        clusterEnd += 1 - clusterStart
+        clusterStart = 1
+    }
+    if (clusterEnd > lastPageNum) {
+        clusterStart -= clusterEnd - lastPageNum
+        clusterEnd = lastPageNum
+    }
+    clusterStart = Math.max(clusterStart, 1)
+
+    //用Set保留要顯示的頁碼，重複的(範圍重疊時)會自動去重
+    const keepPages = new Set([1, lastPageNum - 2, lastPageNum - 1, lastPageNum])
+    for (let p = clusterStart; p <= clusterEnd; p++) {
+        keepPages.add(p)
+    }
+
+    //只留下1~lastPageNum範圍內的頁碼，由小到大排序
+    const sortedPages = [...keepPages].filter(p => p >= 1 && p <= lastPageNum).sort((a, b) => a - b)
+
+    //相鄰頁碼中間若有斷開(差距大於1)，代表中間被省略了，補一個'...'
+    const withEllipsis = []
+    sortedPages.forEach((pageNum, index) => {
+        if (index > 0 && pageNum - sortedPages[index - 1] > 1) {
+            withEllipsis.push('...')
+        }
+        withEllipsis.push(pageNum)
+    })
+    return withEllipsis
+})
 
 // ====修改會員資料的相關宣告====
 const showEditModal = ref(false)
@@ -206,6 +288,53 @@ onMounted(() => {
         <div class="card-header py-3">
             <h6 class="m-0 fw-bold text-primary">會員列表</h6>
         </div>
+
+        <!-- 篩選列：關鍵字搜尋 + 性別/縣市下拉選單 + 加入時間區間 -->
+        <div class="card-body member-filter-bar d-flex flex-wrap align-items-end gap-3 border-bottom">
+            <div class="filter-item">
+                <label class="form-label small text-muted mb-1">關鍵字搜尋</label>
+                <input
+                    type="search"
+                    class="form-control"
+                    v-model.trim="keyword"
+                    placeholder="姓名、暱稱、Email、手機"
+                    @keyup.enter="searchMembers"
+                >
+            </div>
+            <div class="filter-item">
+                <label class="form-label small text-muted mb-1">性別</label>
+                <select class="form-select" v-model="genderFilter">
+                    <option value="">全部</option>
+                    <option value="MALE">男</option>
+                    <option value="FEMALE">女</option>
+                </select>
+            </div>
+            <div class="filter-item">
+                <label class="form-label small text-muted mb-1">縣市</label>
+                <select class="form-select" v-model="cityFilter">
+                    <option value="">全部</option>
+                    <option v-for="city in cityOptions" :key="city" :value="city">{{ city }}</option>
+                </select>
+            </div>
+            <div class="filter-item">
+                <label class="form-label small text-muted mb-1">加入時間(起)</label>
+                <input type="date" class="form-control" v-model="startDate">
+            </div>
+            <div class="filter-item">
+                <label class="form-label small text-muted mb-1">加入時間(迄)</label>
+                <input type="date" class="form-control" v-model="endDate">
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary" @click="searchMembers">
+                    <i class="bi bi-search"></i> 搜尋
+                </button>
+                <button class="btn btn-outline-secondary" @click="resetFilters">
+                    清除條件
+                </button>
+            </div>
+        </div>
+        <p v-if="filterErrorMsg" class="text-danger px-3 pt-3 mb-0">{{ filterErrorMsg }}</p>
+
         <p v-if="errorMsg" class="text-danger px-3 pt-3 mb-0">{{ errorMsg }}</p>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
@@ -223,6 +352,9 @@ onMounted(() => {
                     </tr>
                 </thead>
                 <tbody>
+                    <tr v-if="allMembers.length === 0">
+                        <td colspan="9" class="text-center text-secondary fs-5 py-5">目前沒有會員資料</td>
+                    </tr>
                     <tr v-for="member in allMembers" :key="member.id">
                         <td>{{ member.id }}</td>
                         <td class="cell-truncate">{{ member.realName }}</td>
@@ -255,9 +387,14 @@ onMounted(() => {
                     <li class="page-item" :class="{ disabled: currentPage === 0 }">
                         <button class="page-link" @click="goToPage(currentPage - 1)">上一頁</button>
                     </li>
-                    <li v-for="pageNum in totalPages" :key="pageNum" class="page-item" :class="{ active: pageNum - 1 === currentPage }">
-                        <button class="page-link" @click="goToPage(pageNum - 1)">{{ pageNum }}</button>
-                    </li>
+                    <template v-for="(pageNum, index) in pageWindow" :key="`${pageNum}-${index}`">
+                        <li v-if="pageNum === '...'" class="page-item disabled" aria-hidden="true">
+                            <span class="page-link">…</span>
+                        </li>
+                        <li v-else class="page-item" :class="{ active: pageNum - 1 === currentPage }">
+                            <button class="page-link" @click="goToPage(pageNum - 1)">{{ pageNum }}</button>
+                        </li>
+                    </template>
                     <li class="page-item" :class="{ disabled: currentPage === totalPages - 1 }">
                         <button class="page-link" @click="goToPage(currentPage + 1)">下一頁</button>
                     </li>
@@ -306,6 +443,27 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.filter-item {
+    flex: 1 1 160px;
+    min-width: 160px;
+}
+
+/* 篩選列整體字體放大一級，輸入框/下拉選單/按鈕跟著等比放大，維持視覺一致 */
+.member-filter-bar {
+    font-size: 1.15rem;
+}
+
+.member-filter-bar .form-label {
+    font-size: 1rem;
+}
+
+.member-filter-bar .form-control,
+.member-filter-bar .form-select,
+.member-filter-bar .btn {
+    font-size: 1.15rem;
+    padding: 0.55rem 0.9rem;
+}
+
 .cell-truncate {
     max-width: 200px;
     white-space: nowrap;
