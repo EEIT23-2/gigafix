@@ -43,6 +43,22 @@ export function deleteArticle(articleId) {
   return http.delete(`/api/members/${TEST_MEMBER_ID}/articles/${articleId}`)
 }
 
+// 捨棄草稿：真的刪列，跟上面那支軟刪除（改成下架）不同，後端只接受 DRAFT
+export function deleteDraft(articleId) {
+  return http.delete(`/api/members/${TEST_MEMBER_ID}/drafts/${articleId}`)
+}
+
+// 離開頁面時的補存：sendBeacon 只能發 POST，但自動存檔走的是 PUT，
+// 所以改用 fetch 的 keepalive——它同樣能在頁面卸載後把請求送完，且不限方法
+export function flushArticleOnUnload(articleId, payload) {
+  return fetch(`/api/members/${TEST_MEMBER_ID}/articles/${articleId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    keepalive: true,
+  })
+}
+
 export function updateArticleStatus(articleId, status) {
   return http
     .patch(`/api/members/${TEST_MEMBER_ID}/articles/${articleId}/status`, { status })

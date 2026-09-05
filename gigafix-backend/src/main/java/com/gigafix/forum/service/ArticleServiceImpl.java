@@ -316,6 +316,42 @@ public class ArticleServiceImpl implements ArticleService {
 		articleRepository.save(article);
 	}
 
+	// 捨棄草稿：真的刪列，不是改狀態
+	@Override
+	@Transactional
+	public void deleteDraft(Long memberId, Long articleId) {
+
+		// 檢查會員是否存在
+		if (!memberRepository.existsById(memberId)) {
+			throw new IllegalArgumentException("會員不存在，memberId：" + memberId);
+		}
+
+		// 查詢文章
+		Article article = articleRepository.findById(articleId)
+				.orElseThrow(() -> new IllegalArgumentException("文章不存在，articleId：" + articleId));
+
+		// 確認為文章作者本人
+		if (!article.getAuthor().getId().equals(memberId)) {
+			throw new IllegalStateException("無權限操作此文章");
+		}
+
+		// 只有草稿能硬刪除。已經公開過的文章一律走 deleteArticle 的軟刪除，保留稽核軌跡
+		if (article.getStatus() != Article.ArticleStatus.DRAFT) {
+			throw new IllegalStateException("只有草稿可以捨棄，已發布過的文章請用下架");
+		}
+
+		// 草稿理論上只有作者看得到，不該有依附資料；真的有就擋下來，
+		// 避免直接砍列撞上外鍵約束變成沒頭沒尾的 500
+		if (article.getCommentCount() != null && article.getCommentCount() > 0) {
+			throw new IllegalStateException("這篇草稿底下還有留言，無法捨棄");
+		}
+		if (articleRepository.countByParentArticle_ArticleId(articleId) > 0) {
+			throw new IllegalStateException("這篇草稿底下還有樓層，無法捨棄");
+		}
+
+		articleRepository.delete(article);
+	}
+
 	// 會員自行變更自己文章的狀態
 	@Override
 	@Transactional

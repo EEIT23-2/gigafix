@@ -89,6 +89,18 @@ public class ArticleController {
 		return ResponseEntity.noContent().build();
 	}
 
+	// 捨棄草稿：真的刪列。路徑用 /drafts 而不是 /articles，讓「只吃草稿」這件事從 URL 就看得出來，
+	// 也不會跟上面那支軟刪除的 DELETE /articles/{id} 混淆
+	@DeleteMapping("/api/members/{memberId}/drafts/{articleId}")
+	public ResponseEntity<Void> deleteDraft(
+			@PathVariable Long memberId,
+			@PathVariable Long articleId) {
+
+		articleService.deleteDraft(memberId, articleId);
+
+		return ResponseEntity.noContent().build();
+	}
+
 	// 會員自行變更自己文章的狀態（發布/隱藏/下架/關閉）
 	@PatchMapping("/api/members/{memberId}/articles/{articleId}/status")
 	public ResponseEntity<ArticleResponse> updateOwnArticleStatus(

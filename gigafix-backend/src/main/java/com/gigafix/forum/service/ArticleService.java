@@ -41,6 +41,10 @@ public interface ArticleService {
 	// 會員自己的文章列表（個人中心用，含草稿/隱藏，排除下架）
 	List<ArticleResponse> getMyArticles(Long memberId);
 
+	// 捨棄草稿：真的把列刪掉。只接受 DRAFT，其餘狀態一律拒絕
+	// （deleteArticle 是軟刪除，會留下 TAKEN_DOWN 的列；從未公開過的草稿不該以「下架」的身分留在稽核清單裡）
+	void deleteDraft(Long memberId, Long articleId);
+
 	// 樓層列表（memberId 選填，套用與文章詳情相同的可見性規則）
 	List<ArticleResponse> getFloors(Long articleId, Long memberId);
 
