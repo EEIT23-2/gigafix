@@ -1,6 +1,7 @@
 package com.gigafix.product.controller;
 
 
+import com.gigafix.product.dto.RecycleResponse;
 import com.gigafix.product.entity.RecycleApplication;
 import com.gigafix.product.service.RecycleApplicationService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,11 +17,11 @@ public class RecycleApplicationController {
 
     //Id搜尋單筆回收單的路由controller
     @GetMapping("/recycle-applications/{applyId}")
-    public ResponseEntity<RecycleApplication> getApplyFormById(@PathVariable Long applyId){
-        RecycleApplication recycleApplication = recycleApplicationService.getApplyFormById(applyId);
+    public ResponseEntity<RecycleResponse> getApplyFormById(@PathVariable Long applyId){
+        RecycleResponse response = recycleApplicationService.getApplyFormById(applyId);
         //回傳狀態 ,若找不到 回傳404並用.build()建body
-        if(recycleApplication !=null){
-            return ResponseEntity.status(HttpStatus.OK).body(recycleApplication);
+        if(response !=null){
+            return ResponseEntity.status(HttpStatus.OK).body(response);
         }else {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
@@ -34,7 +35,7 @@ public class RecycleApplicationController {
     }
 
     //刪除所有回收單
-    @DeleteMapping("/products")
+    @DeleteMapping("/recycle-applications")
     public ResponseEntity<Void> deleteAllApplyForms(){//因不回傳任何Product物件 以Void泛型解偶
         recycleApplicationService.deleteAllApplyForms();
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();

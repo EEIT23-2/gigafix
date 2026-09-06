@@ -31,7 +31,7 @@ public class RecycleApplication {
 	@JoinColumn(name = "member_id")
 	private Member member; // 申請會員 ID
 	@Column(name ="product_name" ,nullable = false)
-	private String productName;
+	private String productName;  //手機名稱 型號等
 	@Enumerated(EnumType.ORDINAL)
 	@Column(name ="category" ,nullable = false)
 	private ProductCategory category; //之後以前端以下拉示選單選取
