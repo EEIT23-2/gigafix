@@ -1,6 +1,7 @@
 package com.gigafix.product.service;
 
 
+import com.gigafix.product.dto.RecycleRequest;
 import com.gigafix.product.dto.RecycleResponse;
 import com.gigafix.product.entity.RecycleApplication;
 
@@ -8,6 +9,9 @@ public interface RecycleApplicationService {
 
     //以id查詢單筆回收單
     RecycleResponse getApplyFormById(Long applyId);
+
+    //新增回收單
+    RecycleResponse createApplyForm(RecycleRequest recycleRequest);
 
     //刪除單筆回收單
     void deleteApplyFormById(Long applyId);
