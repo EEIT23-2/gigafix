@@ -9,15 +9,21 @@ const props = defineProps({
   title: { type: String, default: '顏色' },
 })
 
-const emit = defineEmits(['select', 'clear'])
+const emit = defineEmits(['select', 'clear', 'panel-open'])
 
 const open = ref(false)
 const rootRef = ref(null)
-// 取色器的暫存值。不直接綁 modelValue，否則沒套用顏色時原生取色器會顯示成黑色
-const customColor = ref('#000000')
+const nativeColorInput = ref(null)
+// 使用者上一次透過自訂色選過的顏色。選過一次之後才會出現在色票列裡，
+// 之後點它跟點預設色票一樣直接套用，不用每次都重新彈出瀏覽器原生選色器
+const lastCustomColor = ref('')
 
 function toggle() {
   open.value = !open.value
+  // 面板剛打開的這一刻，編輯器的選取範圍還沒被任何東西動過，是最後可信的一刻——
+  // 稍後點自訂顏色會跳出瀏覽器原生色盤，那是跟網頁脫勾的原生 UI，關閉後編輯器的選取常常會跑掉。
+  // 通知呼叫端先把這一刻的選取記下來，套色時用記下來的，而不是相信「當下」可能已經跑掉的選取
+  if (open.value) emit('panel-open')
 }
 
 function close() {
@@ -38,6 +44,17 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocumentClick)
 function pick(color) {
   emit('select', color)
   close()
+}
+
+// 另外開瀏覽器原生選色器，選一個全新的自訂色——跟直接點下面那顆「上次自訂色」色票是兩件事
+function openCustomPicker() {
+  nativeColorInput.value?.click()
+}
+
+function handleCustomColorChange(event) {
+  const color = event.target.value
+  lastCustomColor.value = color
+  pick(color)
 }
 
 function clear() {
@@ -66,12 +83,28 @@ function clear() {
           :title="color"
           @click="pick(color)"
         ></button>
+
+        <button
+          v-if="lastCustomColor"
+          type="button"
+          class="swatch"
+          :class="{ active: lastCustomColor === props.modelValue }"
+          :style="{ background: lastCustomColor }"
+          :title="`上次自訂色 ${lastCustomColor}`"
+          @click="pick(lastCustomColor)"
+        ></button>
+
+        <button type="button" class="swatch custom-trigger" title="選新的自訂色" @click="openCustomPicker">
+          +
+        </button>
       </div>
 
-      <label class="custom-row">
-        <span>自訂</span>
-        <input v-model="customColor" type="color" @change="pick(customColor)" />
-      </label>
+      <input
+        ref="nativeColorInput"
+        type="color"
+        class="native-color-input"
+        @change="handleCustomColorChange"
+      />
 
       <button type="button" class="clear-btn" @click="clear">清除</button>
     </div>
@@ -148,24 +181,31 @@ function clear() {
   box-shadow: 0 0 0 2px #ffffff, 0 0 0 3px #1f5fa8;
 }
 
-.custom-row {
+.swatch.custom-trigger {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 12px;
-  color: #5a5c69;
-  margin: 0;
+  justify-content: center;
+  background: #ffffff;
+  border: 1px dashed #adb5bd;
+  color: #6c757d;
+  font-size: 14px;
+  line-height: 1;
 }
 
-.custom-row input[type='color'] {
-  width: 40px;
-  height: 24px;
+.swatch.custom-trigger:hover {
+  border-color: #2b77c5;
+  color: #2b77c5;
+}
+
+/* 保留在畫面上（不能用 display:none）才能被 .click() 觸發原生選色器，但視覺上完全隱藏 */
+.native-color-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
   padding: 0;
-  border: 1px solid #d7dce5;
-  border-radius: 4px;
-  background: none;
-  cursor: pointer;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .clear-btn {
