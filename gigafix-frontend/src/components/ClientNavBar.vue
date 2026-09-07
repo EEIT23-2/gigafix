@@ -299,7 +299,7 @@ const router = useRouter()
               <span class="action-text">{{ memberInfo.nickName }}</span>
             </RouterLink>
 
-            <RouterLink class="action-item"><!-- 購物車icon -->
+            <RouterLink to="/cart" class="action-item"><!-- 購物車icon -->
               <span class="icon-box">
                 <i class="bi bi-cart icon"></i>
               </span>
