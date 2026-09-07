@@ -11,21 +11,25 @@ defineProps({
     clearing: {
         type: Boolean,
         default: false
+    },
+    checkoutDisabled: {
+        type: Boolean,
+        default: false
     }
 })
 
-defineEmits(['clear'])
+defineEmits(['clear', 'checkout'])
 </script>
 
 <template>
     <div class="border-top pt-3 mt-4">
         <div class="d-flex justify-content-between mb-2">
-            <span>商品數量</span>
+            <span>已選數量</span>
             <strong>{{ itemCount }} 件</strong>
         </div>
 
         <div class="d-flex justify-content-between mb-3">
-            <strong>總金額</strong>
+            <strong>商品小計</strong>
             <strong>
                 NT$ {{ totalAmount.toLocaleString() }}
             </strong>
@@ -36,9 +40,9 @@ defineEmits(['clear'])
                 {{ clearing ? '清空中...' : '清空購物車' }}
             </button>
 
-            <RouterLink to="/checkout" class="btn btn-primary">
+            <button class="btn btn-primary" :disabled="checkoutDisabled" @click="$emit('checkout')">
                 前往結帳
-            </RouterLink>
+            </button>
         </div>
     </div>
 </template>

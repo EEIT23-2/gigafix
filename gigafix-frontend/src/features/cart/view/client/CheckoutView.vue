@@ -1,12 +1,13 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useMemberAuth } from '../../composables/useMemberAuth'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import CheckoutForm from '../../components/CheckoutForm.vue'
 import { getCartItems } from '../../api/cartApi'
 import { createOrder } from '../../api/memberOrderApi'
 
 const router = useRouter()
+const route = useRoute()
 
 const cartItems = ref([])
 const loading = ref(false)
@@ -32,6 +33,10 @@ const loadCart = async () => {
 
         if (cartItems.value.length === 0) {
             errorMessage.value = '購物車是空的，無法結帳'
+            return
+        }
+        if (selectedItems.value.length === 0) {
+            errorMessage.value = '找不到可結帳的商品'
         }
     } catch (error) {
         console.error(error)
@@ -40,11 +45,34 @@ const loadCart = async () => {
         loading.value = false
     }
 }
+//選取的購物車商品ID表
+const selectedCartItemIds = computed(() => {
+    const raw = route.query.cartItemIds
 
+    if (!raw) {
+        return []
+    }
+
+    return String(raw)
+        .split(',')
+        .map(id => Number(id))
+        .filter(id => Number.isInteger(id) && id > 0)
+})
+// 選取的購物車商品列表
+const selectedItems = computed(() => {
+    return cartItems.value.filter(item =>
+        selectedCartItemIds.value.includes(item.cartItemId)
+    )
+})
+const selectedTotalAmount = computed(() => {
+    return selectedItems.value.reduce((total, item) => {
+        return total + (item.price || 0)
+    }, 0)
+})
 // 提交結帳表單
 const handleSubmit = async () => {
-    if (cartItems.value.length === 0) {
-        errorMessage.value = '購物車是空的，無法結帳'
+    if (selectedCartItemIds.value.length === 0) {
+        errorMessage.value = '請至少選擇一項商品進行結帳'
         return
     }
 
@@ -52,8 +80,10 @@ const handleSubmit = async () => {
     errorMessage.value = ''
 
     try {
-        const response = await createOrder(form.value)
-
+        const response = await createOrder({
+            ...form.value,
+            cartItemIds: selectedCartItemIds.value
+        })
         const orderId = response.data.orderId
 
         router.push(`/member-center/orders/${orderId}`)
@@ -75,7 +105,13 @@ onMounted(async () => {
         return
     }
 
-    loadCart()
+    if (selectedCartItemIds.value.length === 0) {
+        alert('請先選擇要結帳的商品')
+        router.push('/cart')
+        return
+    }
+
+    await loadCart()
 })
 </script>
 
@@ -90,7 +126,34 @@ onMounted(async () => {
         <div v-if="loading">
             載入中...
         </div>
+        <div v-if="!loading && selectedItems.length > 0" class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title mb-3">本次結帳商品</h5>
 
-        <CheckoutForm :form="form" :submitting="submitting" :disabled="cartItems.length === 0" @submit="handleSubmit" />
+                <div v-for="item in selectedItems" :key="item.cartItemId"
+                    class="d-flex justify-content-between border-bottom py-2">
+                    <span>
+                        {{ item.productName }}
+                    </span>
+
+                    <strong>
+                        NT$ {{ item.price?.toLocaleString() }}
+                    </strong>
+                </div>
+
+                <div class="d-flex justify-content-between mt-3">
+                    <span>
+                        已選 {{ selectedItems.length }} 件
+                    </span>
+
+                    <strong>
+                        商品小計：
+                        NT$ {{ selectedTotalAmount.toLocaleString() }}
+                    </strong>
+                </div>
+            </div>
+        </div>
+        <CheckoutForm :form="form" :submitting="submitting" :disabled="selectedItems.length === 0"
+            @submit="handleSubmit" />
     </div>
 </template>

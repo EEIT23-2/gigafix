@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useMemberAuth } from '../../composables/useMemberAuth'
 import CartItemCard from '../../components/CartItemCard.vue'
 import CartSummary from '../../components/CartSummary.vue'
@@ -8,17 +9,16 @@ import {
     deleteCartItem,
     clearCart
 } from '../../api/cartApi'
+//Router
+const router = useRouter()
+
 // 購物車相關狀態與計算
 const cartItems = ref([])
+const selectedCartItemIds = ref([])
 const loading = ref(false)
 const errorMessage = ref('')
 const clearing = ref(false)
 
-const totalAmount = computed(() => {
-    return cartItems.value.reduce((total, item) => {
-        return total + (item.price || 0)
-    }, 0)
-})
 // 載入購物車商品列表
 const loadCart = async () => {
     loading.value = true
@@ -34,10 +34,53 @@ const loadCart = async () => {
         loading.value = false
     }
 }
+// 選取的購物車商品列表
+const selectedItems = computed(() => {
+    return cartItems.value.filter(item =>
+        selectedCartItemIds.value.includes(item.cartItemId)
+    )
+})
+// 選取的購物車商品總金額
+const selectedTotalAmount = computed(() => {
+    return selectedItems.value.reduce((total, item) => {
+        return total + (item.price || 0)
+    }, 0)
+})
+// 是否全選
+const allSelected = computed(() => {
+    return (
+        cartItems.value.length > 0 &&
+        selectedCartItemIds.value.length === cartItems.value.length
+    )
+})
+// 全選與單選處理
+const handleSelectAll = (checked) => {
+    if (checked) {
+        selectedCartItemIds.value =
+            cartItems.value.map(item => item.cartItemId)
+    } else {
+        selectedCartItemIds.value = []
+    }
+}
+// 購物車商品選取
+const handleSelect = (cartItemId, checked) => {
+    if (checked) {
+        if (!selectedCartItemIds.value.includes(cartItemId)) {
+            selectedCartItemIds.value.push(cartItemId)
+        }
+    } else {
+        selectedCartItemIds.value =
+            selectedCartItemIds.value.filter(id => id !== cartItemId)
+    }
+}
 // 刪除購物車中的商品
 const handleDelete = async (cartItemId) => {
     try {
         await deleteCartItem(cartItemId)
+
+        selectedCartItemIds.value =
+            selectedCartItemIds.value.filter(id => id !== cartItemId)
+
         await loadCart()
     } catch (error) {
         console.error(error)
@@ -46,15 +89,16 @@ const handleDelete = async (cartItemId) => {
 }
 // 清空購物車
 const handleClear = async () => {
-    if (!confirm('確定要清空購物車嗎？')) {
-        return
-    }
+    if (!confirm('確定要清空購物車嗎？')) return
 
     clearing.value = true
     errorMessage.value = ''
 
     try {
         await clearCart()
+
+        selectedCartItemIds.value = []
+
         await loadCart()
     } catch (error) {
         console.error(error)
@@ -63,8 +107,23 @@ const handleClear = async () => {
         clearing.value = false
     }
 }
+// 前往結帳
+const handleCheckout = () => {
+    if (selectedCartItemIds.value.length === 0) {
+        alert('請至少選擇一項商品')
+        return
+    }
+
+    router.push({
+        path: '/checkout',
+        query: {
+            cartItemIds: selectedCartItemIds.value.join(',')
+        }
+    })
+}
 // 會員驗證與初始化購物車
 const { checkMemberLogin } = useMemberAuth()
+
 onMounted(async () => {
     const loggedIn = await checkMemberLogin()
 
@@ -93,10 +152,26 @@ onMounted(async () => {
         </div>
 
         <div v-else>
-            <CartItemCard v-for="item in cartItems" :key="item.cartItemId" :item="item" @delete="handleDelete" />
 
-            <CartSummary :totalAmount="totalAmount" :itemCount="cartItems.length" :clearing="clearing"
-                @clear="handleClear" />
+            <!-- 全選 -->
+            <div class="d-flex align-items-center mb-3">
+                <input id="selectAll" class="form-check-input me-2" type="checkbox" :checked="allSelected"
+                    @change="handleSelectAll($event.target.checked)">
+
+                <label for="selectAll" class="form-check-label">
+                    全選
+                </label>
+            </div>
+
+            <!-- 購物車商品 -->
+            <CartItemCard v-for="item in cartItems" :key="item.cartItemId" :item="item"
+                :selected="selectedCartItemIds.includes(item.cartItemId)"
+                @update:selected="checked => handleSelect(item.cartItemId, checked)" @delete="handleDelete" />
+
+            <!-- 購物車摘要 -->
+            <CartSummary :totalAmount="selectedTotalAmount" :itemCount="selectedItems.length" :clearing="clearing"
+                :checkoutDisabled="selectedItems.length === 0" @clear="handleClear" @checkout="handleCheckout" />
+
         </div>
     </div>
 </template>
