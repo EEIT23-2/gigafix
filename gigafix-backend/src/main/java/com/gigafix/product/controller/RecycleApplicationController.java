@@ -42,7 +42,7 @@ public class RecycleApplicationController {
     }
 
     //id新增回收單的路由
-    @PostMapping("/api/admin/recycle-applications")      //@Valid 是為了讓@NotNull生效
+    @PostMapping("/api/recycle-applications")      //@Valid 是為了讓@NotNull生效
     public ResponseEntity<RecycleResponse> createApplyForm(@RequestBody @Valid RecycleRequest recycleRequest) {
         RecycleResponse response = recycleApplicationService.createApplyForm(recycleRequest);
 
