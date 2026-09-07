@@ -13,8 +13,8 @@ const errorMsg = ref('')
 const checkSamePassword = () => { //確認密碼是前端防呆，跟後端沒關係
     if (superAdminPassword.value === '' || checkPassword.value === '') {
         errorMsg.value = '請輸入密碼或確認密碼'
-    }else if (superAdminPassword.value.length < 8 || checkPassword.value.length < 8) {
-        errorMsg.value = '密碼長度必須至少 8 位數'
+    }else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(superAdminPassword.value)) {
+        errorMsg.value = '密碼需至少8碼，並包含大小寫英文字母及數字'
     } else if (superAdminPassword.value !== checkPassword.value) {
         errorMsg.value = '確認密碼必須與密碼相符'
     }  else {
@@ -61,7 +61,7 @@ const createSuperAdmin = async () => {
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">密碼</label>
-                        <input type="password" class="form-control" v-model="superAdminPassword" placeholder="請輸入密碼" @input="checkSamePassword()">
+                        <input type="password" class="form-control" v-model="superAdminPassword" placeholder="至少8碼，需含大小寫英文字母及數字" @input="checkSamePassword()">
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">確認密碼</label>

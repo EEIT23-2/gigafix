@@ -1,6 +1,5 @@
 package com.gigafix.member.service;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.YearMonth;
