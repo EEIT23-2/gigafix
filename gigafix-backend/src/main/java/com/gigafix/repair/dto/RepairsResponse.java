@@ -34,6 +34,8 @@ public class RepairsResponse{
 	private RepairStatus repairStatus; 
 	private String storeName;
 	private DropoffType dropoffType;
+	private String contactName;
+	private String contactPhone;
 	
 //	2. 分配技師、檢測後報價
 	private Integer technicianId;
