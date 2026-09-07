@@ -87,100 +87,100 @@ SET @t8 = SCOPE_IDENTITY();
 
 -- 1｜PENDING_QUOTE：還沒認領
 INSERT INTO repairs (member_id, technician_id, store_id, repair_brand, repair_model, issue_description,
-    booking_date, time_slot, dropoff_type, repair_status, estimated_cost,
+    booking_date, time_slot, dropoff_type, contact_name, contact_phone, repair_status, estimated_cost,
     repair_created_time, repair_updated_time)
 VALUES (@m1, NULL, @taoyuan1, 'Apple', 'iPhone 13', '螢幕破裂',
-    DATEADD(DAY, 1, CAST(GETDATE() AS DATE)), '09:00', 0, 0, 0,
+    DATEADD(DAY, 1, CAST(GETDATE() AS DATE)), '09:00', 0, '江政諺', '0912345671', 0, 0,
     GETDATE(), GETDATE());
 
 -- 2｜QUOTED：王小明(t1)第1張
 INSERT INTO repairs (member_id, technician_id, store_id, repair_brand, repair_model, issue_description,
-    booking_date, time_slot, dropoff_type, repair_status, serial_number, inspection_result, repair_items,
+    booking_date, time_slot, dropoff_type, contact_name, contact_phone, repair_status, serial_number, inspection_result, repair_items,
     estimated_cost, approval_status, repair_created_time, repair_updated_time)
 VALUES (@m2, @t1, @taoyuan1, 'Apple', 'iPhone 12', '無法充電',
-    DATEADD(DAY, 2, CAST(GETDATE() AS DATE)), '10:00', 0, 1, 'SN0001', '充電孔氧化', '更換充電孔',
+    DATEADD(DAY, 2, CAST(GETDATE() AS DATE)), '10:00', 0, '林奕婷', '0912345672', 1, 'SN0001', '充電孔氧化', '更換充電孔',
     800, 0, GETDATE(), GETDATE());
 
 -- 3｜IN_REPAIR：王小明(t1)第2張
 INSERT INTO repairs (member_id, technician_id, store_id, repair_brand, repair_model, issue_description,
-    booking_date, time_slot, dropoff_type, repair_status, serial_number, inspection_result, repair_items,
+    booking_date, time_slot, dropoff_type, contact_name, contact_phone, repair_status, serial_number, inspection_result, repair_items,
     estimated_cost, approval_status, repair_created_time, repair_updated_time)
 VALUES (@m3, @t1, @taoyuan1, 'Apple', 'iPhone SE', '電池膨脹',
-    DATEADD(DAY, 3, CAST(GETDATE() AS DATE)), '11:00', 0, 2, 'SN0002', '電池膨脹需更換', '更換電池',
+    DATEADD(DAY, 3, CAST(GETDATE() AS DATE)), '11:00', 0, '曾能yo', '0912345673', 2, 'SN0002', '電池膨脹需更換', '更換電池',
     1200, 1, GETDATE(), GETDATE());
 
 -- 4｜REPAIR_COMPLETED：王小明(t1)第3張
 INSERT INTO repairs (member_id, technician_id, store_id, repair_brand, repair_model, issue_description,
-    booking_date, time_slot, dropoff_type, repair_status, serial_number, inspection_result, repair_items,
+    booking_date, time_slot, dropoff_type, contact_name, contact_phone, repair_status, serial_number, inspection_result, repair_items,
     estimated_cost, approval_status, final_cost, repair_created_time, repair_updated_time)
 VALUES (@m4, @t1, @taoyuan1, 'Apple', 'iPhone XR', '喇叭無聲',
-    DATEADD(DAY, 4, CAST(GETDATE() AS DATE)), '12:00', 0, 4, 'SN0003', '喇叭故障', '更換喇叭',
+    DATEADD(DAY, 4, CAST(GETDATE() AS DATE)), '12:00', 0, '蔡佑佑', '0912345674', 4, 'SN0003', '喇叭故障', '更換喇叭',
     900, 1, 900, GETDATE(), GETDATE());
 
 -- 5｜QUOTE_REJECTED：陳小華(t2)第1張
 INSERT INTO repairs (member_id, technician_id, store_id, repair_brand, repair_model, issue_description,
-    booking_date, time_slot, dropoff_type, repair_status, serial_number, inspection_result, repair_items,
+    booking_date, time_slot, dropoff_type, contact_name, contact_phone, repair_status, serial_number, inspection_result, repair_items,
     estimated_cost, approval_status, repair_created_time, repair_updated_time)
 VALUES (@m5, @t2, @taoyuan1, 'Apple', 'iPhone 11', '相機模糊',
-    DATEADD(DAY, 5, CAST(GETDATE() AS DATE)), '13:00', 0, 3, 'SN0004', '鏡頭模組故障', '更換鏡頭模組',
+    DATEADD(DAY, 5, CAST(GETDATE() AS DATE)), '13:00', 0, '李建輝', '0912345675', 3, 'SN0004', '鏡頭模組故障', '更換鏡頭模組',
     2500, 2, GETDATE(), GETDATE());
 
 -- 6｜AWAITING_PICKUP：陳小華(t2)第2張
 INSERT INTO repairs (member_id, technician_id, store_id, repair_brand, repair_model, issue_description,
-    booking_date, time_slot, dropoff_type, repair_status, serial_number, inspection_result, repair_items,
+    booking_date, time_slot, dropoff_type, contact_name, contact_phone, repair_status, serial_number, inspection_result, repair_items,
     estimated_cost, approval_status, final_cost, repair_created_time, repair_updated_time)
 VALUES (@m1, @t2, @taoyuan1, 'Apple', 'iPhone 14 Pro', '螢幕觸控失靈',
-    DATEADD(DAY, 6, CAST(GETDATE() AS DATE)), '14:00', 0, 5, 'SN0005', '螢幕排線鬆脫', '更換螢幕總成',
+    DATEADD(DAY, 6, CAST(GETDATE() AS DATE)), '14:00', 0, '江政諺', '0912345671', 5, 'SN0005', '螢幕排線鬆脫', '更換螢幕總成',
     3200, 1, 3200, GETDATE(), GETDATE());
 
 -- 7｜CLOSED：林大偉(t3)第1張
 INSERT INTO repairs (member_id, technician_id, store_id, repair_brand, repair_model, issue_description,
-    booking_date, time_slot, dropoff_type, repair_status, serial_number, inspection_result, repair_items,
+    booking_date, time_slot, dropoff_type, contact_name, contact_phone, repair_status, serial_number, inspection_result, repair_items,
     estimated_cost, approval_status, final_cost, repair_pay, repair_pay_status, pickup_type,
     repair_created_time, repair_updated_time)
 VALUES (@m2, @t3, @taoyuan2, 'Apple', 'iPhone 15', '相機無法對焦',
-    DATEADD(DAY, 7, CAST(GETDATE() AS DATE)), '15:00', 0, 6, 'SN0006', '相機模組損壞', '更換相機模組',
+    DATEADD(DAY, 7, CAST(GETDATE() AS DATE)), '15:00', 0, '林奕婷', '0912345672', 6, 'SN0006', '相機模組損壞', '更換相機模組',
     1800, 1, 1800, 0, 1, 0, GETDATE(), GETDATE());
 
 -- 8｜IN_REPAIR：林大偉(t3)第2張
 INSERT INTO repairs (member_id, technician_id, store_id, repair_brand, repair_model, issue_description,
-    booking_date, time_slot, dropoff_type, repair_status, serial_number, inspection_result, repair_items,
+    booking_date, time_slot, dropoff_type, contact_name, contact_phone, repair_status, serial_number, inspection_result, repair_items,
     estimated_cost, approval_status, repair_created_time, repair_updated_time)
 VALUES (@m3, @t3, @taoyuan2, 'Apple', 'iPhone 13 mini', '進水故障',
-    DATEADD(DAY, 8, CAST(GETDATE() AS DATE)), '16:00', 0, 2, 'SN0007', '主機板進水腐蝕', '主機板清洗維修',
+    DATEADD(DAY, 8, CAST(GETDATE() AS DATE)), '16:00', 0, '曾能yo', '0912345673', 2, 'SN0007', '主機板進水腐蝕', '主機板清洗維修',
     2800, 1, GETDATE(), GETDATE());
 
 -- 9｜CANCELLED：客戶取消預約，還沒認領
 INSERT INTO repairs (member_id, technician_id, store_id, repair_brand, repair_model, issue_description,
-    booking_date, time_slot, dropoff_type, repair_status, estimated_cost,
+    booking_date, time_slot, dropoff_type, contact_name, contact_phone, repair_status, estimated_cost,
     repair_created_time, repair_updated_time)
 VALUES (@m4, NULL, @hsinchu, 'Apple', 'iPhone 13 Pro', '按鍵故障',
-    DATEADD(DAY, 9, CAST(GETDATE() AS DATE)), '09:00', 0, 7, 0,
+    DATEADD(DAY, 9, CAST(GETDATE() AS DATE)), '09:00', 0, '蔡佑佑', '0912345674', 7, 0,
     GETDATE(), GETDATE());
 
 -- 10｜NOT_DROPPED_OFF：吳建宏(t7)，客戶寄送但沒收到件
 INSERT INTO repairs (member_id, technician_id, store_id, repair_brand, repair_model, issue_description,
-    booking_date, time_slot, dropoff_type, repair_status, estimated_cost,
+    booking_date, time_slot, dropoff_type, contact_name, contact_phone, repair_status, estimated_cost,
     repair_created_time, repair_updated_time)
 VALUES (@m5, @t7, @hsinchu, 'Apple', 'iPhone XS', '麥克風收音異常',
-    DATEADD(DAY, 10, CAST(GETDATE() AS DATE)), '10:00', 1, 8, 0,
+    DATEADD(DAY, 10, CAST(GETDATE() AS DATE)), '10:00', 1, '李建輝', '0912345675', 8, 0,
     GETDATE(), GETDATE());
 
 -- 11｜QUOTED：張志豪(t5)第1張
 INSERT INTO repairs (member_id, technician_id, store_id, repair_brand, repair_model, issue_description,
-    booking_date, time_slot, dropoff_type, repair_status, serial_number, inspection_result, repair_items,
+    booking_date, time_slot, dropoff_type, contact_name, contact_phone, repair_status, serial_number, inspection_result, repair_items,
     estimated_cost, approval_status, repair_created_time, repair_updated_time)
 VALUES (@m1, @t5, @taipei, 'Apple', 'iPhone 16', '無法開機',
-    DATEADD(DAY, 11, CAST(GETDATE() AS DATE)), '11:00', 0, 1, 'SN0008', '主機板供電異常', '更換主機板',
+    DATEADD(DAY, 11, CAST(GETDATE() AS DATE)), '11:00', 0, '江政諺', '0912345671', 1, 'SN0008', '主機板供電異常', '更換主機板',
     4500, 0, GETDATE(), GETDATE());
 
 -- 12｜CLOSED：張志豪(t5)第2張
 INSERT INTO repairs (member_id, technician_id, store_id, repair_brand, repair_model, issue_description,
-    booking_date, time_slot, dropoff_type, repair_status, serial_number, inspection_result, repair_items,
+    booking_date, time_slot, dropoff_type, contact_name, contact_phone, repair_status, serial_number, inspection_result, repair_items,
     estimated_cost, approval_status, final_cost, repair_pay, repair_pay_status, pickup_type,
     repair_created_time, repair_updated_time)
 VALUES (@m2, @t5, @taipei, 'Apple', 'iPhone SE 2', '螢幕破裂',
-    DATEADD(DAY, 12, CAST(GETDATE() AS DATE)), '12:00', 0, 6, 'SN0009', '面板破裂需更換', '更換螢幕總成',
+    DATEADD(DAY, 12, CAST(GETDATE() AS DATE)), '12:00', 0, '林奕婷', '0912345672', 6, 'SN0009', '面板破裂需更換', '更換螢幕總成',
     2200, 1, 2200, 0, 1, 0, GETDATE(), GETDATE());
 
 --新增分類1
