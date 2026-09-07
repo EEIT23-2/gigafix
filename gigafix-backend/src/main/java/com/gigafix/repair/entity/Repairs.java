@@ -5,7 +5,9 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
 
 import com.gigafix.member.entity.Member;
 import com.gigafix.repair.entity.status.ApprovalStatus;
@@ -76,6 +78,7 @@ public class Repairs {
 	@Column(name = "booking_date", nullable = true)
 	private LocalDate bookingDate;
 
+	@JdbcTypeCode(SqlTypes.TIME)
 	@Column(name = "time_slot", nullable = true)
 	private LocalTime timeSlot;
 
