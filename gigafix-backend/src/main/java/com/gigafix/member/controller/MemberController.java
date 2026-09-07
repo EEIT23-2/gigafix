@@ -4,16 +4,17 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.gigafix.member.dto.UpdatePasswordReq;
+import com.gigafix.common.util.SecurityUtils;
 import com.gigafix.member.dto.DeleteMemberReq;
 import com.gigafix.member.dto.ForgotPasswordReq;
 import com.gigafix.member.dto.ForgotPasswordResp;
@@ -24,6 +25,7 @@ import com.gigafix.member.dto.RegisterAndLoginResult;
 import com.gigafix.member.dto.SendOtpReq;
 import com.gigafix.member.dto.UpdateMemberInfoReq;
 import com.gigafix.member.dto.UpdatedMemberInfoResp;
+import com.gigafix.member.security.MemberUserDetails;
 import com.gigafix.member.service.MailSenderService;
 import com.gigafix.member.service.MemberService;
 
@@ -62,16 +64,19 @@ public class MemberController {
 	}
 
 	@GetMapping("/me") // 取得個人資料的請求
-	public ResponseEntity<GetMemberInfoResp> getMemberInfo(@RequestAttribute("memberId") Long memberId) {
-		GetMemberInfoResp memberInfo = memberService.getMemberInfo(memberId);
+	public ResponseEntity<GetMemberInfoResp> getMemberInfo(Authentication authentication) {
+		MemberUserDetails memberDetails = SecurityUtils.getCurrentMember(authentication);
+		GetMemberInfoResp memberInfo = memberService.getMemberInfo(memberDetails.getId());
 		return ResponseEntity.ok(memberInfo);
 	}
 
 	@PatchMapping("/me") // 修改個人資料(可能一個到多個欄位,但前端要把可以修改的欄位資訊傳過來)
 	public ResponseEntity<UpdatedMemberInfoResp> updateMemberInfo(
-			@Valid @RequestBody UpdateMemberInfoReq updateMemberInfoReq, @RequestAttribute("memberId") Long memberId) {
+			@Valid @RequestBody UpdateMemberInfoReq updateMemberInfoReq, Authentication authentication) {
+		MemberUserDetails memberDetails = SecurityUtils.getCurrentMember(authentication);
 		// 要回傳dto上面的泛型要改下面的return要改
-		UpdatedMemberInfoResp updatedMemberInfo = memberService.updateMemberInfo(updateMemberInfoReq, memberId);
+		UpdatedMemberInfoResp updatedMemberInfo = memberService.updateMemberInfo(updateMemberInfoReq,
+				memberDetails.getId());
 		return ResponseEntity.ok(updatedMemberInfo);
 	}
 
@@ -90,17 +95,19 @@ public class MemberController {
 
 	@PatchMapping("/me/password") // 登入後想修改密碼
 	public ResponseEntity<String> updatePassword(@Valid @RequestBody UpdatePasswordReq updatePasswordReq,
-			@RequestAttribute("memberId") Long memberId) {
+			Authentication authentication) {
+		MemberUserDetails memberDetails = SecurityUtils.getCurrentMember(authentication);
 		// 雖然ChangePasswordReq只有接收前端一個屬性值，但包裝成DTO就可以享有spring
 		// 的jackson和validation的支援，而且統一資料的流程控制
-		memberService.updatePassword(updatePasswordReq, memberId); // 變更密碼不需要傳密碼到前端，也沒有其他更新後的資料要傳送
+		memberService.updatePassword(updatePasswordReq, memberDetails.getId()); // 變更密碼不需要傳密碼到前端，也沒有其他更新後的資料要傳送
 		return ResponseEntity.noContent().build(); // 204
 	}
 
 	@DeleteMapping("/me") // 刪除使用者
 	public ResponseEntity<Object> deleteMember(@Valid @RequestBody DeleteMemberReq deleteMemberReq,
-			@RequestAttribute("memberId") Long memberId) {
-		memberService.deleteMember(deleteMemberReq, memberId); // 變更密碼不需要傳密碼到前端，也沒有其他更新後的資料要傳送
+			Authentication authentication) {
+		MemberUserDetails memberDetails = SecurityUtils.getCurrentMember(authentication);
+		memberService.deleteMember(deleteMemberReq, memberDetails.getId()); // 變更密碼不需要傳密碼到前端，也沒有其他更新後的資料要傳送
 		logout();
 		return ResponseEntity.noContent().build(); // 204
 	}

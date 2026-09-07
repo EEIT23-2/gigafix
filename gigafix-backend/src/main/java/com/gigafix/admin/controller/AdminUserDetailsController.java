@@ -25,8 +25,8 @@ import com.gigafix.admin.exception.AdminBusinessRuleCheckException;
 import com.gigafix.admin.repository.AdminAccountRepository;
 import com.gigafix.admin.security.AdminUserDetails;
 import com.gigafix.admin.service.LoginLockService;
+import com.gigafix.common.util.SecurityUtils;
 import com.gigafix.admin.security.AdminLoginAttemptInfo;
-import com.gigafix.admin.security.AdminSecurityUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -96,7 +96,7 @@ public class AdminUserDetailsController {
 		// 把context物件(裡面裝使用者資訊)設在session內
 		// (HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY : context)
 
-		AdminUserDetails userDetails = AdminSecurityUtils.getCurrentAdmin(authentication);
+		AdminUserDetails userDetails = SecurityUtils.getCurrentAdmin(authentication);
 		return ResponseEntity.ok(AdminLoginResp.builder()
 				.name(userDetails.getName())
 				.role(userDetails.getRole())

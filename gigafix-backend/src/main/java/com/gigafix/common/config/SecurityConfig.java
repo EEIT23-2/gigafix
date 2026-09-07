@@ -2,15 +2,18 @@ package com.gigafix.common.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
@@ -19,6 +22,8 @@ import com.gigafix.admin.service.AdminUserDetailsService;
 import com.gigafix.common.dto.ErrorResp;
 import com.gigafix.common.security.RestAccessDeniedHandler;
 import com.gigafix.common.security.RestAuthEntryPoint;
+import com.gigafix.common.util.JwtUtils;
+import com.gigafix.member.security.MemberJwtAuthenticationFilter;
 import com.gigafix.member.service.MemberUserDetailsService;
 
 import jakarta.servlet.http.HttpServletResponse;
@@ -34,9 +39,11 @@ public class SecurityConfig {
 	private final RestAccessDeniedHandler restAccessDeniedHandler;
 	private final RestAuthEntryPoint restAuthEntryPoint;
 	private final ObjectMapper objectMapper;
+	private final JwtUtils jwtUtils;
 
 	@Bean
-	public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
+	@Order(1)
+	public SecurityFilterChain adminSecurityFilterChain(HttpSecurity httpSecurity) throws Exception {
 		return httpSecurity
 				.securityMatcher("/api/admin/account/**", "/api/adminlogin", "/api/adminlogout") // 只針對某些請求路徑作用，之後要把/manager拿掉改成/admin/**
 				// .cors(null) //因為前端先用vite做反向代理，所以根本不會觸發cros因此先不寫
@@ -73,6 +80,28 @@ public class SecurityConfig {
 						.accessDeniedHandler(restAccessDeniedHandler)) // 已登入但權限不足 → 403
 				// 因為自己手寫 login/logout Controller，所以這裡不需要 .formLogin()
 				.build();
+	}
+
+	@Bean
+	@Order(2)
+	public SecurityFilterChain memberSecurityFilterChain(HttpSecurity httpSecurity) throws Exception {
+		MemberJwtAuthenticationFilter memberJwtAuthenticationFilter = new MemberJwtAuthenticationFilter(jwtUtils,
+				memberUserDetailsService);
+
+		return httpSecurity
+				.securityMatcher("/api/gigafix/**")
+				.csrf(csrf -> csrf.disable())
+				.authorizeHttpRequests(requests -> requests
+						.requestMatchers("/api/gigafix/login", "/api/gigafix/members/register",
+								"/api/gigafix/members/register/otp", "/api/gigafix/members/forgot-password",
+								"/api/gigafix/members/forgot-password/otp")
+						.permitAll()
+						.anyRequest().authenticated()// 因為member沒有做全線設計，所以統一其他的有認證過就可以請求
+				)
+				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))// 明確表示這條filter的session政策是無狀態
+				.exceptionHandling(ex -> ex.authenticationEntryPoint(restAuthEntryPoint)
+						.accessDeniedHandler(restAccessDeniedHandler))
+				.addFilterBefore(memberJwtAuthenticationFilter, BasicAuthenticationFilter.class).build();
 	}
 
 	@Bean

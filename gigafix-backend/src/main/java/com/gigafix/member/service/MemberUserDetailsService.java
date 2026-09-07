@@ -34,6 +34,13 @@ public class MemberUserDetailsService implements UserDetailsService {
         return new MemberUserDetails(member);
     }
 
+    // 給JWT filter用：token裡存的是memberId不是email，每次request都要重新用id查一次組出MemberUserDetails
+    // (不像admin是session-based，組好一次就存進session可以重複利用，這裡沒有session能省略這一步)
+    public UserDetails loadUserById(Long id) throws UsernameNotFoundException {
+        Member member = memberRepository.findById(id).orElseThrow(() -> new UsernameNotFoundException(""));
+        return new MemberUserDetails(member);
+    }
+
     // 若認證成功則執行登入(發放JWT跟回傳DTO)
     public RegisterAndLoginResult login(Member member) {
         // 發放JWT，並將將id到JWT中發放給使用者

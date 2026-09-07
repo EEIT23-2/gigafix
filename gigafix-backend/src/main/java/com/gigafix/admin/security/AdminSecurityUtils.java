@@ -29,8 +29,4 @@ public class AdminSecurityUtils {
 		securityContextRepository.saveContext(SecurityContextHolder.getContext(), request, response);
 	}
 
-	public static AdminUserDetails getCurrentAdmin(Authentication authentication) {
-		return (AdminUserDetails) authentication.getPrincipal();
-	}
-
 }
