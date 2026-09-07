@@ -5,6 +5,10 @@ import axios from "axios";
 const PRODUCT_URL = "/api/products";
 const ADMIN_PRODUCT_URL = "/api/admin/products";
 
+//回收單Controller的共同路徑
+const RECYCLE_APPLICATION_URL = "/api/recycle-applications";
+const ADMIN_RECYCLE_APPLICATION_URL = "/api/admin/recycle-applications";
+
 /**
  * 查詢商品列表。
  *
@@ -148,4 +152,78 @@ export const releaseProduct = async (productId) => {
 export const sellProduct = async (productId) => {
   const response = await axios.put(`${ADMIN_PRODUCT_URL}/${productId}/sell`);
   return response.data;
+};
+//以下是回收單需要的api
+
+/**
+ * 後台查詢回收申請列表
+ *
+ * params 可包含：
+ * productName、appearance、productCategory、recycleStatus、
+ * orderBy、sort、limit、offset
+ *
+ * GET /api/admin/recycle-applications
+ */
+export const getRecycleApplications = async (params = {}) => {
+  const response = await axios.get(ADMIN_RECYCLE_APPLICATION_URL, {
+    params,
+  });
+
+  return response.data;
+};
+
+/**
+ * 後台依 applyId 查詢單筆回收申請
+ *
+ * GET /api/admin/recycle-applications/{applyId}
+ */
+export const getRecycleApplication = async (applyId) => {
+  const response = await axios.get(
+    `${ADMIN_RECYCLE_APPLICATION_URL}/${applyId}`,
+  );
+
+  return response.data;
+};
+
+/**
+ * 使用者新增回收申請
+ *
+ * POST /api/recycle-applications
+ */
+export const createRecycleApplication = async (recycleRequest) => {
+  const response = await axios.post(RECYCLE_APPLICATION_URL, recycleRequest);
+
+  return response.data;
+};
+
+/**
+ * 後台修改回收申請
+ *
+ * PUT /api/admin/recycle-applications/{applyId}
+ */
+export const updateRecycleApplication = async (applyId, recycleRequest) => {
+  const response = await axios.put(
+    `${ADMIN_RECYCLE_APPLICATION_URL}/${applyId}`,
+    recycleRequest,
+  );
+
+  return response.data;
+};
+
+/**
+ * 後台刪除單筆回收申請
+ *
+ * DELETE /api/admin/recycle-applications/{applyId}
+ */
+export const deleteRecycleApplication = async (applyId) => {
+  await axios.delete(`${ADMIN_RECYCLE_APPLICATION_URL}/${applyId}`);
+};
+
+/**
+ * 後台刪除全部回收申請
+ *
+ * DELETE /api/admin/recycle-applications
+ */
+export const deleteAllRecycleApplications = async () => {
+  await axios.delete(ADMIN_RECYCLE_APPLICATION_URL);
 };
