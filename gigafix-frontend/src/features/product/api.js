@@ -3,6 +3,7 @@ import axios from "axios";
 // 商品 Controller 的共同路徑。
 // Vite 會把 /api 開頭的請求代理到 http://localhost:8080。
 const PRODUCT_URL = "/api/products";
+const ADMIN_PRODUCT_URL = "/api/admin/products";
 
 /**
  * 查詢商品列表。
@@ -44,8 +45,7 @@ export const getProduct = async (productId) => {
  * POST /api/products
  */
 export const createProduct = async (productRequest) => {
-  const response = await axios.post(PRODUCT_URL, productRequest);
-
+  const response = await axios.post(ADMIN_PRODUCT_URL, productRequest);
   return response.data;
 };
 
@@ -57,10 +57,9 @@ export const createProduct = async (productRequest) => {
  */
 export const updateProduct = async (productId, productRequest) => {
   const response = await axios.put(
-    `${PRODUCT_URL}/${productId}`,
+    `${ADMIN_PRODUCT_URL}/${productId}`,
     productRequest,
   );
-
   return response.data;
 };
 
@@ -73,7 +72,7 @@ export const updateProduct = async (productId, productRequest) => {
  * DELETE /api/products/{productId}
  */
 export const deleteProduct = async (productId) => {
-  await axios.delete(`${PRODUCT_URL}/${productId}`);
+  await axios.delete(`${ADMIN_PRODUCT_URL}/${productId}`);
 };
 
 /**
@@ -85,7 +84,7 @@ export const deleteProduct = async (productId) => {
  * DELETE /api/products
  */
 export const deleteAllProducts = async () => {
-  await axios.delete(PRODUCT_URL);
+  await axios.delete(ADMIN_PRODUCT_URL);
 };
 
 /**
@@ -97,8 +96,7 @@ export const deleteAllProducts = async () => {
  * POST /api/products/import
  */
 export const importProducts = async () => {
-  const response = await axios.post(`${PRODUCT_URL}/import`);
-
+  const response = await axios.post(`${ADMIN_PRODUCT_URL}/import`);
   return response.data;
 };
 
@@ -112,10 +110,9 @@ export const importProducts = async () => {
  * GET /api/products/export
  */
 export const exportProducts = async () => {
-  const response = await axios.get(`${PRODUCT_URL}/export`, {
+  const response = await axios.get(`${ADMIN_PRODUCT_URL}/export`, {
     responseType: "blob",
   });
-
   // 回傳 Blob 給 View 建立下載連結。
   return response.data;
 };
@@ -127,8 +124,7 @@ export const exportProducts = async () => {
  * PUT /api/products/{productId}/reserve
  */
 export const reserveProduct = async (productId) => {
-  const response = await axios.put(`${PRODUCT_URL}/${productId}/reserve`);
-
+  const response = await axios.put(`${ADMIN_PRODUCT_URL}/${productId}/reserve`);
   return response.data;
 };
 
@@ -139,8 +135,7 @@ export const reserveProduct = async (productId) => {
  * PUT /api/products/{productId}/release
  */
 export const releaseProduct = async (productId) => {
-  const response = await axios.put(`${PRODUCT_URL}/${productId}/release`);
-
+  const response = await axios.put(`${ADMIN_PRODUCT_URL}/${productId}/release`);
   return response.data;
 };
 
@@ -151,7 +146,6 @@ export const releaseProduct = async (productId) => {
  * PUT /api/products/{productId}/sell
  */
 export const sellProduct = async (productId) => {
-  const response = await axios.put(`${PRODUCT_URL}/${productId}/sell`);
-
+  const response = await axios.put(`${ADMIN_PRODUCT_URL}/${productId}/sell`);
   return response.data;
 };

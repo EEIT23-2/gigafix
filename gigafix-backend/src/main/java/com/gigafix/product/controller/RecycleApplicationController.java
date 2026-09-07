@@ -18,20 +18,19 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api")
 public class RecycleApplicationController {
     @Autowired
     private RecycleApplicationService recycleApplicationService;
 
     //查詢所有回收單的路由
-    @GetMapping("/recycle-applications")
+    @GetMapping("/api/admin/recycle-applications")
     public ResponseEntity<Page<RecycleResponse>> getApplyForms(@Valid RecycleQueryParams recycleQueryParams){
         Page<RecycleResponse> resultList = recycleApplicationService.getApplyForms(recycleQueryParams);
         return ResponseEntity.status(HttpStatus.OK).body(resultList);
     }
 
     //Id搜尋單筆回收單的路由controller
-    @GetMapping("/recycle-applications/{applyId}")
+    @GetMapping("/api/admin/recycle-applications/{applyId}")
     public ResponseEntity<RecycleResponse> getApplyFormById(@PathVariable Long applyId){
         RecycleResponse response = recycleApplicationService.getApplyFormById(applyId);
         //回傳狀態 ,若找不到 回傳404並用.build()建body
@@ -43,7 +42,7 @@ public class RecycleApplicationController {
     }
 
     //id新增回收單的路由
-    @PostMapping("/recycle-applications")      //@Valid 是為了讓@NotNull生效
+    @PostMapping("/api/admin/recycle-applications")      //@Valid 是為了讓@NotNull生效
     public ResponseEntity<RecycleResponse> createApplyForm(@RequestBody @Valid RecycleRequest recycleRequest) {
         RecycleResponse response = recycleApplicationService.createApplyForm(recycleRequest);
 
@@ -51,7 +50,7 @@ public class RecycleApplicationController {
     }
 
         //修改維修單的路由
-        @PutMapping("/recycle-applications/{applyId}")
+        @PutMapping("/api/admin/recycle-applications/{applyId}")
         public ResponseEntity<RecycleResponse> updateApplyForm(@PathVariable Long applyId,
                                                      @RequestBody @Valid RecycleRequest recycleRequest){
             RecycleResponse applyForm = recycleApplicationService.getApplyFormById(applyId);
@@ -66,14 +65,14 @@ public class RecycleApplicationController {
         }
 
     //刪除一筆回收單
-    @DeleteMapping("/recycle-applications/{applyId}")
+    @DeleteMapping("/api/admin/recycle-applications/{applyId}")
     public ResponseEntity<Void> deleteApplyForm(@PathVariable Long applyId){
         recycleApplicationService.deleteApplyFormById(applyId);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 
     //刪除所有回收單
-    @DeleteMapping("/recycle-applications")
+    @DeleteMapping("/api/admin/recycle-applications")
     public ResponseEntity<Void> deleteAllApplyForms(){//因不回傳任何Product物件 以Void泛型解偶
         recycleApplicationService.deleteAllApplyForms();
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
