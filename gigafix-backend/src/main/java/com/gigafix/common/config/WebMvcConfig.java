@@ -15,7 +15,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
 	@Override
 	public void addInterceptors(InterceptorRegistry registry) {
 		registry.addInterceptor(authInterceptor).
-						addPathPatterns("/api/gigafix/members/**"). //之後要把/member拿掉
+						addPathPatterns(
+								"/api/gigafix/members/**", //之後要把/member拿掉
+								"/api/repairs/appointment" //客戶預約維修單，需要先登入
+								).
 						excludePathPatterns(
 								"/api/gigafix/members/login",
 								"/api/gigafix/members/register",

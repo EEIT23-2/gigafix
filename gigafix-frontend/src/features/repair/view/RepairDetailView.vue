@@ -36,6 +36,18 @@ const STATUS_LABELS = {
   CANCELLED: "已取消",
   NOT_DROPPED_OFF: "未送檢",
 };
+// 狀態對應的徽章顏色（Bootstrap badge 顏色），確保同狀態永遠同顏色
+const STATUS_BADGE_CLASS = {
+  PENDING_QUOTE: "text-bg-warning",
+  QUOTED: "text-bg-info",
+  IN_REPAIR: "text-bg-primary",
+  QUOTE_REJECTED: "text-bg-danger",
+  REPAIR_COMPLETED: "text-bg-success",
+  AWAITING_PICKUP: "text-bg-warning",
+  CLOSED: "text-bg-dark",
+  CANCELLED: "text-bg-secondary",
+  NOT_DROPPED_OFF: "text-bg-secondary",
+};
 const APPROVAL_LABELS = {
   PENDING: "待確認",
   APPROVED: "同意維修",
@@ -265,9 +277,11 @@ onMounted(() => fetchRepair());
       <!-- 維修單號 + 狀態 + (待估價已認領時)未送檢按鈕 -->
       <div class="d-flex align-items-center gap-3 mb-4">
         <h1 class="fw-bold mb-0">維修單 #{{ repair.id }}</h1>
-        <span class="badge text-bg-secondary fs-6">{{
-          label(STATUS_LABELS, repair.repairStatus)
-        }}</span>
+        <span
+          class="badge fs-6"
+          :class="STATUS_BADGE_CLASS[repair.repairStatus] ?? 'text-bg-secondary'"
+          >{{ label(STATUS_LABELS, repair.repairStatus) }}</span
+        >
         <button
           v-if="repair.repairStatus === 'PENDING_QUOTE' && repair.technicianId"
           class="btn btn-outline-danger btn-sm ms-auto"
