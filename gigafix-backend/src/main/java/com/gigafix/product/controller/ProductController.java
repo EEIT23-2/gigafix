@@ -21,13 +21,12 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api")
 public class    ProductController {
     @Autowired
     private ProductService productService;
 
     //查詢商品列表  (條件查詢:類別查詢,關鍵字查詢 ;Page<>介面做分頁&總頁數計算)
-    @GetMapping("/products")
+    @GetMapping("/api/products")
     public ResponseEntity<Page<Product>> getProducts(ProductQueryParams productQueryParams){
         Page<Product> pageResult = productService.getProducts(productQueryParams);
         return ResponseEntity.status(HttpStatus.OK).body(pageResult);
@@ -35,7 +34,7 @@ public class    ProductController {
 
 
     //Id搜尋商品的路由controller
-        @GetMapping("/products/{productId}")
+    @GetMapping("/api/products/{productId}")
     public ResponseEntity<Product> getProduct(@PathVariable Long productId){
         Product product = productService.getProductById(productId);
         //回傳狀態 ,若找不到 回傳404並用.build()建body
@@ -46,7 +45,7 @@ public class    ProductController {
         }
     }
     //id新增商品的路由
-    @PostMapping("/products")      //@Valid 是為了讓@NotNull生效
+    @PostMapping("/api/admin/products")      //@Valid 是為了讓@NotNull生效
     public ResponseEntity<Product> createProduct(@RequestBody @Valid ProductRequest productRequest){
         Long productId  = productService.createProduct(productRequest);
         Product product = productService.getProductById(productId);
@@ -54,7 +53,7 @@ public class    ProductController {
         return ResponseEntity.status(HttpStatus.CREATED).body(product);
     }
     //修改商品
-    @PutMapping("/products/{productId}")
+    @PutMapping("/api/admin/products/{productId}")
     public ResponseEntity<Product> updateProduct(@PathVariable Long productId,
                                                  @RequestBody @Valid ProductRequest productRequest){
         Product product = productService.getProductById(productId);
@@ -68,14 +67,14 @@ public class    ProductController {
         return ResponseEntity.status(HttpStatus.OK).body(updatedProduct);
     }
     //刪除商品
-    @DeleteMapping("/products/{productId}")
+    @DeleteMapping("/api/admin/products/{productId}")
     public ResponseEntity<Product> deleteProduct(@PathVariable Long productId){
         productService.deleteProductById(productId);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 
     //刪除所有商品
-    @DeleteMapping("/products")
+    @DeleteMapping("/api/admin/products")
     public ResponseEntity<Void> deleteAllProducts(){//因不回傳任何Product物件 以Void泛型解偶
          productService.deleteAllProducts();
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
@@ -84,7 +83,7 @@ public class    ProductController {
 
 
     //匯入json資料庫 路由
-    @PostMapping("/products/import")
+    @PostMapping("/api/admin/products/import")
     public ResponseEntity<Map<String, Object>> importProducts() throws IOException {
 
         int count = productService.importProducts();
@@ -97,7 +96,7 @@ public class    ProductController {
     }
 
     //將資料庫表格匯出為json檔
-    @GetMapping("/products/export")
+    @GetMapping("/api/admin/products/export")
     public ResponseEntity<byte[]> exportProducts() throws IOException{
         byte[] jsonBytes = productService.exportProducts();//取得json檔byte資料
         //以HttpHeader指定檔名&檔案類型
@@ -113,7 +112,7 @@ public class    ProductController {
     //----以下 api for 訂單管理者呼叫作做 結帳狀態防呆檢查機制-----
 
     //鎖定並保留商品 (結帳但未付款時,訂單人員可呼叫)
-    @PutMapping("/products/{productId}/reserve")
+    @PutMapping("/api/admin/products/{productId}/reserve")
     public ResponseEntity<Product> reserveProduct(@PathVariable Long productId) {
         // 先檢查是否有此商品id
         Product product = productService.getProductById(productId);
@@ -133,7 +132,7 @@ public class    ProductController {
     }
 
     //  釋放商品鎖定（當取消訂單等等時,訂單人員可以呼叫）
-    @PutMapping("/products/{productId}/release")
+    @PutMapping("/api/admin/products/{productId}/release")
     public ResponseEntity<Product> releaseProduct(@PathVariable Long productId) {
         // 先檢查是否有此商品id
         Product product = productService.getProductById(productId);
@@ -148,7 +147,7 @@ public class    ProductController {
     }
 
     // 確認售出（當付款成功時,由訂單人員叫）
-    @PutMapping("/products/{productId}/sell")
+    @PutMapping("/api/admin/products/{productId}/sell")
     public ResponseEntity<Product> sellProduct(@PathVariable Long productId) {
         // 先檢查是否有此商品id
         Product product = productService.getProductById(productId);

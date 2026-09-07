@@ -139,7 +139,6 @@ public class ProductServiceImpl implements ProductService   {
 
             gotProduct.setLastModifiedTime(LocalDateTime.now());
 
-            Product updatedProduct = productDao.save(gotProduct);
         }else{
             return; //若有商品直接返回
         }
