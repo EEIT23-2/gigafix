@@ -13,6 +13,7 @@ const mail = ref('')
 const password = ref('')
 const loginErrorMsg =ref('')
 const showloginModal = ref(false)
+const afterLoginRedirect = ref(null) //記住使用者是點了哪個需要登入的功能，登入成功後要導去哪一頁
 
 //跟註冊有關的變數宣告
 const regPassword = ref('')
@@ -85,6 +86,11 @@ const login =async () => {
         await fetchMemberInfoStore.fetchMember(true) //登入成功後強制重抓一次會員資料，讓畫面上的icon等能即時切換
         showloginModal.value = false
         alert(`${resp.data.nickName}您好~登入成功！`)
+        //如果是從需要登入的功能(例如維修手機)跳出來登入的，登入成功後直接導去該頁面，不用使用者自己再點一次
+        if (afterLoginRedirect.value) {
+          router.push(afterLoginRedirect.value)
+          afterLoginRedirect.value = null
+        }
     } catch (err) { //回傳4xx,5xx
         const message = err.response?.data?.message || '請稍後再試'
         alert(`登入失敗，原因: ${message}`)
@@ -268,6 +274,17 @@ const forgotPassword = async () => {
 }
 
 const router = useRouter()
+
+//==維修手機(預約維修單)相關==
+//已登入直接導過去；沒登入先跳登入視窗，登入成功後會自動導過去(見login()裡的afterLoginRedirect判斷)
+const goToRepairAppointment = () => {
+  if (memberInfo.value) {
+    router.push('/repair-appointment')
+  } else {
+    afterLoginRedirect.value = '/repair-appointment'
+    openLoginModal()
+  }
+}
 </script>
 
 <template>
@@ -320,7 +337,7 @@ const router = useRouter()
           <ul class="nav-list">
             <router-link class="nav-item" >最新活動 ▾</router-link>
             <router-link class="nav-item" >二手手機 ▾</router-link>
-            <router-link class="nav-item" >維修手機 ▾</router-link>
+            <a class="nav-item" role="button" @click="goToRepairAppointment">維修手機 ▾</a>
             <router-link class="nav-item" to="/forum">Gigafix討論區</router-link>
             <router-link class="nav-item">關於Gigafix</router-link>
           </ul>
