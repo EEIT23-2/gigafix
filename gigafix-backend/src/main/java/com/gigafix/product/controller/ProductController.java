@@ -50,7 +50,7 @@ public class    ProductController {
     public ResponseEntity<Product> createProduct(@RequestBody @Valid ProductRequest productRequest){
         Long productId  = productService.createProduct(productRequest);
         Product product = productService.getProductById(productId);
-
+    
         return ResponseEntity.status(HttpStatus.CREATED).body(product);
     }
     //修改商品
