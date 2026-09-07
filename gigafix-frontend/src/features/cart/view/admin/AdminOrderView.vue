@@ -9,7 +9,7 @@ import {
     deliverOrder as deliverOrderApi,
     cancelOrder as cancelOrderApi,
     payOrder
-} from '../api'
+} from '../../api/adminOrderApi'
 import {
     orderStatusText,
     paymentStatusText,
@@ -17,7 +17,7 @@ import {
     orderStatusClass,
     paymentStatusClass,
     shippingStatusClass
-} from '../status'
+} from '../../status'
 
 //******訂單管理頁面******
 

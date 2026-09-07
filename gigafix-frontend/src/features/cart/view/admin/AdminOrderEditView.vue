@@ -4,13 +4,13 @@ import { useRouter } from 'vue-router'
 import {
     getOrder,
     updateOrder as updateOrderApi
-} from '../api'
+} from '../../api/adminOrderApi'
 import {
     orderStatusText,
     paymentStatusText,
     orderStatusClass,
     paymentStatusClass
-} from '../status'
+} from '../../status'
 
 //******編輯訂單頁面******
 

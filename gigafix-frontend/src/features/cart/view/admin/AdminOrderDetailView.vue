@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { getOrder } from '../api'
+import { getOrder } from '../../api/adminOrderApi'
 import {
     orderStatusText,
     paymentStatusText,
@@ -11,7 +11,7 @@ import {
     orderStatusClass,
     paymentStatusClass,
     shippingStatusClass
-} from '../status'
+} from '../../status'
 
 //******訂單詳情頁面******
 
