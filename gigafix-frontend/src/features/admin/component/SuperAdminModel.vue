@@ -93,8 +93,8 @@ const checkCreateError = () => {
         createErrorMsg.value = '請輸入帳號'
     }else if (password.value === '') {
         createErrorMsg.value = '請輸入密碼'
-    }else if (password.value.length < 8 ) {
-        createErrorMsg.value = '密碼長度必須至少 8 位數'
+    }else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(password.value)) {
+        createErrorMsg.value = '密碼需至少8碼，並包含大小寫英文字母及數字'
     }else if (role.value === '') {
         createErrorMsg.value = '請選擇權限'
     }else {
@@ -158,8 +158,8 @@ const resetAdminPassword = async () => {
 const checkUpdatePasswordError = () => {
     if (updateAdminPassword.value === '') {
         updatePasswordErrorMsg.value = '請輸入密碼'
-    }else if (updateAdminPassword.value.length < 8) {
-        updatePasswordErrorMsg.value = '密碼長度必須至少 8 位數'
+    }else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(updateAdminPassword.value)) {
+        updatePasswordErrorMsg.value = '密碼需至少8碼，並包含大小寫英文字母及數字'
     }else {
         updatePasswordErrorMsg.value = ''
     }
@@ -192,8 +192,8 @@ const deleteAdmin = async () => {
 const checkDeleteError = () => {
     if (superAdminComfirmPWD.value === '') {
         deleteErrorMsg.value = '請輸入密碼'
-    }else if (superAdminComfirmPWD.value.length < 8) {
-        deleteErrorMsg.value = '密碼長度必須至少 8 位數'
+    }else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(superAdminComfirmPWD.value)) {
+        deleteErrorMsg.value = '密碼需至少8碼，並包含大小寫英文字母及數字'
     }else {
         deleteErrorMsg.value = ''
     }
@@ -270,7 +270,7 @@ onMounted(() => {
         <input type="text" class="form-control" v-model="adminName" :disabled="createAdminLoading" @input="checkCreateError()">
         
         <label class="form-label">密碼</label>
-        <input type="password" class="form-control" v-model="password" :disabled="createAdminLoading" @input="checkCreateError()">
+        <input type="password" class="form-control" v-model="password" :disabled="createAdminLoading" placeholder="至少8碼，需含大小寫英文字母及數字" @input="checkCreateError()">
         
         <label class="form-label">管理員角色類型</label>
         <select class="form-select" v-model="role" :disabled="createAdminLoading" @change="checkCreateError()">
@@ -315,7 +315,7 @@ onMounted(() => {
         <template #title>重新設定管理員密碼</template>
 
         <label class="form-label">密碼</label>
-        <input type="password" class="form-control" v-model="updateAdminPassword" :disabled="createAdminLoading" placeholder="請輸入重設的密碼" @input="checkUpdatePasswordError()">
+        <input type="password" class="form-control" v-model="updateAdminPassword" :disabled="createAdminLoading" placeholder="至少8碼，需含大小寫英文字母及數字" @input="checkUpdatePasswordError()">
 
         <template #footer>
             <p  v-if="updatePasswordErrorMsg" class="text-danger small mb-3">{{ updatePasswordErrorMsg }}</p>

@@ -5,4 +5,4 @@ import org.springframework.http.ResponseCookie;
 import lombok.Builder;
 
 @Builder
-public record LoginResult(LoginResp loginResp, ResponseCookie responseCookie) {}
+public record RegisterAndLoginResult(LoginResp loginResp, ResponseCookie responseCookie) {}
