@@ -77,6 +77,11 @@ const errorMessage = ref('')
 let debounceTimer = null
 let suppressAutosave = true
 
+// 已發布文章編輯沒有自動存檔，需要自己追蹤有沒有改動，離開前才知道要不要提示。
+// 草稿流程不需要這個——草稿本來就會自動存檔，離開永遠是安全的
+const savedSnapshot = ref('')
+const isDirty = computed(() => !isDraftFlow.value && savedSnapshot.value !== JSON.stringify(form.value))
+
 function buildPayload() {
   return { ...form.value, coverImage: form.value.coverImage || null }
 }
@@ -127,18 +132,44 @@ async function flushPendingAutosave() {
   }
 }
 
-// 分頁被關掉／重新整理時，debounce 還沒到期的那 1.5 秒編輯不能就這樣消失。
-// 這裡只能同步發出請求，所以走 keepalive 的 fetch，不能 await
-function handleBeforeUnload() {
-  if (!debounceTimer || !effectiveArticleId.value) return
-  clearTimeout(debounceTimer)
-  debounceTimer = null
-  flushArticleOnUnload(effectiveArticleId.value, buildPayload())
+// 分頁被關掉／重新整理時：
+// 草稿流程——debounce 還沒到期的那 1.5 秒編輯不能就這樣消失，這裡只能同步發出請求，
+// 所以走 keepalive 的 fetch，不能 await；如果連第一次自動存檔都還沒發生（還沒有 id 可以 PUT），
+// 沒辦法用 keepalive 補救，只能靠瀏覽器原生的離開提示擋一下。
+// 非草稿（編輯已發布文章）——完全沒有自動存檔，有改動就一定要靠原生提示攔
+function handleBeforeUnload(event) {
+  if (isDraftFlow.value) {
+    if (!debounceTimer) return
+    if (effectiveArticleId.value) {
+      clearTimeout(debounceTimer)
+      debounceTimer = null
+      flushArticleOnUnload(effectiveArticleId.value, buildPayload())
+      return
+    }
+    event.preventDefault()
+    event.returnValue = ''
+    return
+  }
+  if (isDirty.value) {
+    event.preventDefault()
+    event.returnValue = ''
+  }
 }
 
-// 站內換頁（router）走得到 async，可以好好等存檔完成再離開
+// 站內換頁（router）走得到 async，可以好好等存檔完成再離開。
+// 草稿：等自動存檔送完後單純告知已經存好、去哪裡找，不攔截離開——內容真的存了，沒有什麼好讓使用者取消的。
+// 非草稿（編輯已發布文章）：有改動就用問句攔，取消可以留在頁面上
 onBeforeRouteLeave(async () => {
-  if (isDraftFlow.value) await flushPendingAutosave()
+  if (isDraftFlow.value) {
+    await flushPendingAutosave()
+    if (effectiveArticleId.value) {
+      alert('草稿已儲存，可至「我的討論」查看。')
+    }
+    return
+  }
+  if (isDirty.value && !confirm('離開將會捨棄本次編輯，確定要離開嗎？')) {
+    return false
+  }
 })
 
 // 修正原生 <select> 初次渲染不觸發 change 的落差，同時讓「建立草稿需要 categoryId」這件事自動成立
@@ -196,6 +227,8 @@ async function handleSubmit() {
   errorMessage.value = ''
   try {
     await updateArticle(articleId.value, buildPayload())
+    // 存檔成功，把「有沒有改動」的基準更新成剛存下去的內容，離開頁面才不會又被自己的 isDirty 攔下來
+    savedSnapshot.value = JSON.stringify(form.value)
     router.push({ name: 'forumDetail', params: { articleId: articleId.value } })
   } catch {
     errorMessage.value = '儲存失敗，請確認欄位是否都已正確填寫'
@@ -223,6 +256,8 @@ onMounted(async () => {
         coverImage: article.coverImage ?? '',
       }
       currentStatus.value = article.status
+      // 編輯已發布文章時，這是「有沒有改動」的比對基準；草稿流程用不到（isDirty 只認非草稿）
+      savedSnapshot.value = JSON.stringify(form.value)
     } catch {
       errorMessage.value = '文章資料載入失敗，請確認文章是否存在'
     } finally {
@@ -270,7 +305,7 @@ onBeforeUnmount(() => {
         <span class="pill pill-live">發布中</span>
         <span class="status-text">這篇文章目前公開，儲存後改動會立即生效</span>
         <button type="button" class="link-btn" @click="goToArticle">查看公開頁面</button>
-        <span class="status-note w-100">已發布的文章不會自動存檔，改完要按「儲存變更」</span>
+        <span class="status-note w-100">注意:若未「儲存變更」離開將會捨棄變更</span>
       </div>
 
       <form class="form-card" @submit.prevent="handleSubmit">

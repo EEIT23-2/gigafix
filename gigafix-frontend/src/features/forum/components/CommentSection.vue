@@ -125,6 +125,7 @@ async function handleSubmit() {
 }
 
 async function handleDelete(commentId) {
+  if (!confirm('確定要刪除這則留言嗎？')) return
   try {
     await deleteComment(commentId)
     await loadComments()

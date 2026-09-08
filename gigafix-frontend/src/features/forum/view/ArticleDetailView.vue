@@ -1,6 +1,6 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useFetchMemberInfoStore } from '@/stores/member'
 import {
@@ -45,8 +45,13 @@ const floorErrorMessage = ref('')
 // （與 CategoryAdminPanel 的 editingCategoryId 同一種模式）
 const editingFloorId = ref(null)
 const editingFloorContent = ref('')
+// 進入編輯時的原始內容，用來判斷有沒有真的改過——沒有自動存檔，離開前要靠這個決定要不要提示
+const editingFloorOriginalContent = ref('')
 const floorSaving = ref(false)
 const floorEditError = ref('')
+const isFloorEditDirty = computed(
+  () => editingFloorId.value !== null && editingFloorContent.value !== editingFloorOriginalContent.value,
+)
 
 // 首篇留言區預設展開；樓層的留言區預設收合，點該層的「留言 N」才展開
 const commentsOpen = ref(true)
@@ -122,9 +127,29 @@ async function loadFloors() {
   }
 }
 
+// 蓋樓編輯沒有自動存檔，展開編輯框後有改動就要靠原生離開提示攔住（分頁被關掉／重新整理的情況）
+function handleBeforeUnload(event) {
+  if (isFloorEditDirty.value) {
+    event.preventDefault()
+    event.returnValue = ''
+  }
+}
+
+// 站內換頁（router）：同樣有改動才問，取消可以留在頁面上
+onBeforeRouteLeave(() => {
+  if (isFloorEditDirty.value && !confirm('離開將會捨棄本次編輯，確定要離開嗎？')) {
+    return false
+  }
+})
+
 onMounted(() => {
   load()
   loadFloors()
+  window.addEventListener('beforeunload', handleBeforeUnload)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', handleBeforeUnload)
 })
 
 function toggleFloorComments(floorId) {
@@ -233,6 +258,7 @@ function startEditFloor(floor) {
   floorEditError.value = ''
   // 舊資料早於消毒層，載進編輯器前先洗一次
   editingFloorContent.value = sanitizeHtml(floor.content)
+  editingFloorOriginalContent.value = editingFloorContent.value
   editingFloorId.value = floor.articleId
   // 不讓同一頁同時展開檢舉表單與編輯器
   reportingArticleId.value = null
@@ -241,6 +267,7 @@ function startEditFloor(floor) {
 function cancelEditFloor() {
   editingFloorId.value = null
   editingFloorContent.value = ''
+  editingFloorOriginalContent.value = ''
   floorEditError.value = ''
 }
 
