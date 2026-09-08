@@ -1,5 +1,7 @@
 package com.gigafix.repair.controller;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -73,6 +75,14 @@ public class RepairsController {
 			@RequestParam(required = false) String technicianName,
 			@RequestParam(required = false) RepairStatus status) {
 		return ResponseEntity.ok(rServ.search(id, memberId, memberName, technicianId, technicianName, status));// 200
+	}
+
+	// 客戶預約時用：查某分店、某一天已經被預約的時段，前端把這些時段設為不可選
+	@GetMapping("/booked-slots")
+	public ResponseEntity<List<LocalTime>> getBookedSlots(
+			@RequestParam Byte storeId,
+			@RequestParam LocalDate date) {
+		return ResponseEntity.ok(rServ.getBookedSlots(storeId, date));// 200
 	}
 
 	// 技師查詢：某分店「待估價」且尚未被認領的維修單清單
