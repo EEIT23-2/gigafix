@@ -75,6 +75,16 @@ const handlePasswordSubmit = async () => {
         return
     }
 
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(oldPassword.value)) {
+        passwordErrorMsg.value = '原密碼需至少8碼，並包含大小寫英文字母及數字'
+        return
+    }
+
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(newPassword.value)) {
+        passwordErrorMsg.value = '新密碼需至少8碼，並包含大小寫英文字母及數字'
+        return
+    }
+
     passwordLoading.value = true
     try {
         await axios.patch('/api/admin/account/me/password', {
@@ -177,7 +187,8 @@ onMounted(() => {
                     <input type="password" class="form-control mb-2" v-model="oldPassword" :disabled="passwordLoading">
 
                     <label class="form-label">新密碼</label>
-                    <input type="password" class="form-control mb-2" v-model="newPassword" :disabled="passwordLoading">
+                    <input type="password" class="form-control mb-1" v-model="newPassword" :disabled="passwordLoading" placeholder="至少8碼，需含大小寫英文字母及數字">
+                    <p class="form-text small text-muted mb-2">新密碼至少8碼，並包含大小寫英文字母及數字</p>
 
                     <p v-if="passwordErrorMsg" class="text-danger mt-2 mb-0">{{ passwordErrorMsg }}</p>
                 </div>

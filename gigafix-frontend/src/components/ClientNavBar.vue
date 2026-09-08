@@ -13,6 +13,7 @@ const mail = ref('')
 const password = ref('')
 const loginErrorMsg =ref('')
 const showloginModal = ref(false)
+const afterLoginRedirect = ref(null) //記住使用者是點了哪個需要登入的功能，登入成功後要導去哪一頁
 
 //跟註冊有關的變數宣告
 const regPassword = ref('')
@@ -70,21 +71,26 @@ const checkLoginError = () => {
     loginErrorMsg.value = '請輸入Email'
   } else if (!password.value) {
     loginErrorMsg.value = '請輸入密碼'
-  } else if (password.value.length < 8) {
-    loginErrorMsg.value = '密碼長度必須至少8位數'
+  } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(password.value)) {
+    loginErrorMsg.value = '密碼需至少8碼，並包含大小寫英文字母及數字'
   } else {
     loginErrorMsg.value = ''
   }
 }
 const login =async () => {
   try {
-        const resp = await axios.post('/api/gigafix/members/login',{
+        const resp = await axios.post('/api/gigafix/login',{
             email: mail.value,
             password: password.value
         })
         await fetchMemberInfoStore.fetchMember(true) //登入成功後強制重抓一次會員資料，讓畫面上的icon等能即時切換
         showloginModal.value = false
         alert(`${resp.data.nickName}您好~登入成功！`)
+        //如果是從需要登入的功能(例如維修手機)跳出來登入的，登入成功後直接導去該頁面，不用使用者自己再點一次
+        if (afterLoginRedirect.value) {
+          router.push(afterLoginRedirect.value)
+          afterLoginRedirect.value = null
+        }
     } catch (err) { //回傳4xx,5xx
         const message = err.response?.data?.message || '請稍後再試'
         alert(`登入失敗，原因: ${message}`)
@@ -121,8 +127,8 @@ const checkRegisterError = () => {
     registerErrorMsg.value = 'OTP驗證碼須為6碼數字'
   } else if (!regPassword.value) {
     registerErrorMsg.value = '請輸入密碼'
-  } else if (regPassword.value.length < 8) {
-    registerErrorMsg.value = '密碼長度必須至少8位數'
+  } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(regPassword.value)) {
+    registerErrorMsg.value = '密碼需至少8碼，並包含大小寫英文字母及數字'
   } else if (!regRealName.value.trim()) {
     registerErrorMsg.value = '請輸入真實姓名'
   } else if (!regNickName.value.trim()) {
@@ -212,8 +218,8 @@ const checkForgotPasswordError = () => {
     fpErrorMsg.value = '請輸入Email'
   } else if (!fpNewPassword.value) {
     fpErrorMsg.value = '請輸入新密碼'
-  } else if (fpNewPassword.value.length < 8) {
-    fpErrorMsg.value = '密碼長度必須至少8位數'
+  } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(fpNewPassword.value)) {
+    fpErrorMsg.value = '密碼需至少8碼，並包含大小寫英文字母及數字'
   } else if (!fpOtp.value) {
     fpErrorMsg.value = '請輸入OTP驗證碼'
   } else if (!/^\d{6}$/.test(fpOtp.value)) {
@@ -268,6 +274,17 @@ const forgotPassword = async () => {
 }
 
 const router = useRouter()
+
+//==維修手機(預約維修單)相關==
+//已登入直接導過去；沒登入先跳登入視窗，登入成功後會自動導過去(見login()裡的afterLoginRedirect判斷)
+const goToRepairAppointment = () => {
+  if (memberInfo.value) {
+    router.push('/repair-appointment')
+  } else {
+    afterLoginRedirect.value = '/repair-appointment'
+    openLoginModal()
+  }
+}
 </script>
 
 <template>
@@ -320,7 +337,7 @@ const router = useRouter()
           <ul class="nav-list">
             <router-link class="nav-item" >最新活動 ▾</router-link>
             <router-link class="nav-item" >二手手機 ▾</router-link>
-            <router-link class="nav-item" >維修手機 ▾</router-link>
+            <a class="nav-item" role="button" @click="goToRepairAppointment">維修手機 ▾</a>
             <router-link class="nav-item" to="/forum">Gigafix討論區</router-link>
             <router-link class="nav-item">關於Gigafix</router-link>
           </ul>
@@ -368,7 +385,7 @@ const router = useRouter()
       </button>
     </div>
     <label class="form-label">密碼</label>
-    <input type="password" class="form-control mb-2" v-model="regPassword" placeholder="請輸入密碼(至少8碼)" @input="checkRegisterError()">
+    <input type="password" class="form-control mb-2" v-model="regPassword" placeholder="至少8碼，需含大小寫英文字母及數字" @input="checkRegisterError()">
     <!-- 真實姓名+暱稱併成一排，縮短表單高度，密碼/手機號碼維持獨立一排避免看起來擁擠 -->
     <div class="row g-2 mb-2">
       <div class="col-6">
@@ -409,7 +426,7 @@ const router = useRouter()
     <label class="form-label">Email</label>
     <input type="email" class="form-control mb-3" v-model="fpEmail" placeholder="請輸入Email" @input="checkForgotPasswordError()">
     <label class="form-label">新密碼</label>
-    <input type="password" class="form-control mb-3" v-model="fpNewPassword" placeholder="請輸入新密碼(至少8碼)" @input="checkForgotPasswordError()">
+    <input type="password" class="form-control mb-3" v-model="fpNewPassword" placeholder="至少8碼，需含大小寫英文字母及數字" @input="checkForgotPasswordError()">
     <label class="form-label">OTP驗證碼</label>
     <div class="otp-row mb-3">
       <input type="text" class="form-control" v-model="fpOtp" maxlength="6" placeholder="請輸入6碼驗證碼" @input="checkForgotPasswordError()">

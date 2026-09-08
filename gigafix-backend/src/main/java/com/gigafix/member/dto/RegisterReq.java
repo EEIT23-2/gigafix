@@ -13,7 +13,7 @@ import jakarta.validation.constraints.Size;
 
 public record RegisterReq(
 		@NotBlank(message = "password不可為空")
-		@Size(min = 8, message = "密碼長度不可低於8個字元")
+		@Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}$", message = "密碼需至少8碼，並包含大小寫英文字母及數字")
 		String password,
 		@NotBlank(message = "真實姓名不可為空")
 		@Size(max = 40, message = "真實姓名字數上限為40")

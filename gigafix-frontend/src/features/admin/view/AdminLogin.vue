@@ -17,8 +17,8 @@ const fetchAdminInfoStore =useFetchAdminInfoStore()
 const checkSamePassword = () => { //確認密碼是前端防呆，跟後端沒關係
     if (password.value === '' || checkPassword.value === '') {
         errorMsg.value = '請輸入密碼或確認密碼'
-    }else if (password.value.length < 8 || checkPassword.value.length < 8) {
-        errorMsg.value = '密碼長度必須至少 8 位數'
+    }else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(password.value)) {
+        errorMsg.value = '密碼需至少8碼，並包含大小寫英文字母及數字'
     } else if (password.value !== checkPassword.value) {
         errorMsg.value = '確認密碼必須與密碼相符'
     }  else {
