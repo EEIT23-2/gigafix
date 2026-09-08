@@ -1,4 +1,5 @@
 package com.gigafix.cart.controller;
+
 import com.gigafix.cart.dto.AddCartItemRequest;
 import com.gigafix.cart.dto.CartItemResponse;
 import com.gigafix.cart.service.CartService;
@@ -6,7 +7,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
 
+import com.gigafix.common.util.SecurityUtils;
 import java.util.List;
 
 /**
@@ -24,8 +27,10 @@ public class CartController {
     // 加入商品到購物車
     @PostMapping("/items")
     public ResponseEntity<CartItemResponse> addItem(
-            @RequestAttribute("memberId") Long memberId,
+            Authentication authentication,
             @Valid @RequestBody AddCartItemRequest request) {
+
+        Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
 
         CartItemResponse response = cartService.addItem(memberId, request);
 
@@ -35,8 +40,9 @@ public class CartController {
     // 查詢會員購物車
     @GetMapping("/items")
     public ResponseEntity<List<CartItemResponse>> getCartItems(
-            @RequestAttribute("memberId") Long memberId) {
-
+            Authentication authentication) {
+                
+        Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
         List<CartItemResponse> responses = cartService.getCartItems(memberId);
 
         return ResponseEntity.ok(responses);
@@ -45,9 +51,10 @@ public class CartController {
     // 刪除購物車中的指定商品
     @DeleteMapping("/items/{cartItemId}")
     public ResponseEntity<Void> deleteItem(
-            @RequestAttribute("memberId") Long memberId,
+            Authentication authentication,
             @PathVariable Long cartItemId) {
 
+        Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
         cartService.deleteItem(memberId, cartItemId);
 
         return ResponseEntity.noContent().build();
@@ -56,8 +63,9 @@ public class CartController {
     // 清空會員購物車
     @DeleteMapping("/items")
     public ResponseEntity<Void> clearCart(
-            @RequestAttribute("memberId") Long memberId) {
+            Authentication authentication) {
 
+        Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
         cartService.clearCart(memberId);
 
         return ResponseEntity.noContent().build();

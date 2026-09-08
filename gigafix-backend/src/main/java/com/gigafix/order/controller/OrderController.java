@@ -18,6 +18,9 @@ import com.gigafix.order.service.OrderService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+
+import com.gigafix.common.util.SecurityUtils;
 
 /**
  * 訂單 Controller
@@ -34,9 +37,10 @@ public class OrderController {
     // 建立訂單
     @PostMapping
     public ResponseEntity<OrderResponse> createOrder(
-            @RequestAttribute("memberId") Long memberId,
+            Authentication authentication,
             @Valid @RequestBody CreateOrderRequest request) {
 
+        Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
         OrderResponse response = orderService.createOrder(memberId, request);
 
         return ResponseEntity.ok(response);
@@ -45,8 +49,9 @@ public class OrderController {
     // 查詢會員所有訂單
     @GetMapping
     public ResponseEntity<List<OrderResponse>> getOrders(
-            @RequestAttribute("memberId") Long memberId) {
+            Authentication authentication) {
 
+        Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
         List<OrderResponse> responses = orderService.getOrders(memberId);
 
         return ResponseEntity.ok(responses);
@@ -55,9 +60,10 @@ public class OrderController {
     // 查詢會員指定訂單
     @GetMapping("/{orderId}")
     public ResponseEntity<OrderResponse> getOrder(
-            @RequestAttribute("memberId") Long memberId,
+            Authentication authentication,
             @PathVariable Long orderId) {
 
+        Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
         OrderResponse response = orderService.getOrder(memberId, orderId);
 
         return ResponseEntity.ok(response);
@@ -66,10 +72,11 @@ public class OrderController {
     // 訂單付款成功
     @PostMapping("/{orderId}/payment")
     public ResponseEntity<OrderResponse> payOrder(
-            @RequestAttribute("memberId") Long memberId,
+            Authentication authentication,
             @PathVariable Long orderId,
             @Valid @RequestBody PaymentSuccessRequest request) {
 
+        Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
         OrderResponse response = orderService.payOrder(memberId, orderId, request);
 
         return ResponseEntity.ok(response);
@@ -78,9 +85,10 @@ public class OrderController {
     // 取消訂單
     @PostMapping("/{orderId}/cancel")
     public ResponseEntity<OrderResponse> cancelOrder(
-            @RequestAttribute("memberId") Long memberId,
+            Authentication authentication,
             @PathVariable Long orderId) {
 
+        Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
         OrderResponse response = orderService.cancelOrder(memberId, orderId);
 
         return ResponseEntity.ok(response);
