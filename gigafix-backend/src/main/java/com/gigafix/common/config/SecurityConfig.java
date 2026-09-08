@@ -2,6 +2,7 @@ package com.gigafix.common.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
@@ -23,6 +24,7 @@ import com.gigafix.common.dto.ErrorResp;
 import com.gigafix.common.security.RestAccessDeniedHandler;
 import com.gigafix.common.security.RestAuthEntryPoint;
 import com.gigafix.common.util.JwtUtils;
+import com.gigafix.common.util.MemberPublicApiPaths;
 import com.gigafix.member.security.MemberJwtAuthenticationFilter;
 import com.gigafix.member.service.MemberUserDetailsService;
 
@@ -92,11 +94,9 @@ public class SecurityConfig {
 				.securityMatcher("/api/gigafix/**")
 				.csrf(csrf -> csrf.disable())
 				.authorizeHttpRequests(requests -> requests
-						.requestMatchers("/api/gigafix/login", "/api/gigafix/members/register",
-								"/api/gigafix/members/register/otp", "/api/gigafix/members/forgot-password",
-								"/api/gigafix/members/forgot-password/otp")
+						.requestMatchers(MemberPublicApiPaths.PATHS)
 						.permitAll()
-						.anyRequest().authenticated()// 因為member沒有做全線設計，所以統一其他的有認證過就可以請求
+						.anyRequest().authenticated()// 因為member沒有做權限設計，所以統一其他的有認證過就可以請求
 				)
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))// 明確表示這條filter的session政策是無狀態
 				.exceptionHandling(ex -> ex.authenticationEntryPoint(restAuthEntryPoint)
@@ -129,6 +129,10 @@ public class SecurityConfig {
 	}
 
 	@Bean
+	@Primary // Spring Security內部組裝HttpSecurity時會找一個全域預設的AuthenticationManager，
+				// 這裡沒有標會因為存在2個AuthenticationManager bean而啟動失敗；
+				// 實際登入都是Controller自己用@Qualifier指定要用哪個AuthenticationManager.authenticate()，
+				// 這個全域預設的沒有被用到，標哪一個當Primary都不影響行為
 	public AuthenticationManager adminAuthenticationManager(HttpSecurity http) throws Exception {
 		AuthenticationManagerBuilder authenticationManagerBuilder = http
 				.getSharedObject(AuthenticationManagerBuilder.class);
