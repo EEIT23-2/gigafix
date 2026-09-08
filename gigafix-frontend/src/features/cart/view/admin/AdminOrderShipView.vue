@@ -4,10 +4,10 @@ import { useRouter } from 'vue-router'
 import {
     getOrder,
     shipOrder as shipOrderApi
-} from '../api'
+} from '../../api/adminOrderApi'
 import {
     shippingMethodText
-} from '../status'
+} from '../../status'
 
 //******訂單出貨頁面******
 

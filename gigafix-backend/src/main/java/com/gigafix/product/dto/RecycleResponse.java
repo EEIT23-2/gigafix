@@ -16,6 +16,7 @@ public class RecycleResponse {
     private Long applyId;
     private Long memberId;
     private String memberName;
+    private String contactPhone;
     private String productName;
     private ProductCategory category;
     private String appearance;
