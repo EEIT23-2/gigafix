@@ -1,8 +1,17 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import { getArticles } from '../api'
 import ArticleCard from '../components/ArticleCard.vue'
 import CategorySelect from '../components/CategorySelect.vue'
+import ForumLoginModal from '../components/ForumLoginModal.vue'
+import { useFetchMemberInfoStore } from '@/stores/member'
+import { useForumLoginModalStore } from '../store/loginModal'
+
+const router = useRouter()
+const { memberInfo } = storeToRefs(useFetchMemberInfoStore())
+const loginModalStore = useForumLoginModalStore()
 
 const articles = ref([])
 const totalPages = ref(0)
@@ -52,6 +61,14 @@ function changePage(delta) {
   page.value = next
   loadArticles()
 }
+
+function goToCreateArticle() {
+  if (memberInfo.value) {
+    router.push({ name: 'forumCreate' })
+  } else {
+    loginModalStore.open('/forum/new')
+  }
+}
 </script>
 
 <template>
@@ -69,8 +86,10 @@ function changePage(delta) {
         @keyup.enter="handleSearch"
       />
       <button type="button" @click="handleSearch">搜尋</button>
-      <RouterLink class="new-article-link" :to="{ name: 'forumCreate' }">發表文章</RouterLink>
+      <button type="button" class="new-article-link" @click="goToCreateArticle">發表文章</button>
     </div>
+
+    <ForumLoginModal />
 
     <p v-if="loading">載入中...</p>
     <p v-else-if="errorMessage" class="error">{{ errorMessage }}</p>
@@ -124,9 +143,12 @@ function changePage(delta) {
   padding: 6px 14px;
   background-color: #2b77c5;
   color: #ffffff;
+  border: none;
   border-radius: 4px;
   text-decoration: none;
+  font-family: inherit;
   font-size: 14px;
+  cursor: pointer;
 }
 
 .empty {

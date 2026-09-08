@@ -3,8 +3,10 @@ package com.gigafix.forum.controller;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import com.gigafix.common.util.SecurityUtils;
 import com.gigafix.forum.dto.CreateReportRequest;
 import com.gigafix.forum.dto.ReportResponse;
 import com.gigafix.forum.dto.UpdateReportStatusRequest;
@@ -26,24 +28,26 @@ public class ReportController {
 	private final ReportService reportService;
 
 	// 檢舉文章
-	@PostMapping("/api/members/{memberId}/articles/{articleId}/reports")
+	@PostMapping("/api/members/me/articles/{articleId}/reports")
 	public ResponseEntity<ReportResponse> reportArticle(
-			@PathVariable Long memberId,
+			Authentication authentication,
 			@PathVariable Long articleId,
 			@Valid @RequestBody CreateReportRequest request) {
 
+		Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
 		ReportResponse response = reportService.reportArticle(memberId, articleId, request);
 
 		return ResponseEntity.ok(response);
 	}
 
 	// 檢舉留言
-	@PostMapping("/api/members/{memberId}/comments/{commentId}/reports")
+	@PostMapping("/api/members/me/comments/{commentId}/reports")
 	public ResponseEntity<ReportResponse> reportComment(
-			@PathVariable Long memberId,
+			Authentication authentication,
 			@PathVariable Long commentId,
 			@Valid @RequestBody CreateReportRequest request) {
 
+		Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
 		ReportResponse response = reportService.reportComment(memberId, commentId, request);
 
 		return ResponseEntity.ok(response);

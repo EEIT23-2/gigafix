@@ -20,6 +20,12 @@ public final class MemberPublicApiPaths {
 
 			//jack的商城路由加入機不可失路由監管
 			"/api/gigafix/products",
-			"/api/gigafix/products/**"
+			"/api/gigafix/products/**",
+
+			// forum 的公開瀏覽端點（文章列表/詳情、樓層列表、留言列表、分類列表），皆為 GET，不需要登入
+			"/api/articles",
+			"/api/articles/**",
+			"/api/categories",
+			"/api/categories/**"
 	};
 }

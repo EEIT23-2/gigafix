@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed, nextTick, watch } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import {
   getArticle,
   createArticle,
@@ -12,9 +13,11 @@ import {
 import CategorySelect from '../components/CategorySelect.vue'
 import RichTextEditor from '../components/RichTextEditor.vue'
 import { isHtmlEmpty } from '../htmlContent'
+import { useFetchMemberInfoStore } from '@/stores/member'
 
 const route = useRoute()
 const router = useRouter()
+const { memberInfo } = storeToRefs(useFetchMemberInfoStore())
 
 const AUTOSAVE_DELAY_MS = 1500
 const TITLE_MAX = 255
@@ -206,6 +209,8 @@ function goToArticle() {
 }
 
 onMounted(async () => {
+  // 沒登入的話畫面交給模板的 v-else 內嵌提示處理，這裡不用做任何跳轉或 alert
+  if (!memberInfo.value) return
   window.addEventListener('beforeunload', handleBeforeUnload)
   if (isEdit.value) {
     loading.value = true
@@ -238,12 +243,18 @@ onBeforeUnmount(() => {
 <template>
   <main class="article-form-page">
     <div class="form-shell">
-      <!-- 標題列：模式一眼可辨 -->
+      <!-- 標題列：不管有沒有登入都先讓使用者知道自己在哪一頁 -->
       <header class="page-head">
-        <span class="mode-label">{{ isDraftFlow ? '草稿流程' : '已發布' }}</span>
+        <span v-if="memberInfo" class="mode-label">{{ isDraftFlow ? '草稿流程' : '已發布' }}</span>
         <h1 class="page-title">{{ isEdit ? '編輯文章' : '發表文章' }}</h1>
       </header>
 
+      <!-- 沒登入：直接貼網址進來這頁（例如重新整理），比照 repair 模組的做法給一句內嵌提示，不彈窗也不跳轉 -->
+      <p v-if="!memberInfo" class="alert alert-warning">
+        請先登入會員才能{{ isEdit ? '編輯文章' : '發表文章' }}。
+      </p>
+
+      <template v-else>
       <!-- 草稿：狀態與自動存檔放在視線內，不再壓在頁尾 -->
       <div v-if="isDraftFlow" class="status-bar">
         <span class="pill pill-draft">草稿</span>
@@ -369,6 +380,7 @@ onBeforeUnmount(() => {
           </div>
         </template>
       </div>
+      </template>
     </div>
   </main>
 </template>

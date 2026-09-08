@@ -1,5 +1,7 @@
 <script setup>
 import { ref, watch, onMounted, computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import {
   getComments,
   createComment,
@@ -7,9 +9,14 @@ import {
   likeComment,
   unlikeComment,
   reportComment,
-  TEST_MEMBER_ID,
 } from '../api'
 import MoreActionsMenu from './MoreActionsMenu.vue'
+import { useForumLoginModalStore } from '../store/loginModal'
+import { useFetchMemberInfoStore } from '@/stores/member'
+
+const route = useRoute()
+const loginModalStore = useForumLoginModalStore()
+const { memberInfo } = storeToRefs(useFetchMemberInfoStore())
 
 const props = defineProps({
   articleId: { type: [Number, String], required: true },
@@ -98,6 +105,10 @@ function revealComment(commentId) {
 
 async function handleSubmit() {
   if (!newContent.value.trim()) return
+  if (!memberInfo.value) {
+    loginModalStore.open(route.fullPath)
+    return
+  }
   submitting.value = true
   errorMessage.value = ''
   try {
@@ -123,6 +134,10 @@ async function handleDelete(commentId) {
 }
 
 async function handleLike(comment) {
+  if (!memberInfo.value) {
+    loginModalStore.open(route.fullPath)
+    return
+  }
   try {
     if (comment.likedByCurrentMember) {
       await unlikeComment(comment.commentId)
@@ -144,6 +159,10 @@ function toggleReportForm(commentId) {
 
 async function handleReportSubmit(commentId) {
   if (!reportReason.value.trim()) return
+  if (!memberInfo.value) {
+    loginModalStore.open(route.fullPath)
+    return
+  }
   reportSubmitting.value = true
   reportErrorMessage.value = ''
   try {
@@ -199,7 +218,7 @@ async function handleReportSubmit(commentId) {
                 <template #default="{ close }">
                   <!-- 留言沒有「編輯」：後端只有新增/刪除/改狀態，沒有更新留言內容的端點 -->
                   <button
-                    v-if="comment.authorId === TEST_MEMBER_ID"
+                    v-if="comment.isAuthor === true"
                     type="button"
                     class="danger"
                     @click="close(); handleDelete(comment.commentId)"

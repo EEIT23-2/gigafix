@@ -3,12 +3,15 @@ package com.gigafix.forum.controller;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import com.gigafix.common.util.SecurityUtils;
 import com.gigafix.forum.dto.CommentResponse;
 import com.gigafix.forum.dto.CreateCommentRequest;
 import com.gigafix.forum.dto.UpdateCommentStatusRequest;
 import com.gigafix.forum.service.CommentService;
+import com.gigafix.member.security.MemberUserDetails;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,44 +27,47 @@ public class CommentController {
 	// 留言 Service
 	private final CommentService commentService;
 
-	// 查詢文章底下所有留言（公開；memberId 選填，帶了會附上每則留言是否已被該會員按讚）
+	// 查詢文章底下所有留言（公開；有登入的話會附上每則留言是否已被該會員按讚、是否為本人所發）
 	@GetMapping("/api/articles/{articleId}/comments")
 	public ResponseEntity<List<CommentResponse>> getComments(
 			@PathVariable Long articleId,
-			@RequestParam(required = false) Long memberId) {
+			Authentication authentication) {
 
-		List<CommentResponse> responses = commentService.getComments(articleId, memberId);
+		List<CommentResponse> responses = commentService.getComments(articleId, currentMemberId(authentication));
 
 		return ResponseEntity.ok(responses);
 	}
 
 	// 留言
-	@PostMapping("/api/members/{memberId}/articles/{articleId}/comments")
+	@PostMapping("/api/members/me/articles/{articleId}/comments")
 	public ResponseEntity<CommentResponse> createComment(
-			@PathVariable Long memberId,
+			Authentication authentication,
 			@PathVariable Long articleId,
 			@Valid @RequestBody CreateCommentRequest request) {
 
+		Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
 		CommentResponse response = commentService.createComment(memberId, articleId, request);
 
 		return ResponseEntity.ok(response);
 	}
 
 	// 刪除（軟刪除）自己的留言
-	@DeleteMapping("/api/members/{memberId}/comments/{commentId}")
+	@DeleteMapping("/api/members/me/comments/{commentId}")
 	public ResponseEntity<Void> deleteComment(
-			@PathVariable Long memberId,
+			Authentication authentication,
 			@PathVariable Long commentId) {
 
+		Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
 		commentService.deleteComment(memberId, commentId);
 
 		return ResponseEntity.noContent().build();
 	}
 
 	// 會員自己的留言歷史（個人中心）
-	@GetMapping("/api/members/{memberId}/comments")
-	public ResponseEntity<List<CommentResponse>> getMyComments(@PathVariable Long memberId) {
+	@GetMapping("/api/members/me/comments")
+	public ResponseEntity<List<CommentResponse>> getMyComments(Authentication authentication) {
 
+		Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
 		List<CommentResponse> responses = commentService.getMyComments(memberId);
 
 		return ResponseEntity.ok(responses);
@@ -97,5 +103,13 @@ public class CommentController {
 		CommentResponse response = commentService.updateCommentStatus(commentId, request);
 
 		return ResponseEntity.ok(response);
+	}
+
+	// 從 Authentication 解出目前登入的 memberId；未登入（匿名 principal）時回傳 null
+	private Long currentMemberId(Authentication authentication) {
+		if (authentication != null && authentication.getPrincipal() instanceof MemberUserDetails details) {
+			return details.getId();
+		}
+		return null;
 	}
 }

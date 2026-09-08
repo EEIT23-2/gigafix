@@ -1,6 +1,8 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
+import { useFetchMemberInfoStore } from '@/stores/member'
 import {
   getArticle,
   deleteArticle,
@@ -12,15 +14,18 @@ import {
   createFloor,
   updateFloor,
   reportArticle,
-  TEST_MEMBER_ID,
 } from '../api'
 import CommentSection from '../components/CommentSection.vue'
 import MoreActionsMenu from '../components/MoreActionsMenu.vue'
 import { sanitizeHtml, isHtmlEmpty } from '../htmlContent'
 import RichTextEditor from '../components/RichTextEditor.vue'
+import ForumLoginModal from '../components/ForumLoginModal.vue'
+import { useForumLoginModalStore } from '../store/loginModal'
 
 const route = useRoute()
 const router = useRouter()
+const loginModalStore = useForumLoginModalStore()
+const { memberInfo } = storeToRefs(useFetchMemberInfoStore())
 
 // 對齊後端 CreateReportRequest 的 @Size(max = 250)，欄位是 NVARCHAR(250)，250 是字元數
 const REPORT_MAX_LENGTH = 250
@@ -58,7 +63,7 @@ const reportSuccessMessage = ref('')
 const reportSuccessTargetId = ref(null)
 
 const articleId = computed(() => route.params.articleId)
-const isAuthor = computed(() => article.value?.authorId === TEST_MEMBER_ID)
+const isAuthor = computed(() => article.value?.isAuthor === true)
 // 跟後端 EDIT_BLOCKED_STATUSES 一致：只有討論串關閉（凍結）或下架才不能編輯，隱藏／強制隱藏都還能編輯
 const EDIT_BLOCKED_STATUSES = ['CLOSED', 'FORCE_CLOSED', 'TAKEN_DOWN']
 const canEditArticle = computed(() => !!article.value && !EDIT_BLOCKED_STATUSES.includes(article.value.status))
@@ -137,6 +142,10 @@ function isStateDesyncError(error) {
 
 // 樓層本身就是一篇 article，讚/收藏走的是同一組 API，只是帶該層自己的 articleId
 async function toggleLikeOn(target) {
+  if (!memberInfo.value) {
+    loginModalStore.open(route.fullPath)
+    return
+  }
   interactionError.value = ''
   const wasLiked = target.likedByCurrentMember
   try {
@@ -163,6 +172,10 @@ async function toggleLikeOn(target) {
 }
 
 async function toggleBookmarkOn(target) {
+  if (!memberInfo.value) {
+    loginModalStore.open(route.fullPath)
+    return
+  }
   interactionError.value = ''
   const wasBookmarked = target.bookmarkedByCurrentMember
   try {
@@ -187,6 +200,10 @@ async function toggleBookmarkOn(target) {
 async function handleCreateFloor() {
   // 蓋樓內容也是 HTML 了，空編輯器輸出是 <p></p>，不能用 trim 判斷
   if (isHtmlEmpty(floorContent.value)) return
+  if (!memberInfo.value) {
+    loginModalStore.open(route.fullPath)
+    return
+  }
   floorSubmitting.value = true
   floorErrorMessage.value = ''
   try {
@@ -206,7 +223,7 @@ async function handleCreateFloor() {
 // 用它當條件等於任何狀態都能編輯，繞過了 EDIT_BLOCKED_STATUSES 這道實際的限制
 function canEditFloor(floor) {
   return (
-    floor.authorId === TEST_MEMBER_ID &&
+    floor.isAuthor === true &&
     !EDIT_BLOCKED_STATUSES.includes(floor.status) &&
     !EDIT_BLOCKED_STATUSES.includes(article.value?.status)
   )
@@ -259,6 +276,10 @@ function toggleReportForm(targetId) {
 
 async function handleReportSubmit(targetId) {
   if (!reportReason.value.trim()) return
+  if (!memberInfo.value) {
+    loginModalStore.open(route.fullPath)
+    return
+  }
   reportSubmitting.value = true
   reportErrorMessage.value = ''
   try {
@@ -298,6 +319,7 @@ async function handleDeleteFloor(floorId) {
 
 <template>
   <main class="article-detail-page">
+    <ForumLoginModal />
     <div class="page-shell mx-auto">
       <p v-if="loading" class="state-message">載入中...</p>
 
@@ -482,7 +504,7 @@ async function handleDeleteFloor(floorId) {
                   <div v-if="floor.visible" class="ms-auto">
                     <MoreActionsMenu>
                       <template #default="{ close }">
-                        <template v-if="floor.authorId === TEST_MEMBER_ID">
+                        <template v-if="floor.isAuthor === true">
                           <!-- 樓層的編輯是原地展開，不導向文章編輯頁：樓層沒有標題、分類、封面圖 -->
                           <button
                             v-if="canEditFloor(floor)"

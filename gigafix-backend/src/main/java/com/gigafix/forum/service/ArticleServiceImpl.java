@@ -197,6 +197,7 @@ public class ArticleServiceImpl implements ArticleService {
 			return null;
 		}
 
+		response.setIsAuthor(isAuthor);
 		return response;
 	}
 
