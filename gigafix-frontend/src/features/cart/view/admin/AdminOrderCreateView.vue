@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import {
     getCreateOptions,
     createOrder as createOrderApi
-} from '../api'
+} from '../../api/adminOrderApi'
 
 //******新增訂單頁面******
 

@@ -128,11 +128,14 @@ public class SecurityConfig {
 		// SecurityContextHolderFilter的驗證機制也會透過這個工具去查前端傳來的Jsesssionid否有在tomcat的管理中
 	}
 
+	// Spring Security內部組裝HttpSecurity時會找一個全域預設的AuthenticationManager，
+	// 這裡沒有標會因為存在2個AuthenticationManager bean而啟動失敗；
+	// 實際登入都是Controller自己用@Qualifier指定要用哪個AuthenticationManager.authenticate()
+	// 注意：一定要手動把parent設成null！不設的話Spring會把@Primary的這顆bean自己
+	// 拿去當全域AuthenticationManager，變成兩顆bean(包括自己)的parent，
+	// 一旦某次認證失敗要往parent問，就會繞回自己造成無限遞迴、StackOverflowError
 	@Bean
-	@Primary // Spring Security內部組裝HttpSecurity時會找一個全域預設的AuthenticationManager，
-				// 這裡沒有標會因為存在2個AuthenticationManager bean而啟動失敗；
-				// 實際登入都是Controller自己用@Qualifier指定要用哪個AuthenticationManager.authenticate()，
-				// 這個全域預設的沒有被用到，標哪一個當Primary都不影響行為
+	@Primary
 	public AuthenticationManager adminAuthenticationManager(HttpSecurity http) throws Exception {
 		AuthenticationManagerBuilder authenticationManagerBuilder = http
 				.getSharedObject(AuthenticationManagerBuilder.class);
@@ -140,10 +143,12 @@ public class SecurityConfig {
 		authenticationManagerBuilder
 				.userDetailsService(adminUserDetailsService)
 				.passwordEncoder(passwordEncoder()); // 回傳值不是AuthenticationManagerBuilder，只能分開寫
+		authenticationManagerBuilder.parentAuthenticationManager(null); // 禁止往parent查，避免上述的無限遞迴
 
 		return authenticationManagerBuilder.build();
 	}
 
+	// 同上，避免落到同一個全域parent造成無限遞迴
 	@Bean
 	public AuthenticationManager memberAuthenticationManager(HttpSecurity http) throws Exception {
 		AuthenticationManagerBuilder authenticationManagerBuilder = http
@@ -152,6 +157,7 @@ public class SecurityConfig {
 		authenticationManagerBuilder
 				.userDetailsService(memberUserDetailsService)
 				.passwordEncoder(passwordEncoder()); // 這個是專門給member驗證的AuthenticationManager
+		authenticationManagerBuilder.parentAuthenticationManager(null);
 
 		return authenticationManagerBuilder.build();
 	}
