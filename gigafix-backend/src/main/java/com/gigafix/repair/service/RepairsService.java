@@ -58,6 +58,8 @@ public class RepairsService {
 				.repairStatus(r.getRepairStatus())
 				.storeName(r.getStore().getName())
 				.dropoffType(r.getDropoffType())
+				.contactName(r.getContactName())
+				.contactPhone(r.getContactPhone())
 //				可能是null的關聯物件」,要往下取欄位前要先判斷
 				.technicianId(r.getRepairTechnicians() == null ? null : r.getRepairTechnicians().getId())
 				.technicianName(r.getRepairTechnicians() == null ? null : r.getRepairTechnicians().getName())
@@ -106,16 +108,16 @@ public class RepairsService {
 	
 	
 //	新增 (查時段是否衝突)
-	public RepairsResponse insert(AppointmentRequest req) {
+	public RepairsResponse insert(AppointmentRequest req, Long memberId) {
 //		查得到就代表已被預約
 //		使用者體驗：丟出錯誤訊息
 		checkTimeConflict(req.getStoreId(), req.getBookingDate(), req.getTimeSlot(), null);
-		
+
 		Stores store = sRepos.findById(req.getStoreId())
 				.orElseThrow(() -> new RepairNotFoundException("找不到分店"));
-		Member member = mRepos.findById(req.getMemberId())
+		Member member = mRepos.findById(memberId)
 				.orElseThrow(() -> new RepairNotFoundException("找不到會員"));
-		
+
 		Repairs repair = Repairs.builder()
 				.member(member)
 				.store(store)
@@ -125,6 +127,8 @@ public class RepairsService {
 				.bookingDate(req.getBookingDate())
 				.timeSlot(req.getTimeSlot())
 				.dropoffType(req.getDropoffType())
+				.contactName(req.getContactName())
+				.contactPhone(req.getContactPhone())
 				.build();
 		
 		// repairStatus / estimatedCost / finalCost 有 @Builder.Default，不用手動設
@@ -149,6 +153,8 @@ public class RepairsService {
 		r.setBookingDate(req.getBookingDate());
 		r.setTimeSlot(req.getTimeSlot());
 		r.setDropoffType(req.getDropoffType());
+		r.setContactName(req.getContactName());
+		r.setContactPhone(req.getContactPhone());
 		// member 通常送出後不會再改，所以修改這裡沒有
 		
 		// 這裡不用手動呼叫 save()，因為 repair 是從 rRepos.findById 查出來的，

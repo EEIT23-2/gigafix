@@ -51,3 +51,37 @@ export const useProductStore = defineStore("product", () => {
     resetListState,
   };
 });
+// 保存回收申請列表的篩選、排序及分頁狀態。
+export const useRecycleApplicationStore = defineStore(
+  "recycleApplication",
+  () => {
+    const page = ref(0);
+    const size = ref(10);
+    const productName = ref("");
+    const appearance = ref("");
+    const category = ref("");
+    const recycleStatus = ref("");
+    const sortOption = ref("createdTime:desc");
+
+    function resetListState() {
+      page.value = 0;
+      size.value = 10;
+      productName.value = "";
+      appearance.value = "";
+      category.value = "";
+      recycleStatus.value = "";
+      sortOption.value = "createdTime:desc";
+    }
+
+    return {
+      page,
+      size,
+      productName,
+      appearance,
+      category,
+      recycleStatus,
+      sortOption,
+      resetListState,
+    };
+  },
+);

@@ -6,6 +6,12 @@ const STORES_URL = "/api/stores";
 
 // ========== 維修單 ==========
 
+// 客戶預約維修單（需登入，memberId 後端會自己從登入資訊拿，這裡不用傳）
+export const createAppointment = async (appointmentRequest) => {
+  const response = await axios.post(`${REPAIRS_URL}/appointment`, appointmentRequest);
+  return response.data;
+};
+
 // 查詢維修單，params 可以是 { id, memberId, memberName, technicianId, technicianName, status }
 // 每個欄位都可以不填，不填就是查全部
 export const searchRepairs = async (params = {}) => {
