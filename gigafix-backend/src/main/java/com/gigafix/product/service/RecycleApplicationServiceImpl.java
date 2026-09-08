@@ -105,6 +105,7 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
         if(applyForm.getMember() !=null){
             response.setMemberId(applyForm.getMember().getId());
             response.setMemberName(applyForm.getMember().getRealName());
+            response.setContactPhone(applyForm.getMember().getPhone());
         }
 
         if(applyForm.getStores() != null){

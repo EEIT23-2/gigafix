@@ -2,7 +2,7 @@ import axios from "axios";
 
 // 商品 Controller 的共同路徑。
 // Vite 會把 /api 開頭的請求代理到 http://localhost:8080。
-const PRODUCT_URL = "/api/products";
+const PRODUCT_URL = "/api/gigafix/products";
 const ADMIN_PRODUCT_URL = "/api/admin/products";
 
 //回收單Controller的共同路徑
