@@ -30,6 +30,8 @@ import com.gigafix.product.constant.ProductSaleStatus;
 import com.gigafix.product.entity.Product;
 import com.gigafix.product.repository.ProductDao;
 import com.gigafix.product.service.ProductService;
+import com.gigafix.coupon.entity.Coupon;
+import com.gigafix.coupon.service.CouponService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -50,46 +52,75 @@ public class OrderServiceImpl implements OrderService {
 
     // 商品 Repository
     private final ProductDao productDao;
+
     // 商品 Service
     private final ProductService productService;
 
+    // 優惠券 Service
+    private final CouponService couponService;
     // ---------------會員前台功能----------------------
 
     // 會員從購物車結帳建立訂單
-    @Override
     @Transactional
+    @Override
     public OrderResponse createOrder(
             Long memberId,
             CreateOrderRequest request) {
 
-        // 檢查會員是否存在
+        // 1. 檢查會員是否存在
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "會員不存在，memberId：" + memberId));
 
-        // 查詢會員購物車內全部商品
-        List<CartItem> cartItems = cartItemRepository.findByMember_Id(memberId);
-        // 檢查購物車是否為空
-        if (cartItems.isEmpty()) {
-            throw new IllegalStateException("購物車是空的，無法建立訂單");
+        // 2. 取得前端勾選的購物車項目 ID
+        List<Long> cartItemIds = request.getCartItemIds();
+
+        if (cartItemIds == null || cartItemIds.isEmpty()) {
+            throw new IllegalStateException("請至少選擇一項商品進行結帳");
         }
 
-        // 檢查商品狀態並計算訂單總金額
+        // 3. 只取得這次勾選的購物車商品
+        List<CartItem> selectedCartItems = new ArrayList<>();
+
+        for (Long cartItemId : cartItemIds) {
+
+            CartItem cartItem = cartItemRepository
+                    .findByCartItemIdAndMember_Id(cartItemId, memberId)
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "購物車商品不存在或不屬於目前會員，cartItemId：" + cartItemId));
+
+            selectedCartItems.add(cartItem);
+        }
+
+        // 4. 檢查商品狀態並計算本次結帳總金額
         Integer totalAmount = 0;
 
-        for (CartItem cartItem : cartItems) {
+        for (CartItem cartItem : selectedCartItems) {
+
             Product product = productDao.findById(cartItem.getProductId())
                     .orElseThrow(() -> new IllegalArgumentException(
                             "商品不存在，productId：" + cartItem.getProductId()));
-            // 商品必須是可販售狀態
+
             if (product.getSaleStatus() != ProductSaleStatus.AVAILABLE) {
                 throw new IllegalStateException(
                         "商品目前不可購買，productId：" + product.getProductId());
             }
-            // 累加訂單總金額
+
             totalAmount += product.getPrice();
         }
-        // 建立訂單主表
+        // 取得前端送出的優惠券代碼
+        String couponCode = request.getCouponCode();
+
+        if (couponCode != null && !couponCode.isBlank()) {
+
+            Coupon coupon = couponService.validateCoupon(couponCode);
+
+            int discountAmount = coupon.getDiscountAmount();
+
+            totalAmount = Math.max(totalAmount - discountAmount, 0);
+        }
+
+        // 5. 建立訂單主表
         Order order = new Order();
 
         order.setMember(member);
@@ -104,11 +135,10 @@ public class OrderServiceImpl implements OrderService {
         order.setShippingStatus(ShippingStatus.PENDING.name());
         order.setCustomerRemark(request.getCustomerRemark());
 
-        // 儲存訂單主表
         Order savedOrder = orderRepository.save(order);
 
-        // 建立訂單明細
-        for (CartItem cartItem : cartItems) {
+        // 6. 只建立被勾選商品的訂單明細
+        for (CartItem cartItem : selectedCartItems) {
 
             Product product = productDao.findById(cartItem.getProductId())
                     .orElseThrow(() -> new IllegalArgumentException(
@@ -123,14 +153,16 @@ public class OrderServiceImpl implements OrderService {
 
             orderItemRepository.save(orderItem);
         }
-        // 將結帳商品設為 RESERVED
-        for (CartItem cartItem : cartItems) {
+
+        // 7. 只把這次結帳商品設為 RESERVED
+        for (CartItem cartItem : selectedCartItems) {
             productService.reserveProduct(cartItem.getProductId());
         }
-        // 清空購物車
-        cartItemRepository.deleteAll(cartItems);
 
-        // 建立回傳 DTO
+        // 8. 只刪除已結帳的購物車項目
+        cartItemRepository.deleteAll(selectedCartItems);
+
+        // 9. 回傳訂單
         return toOrderResponse(savedOrder);
     }
 
