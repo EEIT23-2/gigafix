@@ -31,7 +31,6 @@ const loadCart = async () => {
         cartItems.value = response.data
     } catch (error) {
         console.error(error)
-        errorMessage.value = '購物車載入失敗'
     } finally {
         loading.value = false
     }

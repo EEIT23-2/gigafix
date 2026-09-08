@@ -20,7 +20,6 @@ const loadOrders = async () => {
         })
     } catch (error) {
         console.error(error)
-        errorMessage.value = '訂單載入失敗'
     } finally {
         loading.value = false
     }

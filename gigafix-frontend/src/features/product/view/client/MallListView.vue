@@ -7,8 +7,21 @@ import {
   ref,
   watch,
 } from "vue";
+import { storeToRefs } from "pinia";
+import { addCartItem } from "@/features/cart/api/cartApi.js";
+import { useFetchMemberInfoStore } from "@/stores/member";
 import { getProducts } from "../../api.js";
 import MallTable from "../../components/client/MallTable.vue";
+
+const fetchMemberInfoStore = useFetchMemberInfoStore();
+const { memberInfo } = storeToRefs(fetchMemberInfoStore);
+
+const openLoginModal = () => {
+  const loginButton = document.querySelector(
+    ".user-actions button.action-item",
+  );
+  loginButton?.click();
+};
 
 const categories = [
   { id: "IPHONE", label: "iPhone", icon: "bi-phone" },
@@ -34,6 +47,7 @@ const totalElements = ref(0);
 const loading = ref(false);
 const errorMessage = ref("");
 const cartMessage = ref("");
+const cartMessageType = ref("success");
 let requestSequence = 0;
 let debounceTimer;
 let cartMessageTimer;
@@ -121,14 +135,27 @@ function handleSelectProduct(product) {
   console.log("選擇商品：", product);
 }
 
-function handleAddToCart(product) {
+const addToCart = async (product) => {
+  if (!memberInfo.value) {
+    openLoginModal();
+    return;
+  }
+
   clearTimeout(cartMessageTimer);
   const name = product.product_name ?? product.productName ?? product.name ?? "商品";
-  cartMessage.value = `${name} 已準備加入購物車（購物車 API 尚未串接）`;
+  try {
+    await addCartItem(product.productId);
+    cartMessageType.value = "success";
+    cartMessage.value = `${name} 已加入購物車`;
+  } catch (error) {
+    cartMessageType.value = "danger";
+    cartMessage.value =
+      error?.response?.data?.message ?? `${name} 加入購物車失敗，請稍後再試`;
+  }
   cartMessageTimer = setTimeout(() => {
     cartMessage.value = "";
   }, 3000);
-}
+};
 
 watch([selectedCategory, sort, pageSize], () => {
   pageNumber.value = 0;
@@ -244,7 +271,8 @@ onBeforeUnmount(() => {
       <section class="col-lg-9">
         <div
           v-if="cartMessage"
-          class="alert alert-success cart-message"
+          class="alert cart-message"
+          :class="`alert-${cartMessageType}`"
           role="status"
           aria-live="polite"
         >
@@ -295,7 +323,7 @@ onBeforeUnmount(() => {
           @retry="fetchProducts"
           @change-page="changePage"
           @select-product="handleSelectProduct"
-          @add-to-cart="handleAddToCart"
+          @add-to-cart="addToCart"
         />
       </section>
     </div>

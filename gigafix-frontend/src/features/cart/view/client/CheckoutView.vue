@@ -21,7 +21,14 @@ const selectedCouponCode = ref(
         ? route.query.couponCode
         : ''
 )
-
+// 選取的取貨門市資訊
+const selectedStore = ref({
+    cvsType: '',
+    storeId: '',
+    storeName: '',
+    storeAddress: ''
+})
+// 結帳表單資料
 const form = ref({
     paymentMethod: 'CREDIT_CARD',
     receiverName: '',
