@@ -71,15 +71,15 @@ const checkLoginError = () => {
     loginErrorMsg.value = '請輸入Email'
   } else if (!password.value) {
     loginErrorMsg.value = '請輸入密碼'
-  } else if (password.value.length < 8) {
-    loginErrorMsg.value = '密碼長度必須至少8位數'
+  } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(password.value)) {
+    loginErrorMsg.value = '密碼需至少8碼，並包含大小寫英文字母及數字'
   } else {
     loginErrorMsg.value = ''
   }
 }
 const login =async () => {
   try {
-        const resp = await axios.post('/api/gigafix/members/login',{
+        const resp = await axios.post('/api/gigafix/login',{
             email: mail.value,
             password: password.value
         })
@@ -127,8 +127,8 @@ const checkRegisterError = () => {
     registerErrorMsg.value = 'OTP驗證碼須為6碼數字'
   } else if (!regPassword.value) {
     registerErrorMsg.value = '請輸入密碼'
-  } else if (regPassword.value.length < 8) {
-    registerErrorMsg.value = '密碼長度必須至少8位數'
+  } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(regPassword.value)) {
+    registerErrorMsg.value = '密碼需至少8碼，並包含大小寫英文字母及數字'
   } else if (!regRealName.value.trim()) {
     registerErrorMsg.value = '請輸入真實姓名'
   } else if (!regNickName.value.trim()) {
@@ -218,8 +218,8 @@ const checkForgotPasswordError = () => {
     fpErrorMsg.value = '請輸入Email'
   } else if (!fpNewPassword.value) {
     fpErrorMsg.value = '請輸入新密碼'
-  } else if (fpNewPassword.value.length < 8) {
-    fpErrorMsg.value = '密碼長度必須至少8位數'
+  } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(fpNewPassword.value)) {
+    fpErrorMsg.value = '密碼需至少8碼，並包含大小寫英文字母及數字'
   } else if (!fpOtp.value) {
     fpErrorMsg.value = '請輸入OTP驗證碼'
   } else if (!/^\d{6}$/.test(fpOtp.value)) {
@@ -385,7 +385,7 @@ const goToRepairAppointment = () => {
       </button>
     </div>
     <label class="form-label">密碼</label>
-    <input type="password" class="form-control mb-2" v-model="regPassword" placeholder="請輸入密碼(至少8碼)" @input="checkRegisterError()">
+    <input type="password" class="form-control mb-2" v-model="regPassword" placeholder="至少8碼，需含大小寫英文字母及數字" @input="checkRegisterError()">
     <!-- 真實姓名+暱稱併成一排，縮短表單高度，密碼/手機號碼維持獨立一排避免看起來擁擠 -->
     <div class="row g-2 mb-2">
       <div class="col-6">
@@ -426,7 +426,7 @@ const goToRepairAppointment = () => {
     <label class="form-label">Email</label>
     <input type="email" class="form-control mb-3" v-model="fpEmail" placeholder="請輸入Email" @input="checkForgotPasswordError()">
     <label class="form-label">新密碼</label>
-    <input type="password" class="form-control mb-3" v-model="fpNewPassword" placeholder="請輸入新密碼(至少8碼)" @input="checkForgotPasswordError()">
+    <input type="password" class="form-control mb-3" v-model="fpNewPassword" placeholder="至少8碼，需含大小寫英文字母及數字" @input="checkForgotPasswordError()">
     <label class="form-label">OTP驗證碼</label>
     <div class="otp-row mb-3">
       <input type="text" class="form-control" v-model="fpOtp" maxlength="6" placeholder="請輸入6碼驗證碼" @input="checkForgotPasswordError()">
