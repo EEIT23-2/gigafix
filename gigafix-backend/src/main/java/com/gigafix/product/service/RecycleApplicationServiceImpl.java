@@ -8,7 +8,6 @@ import com.gigafix.product.constant.RecycleStatus;
 import com.gigafix.product.dto.RecycleQueryParams;
 import com.gigafix.product.dto.RecycleRequest;
 import com.gigafix.product.dto.RecycleResponse;
-import com.gigafix.product.entity.Product;
 import com.gigafix.product.entity.RecycleApplication;
 import com.gigafix.product.repository.RecycleApplicationDao;
 import com.gigafix.repair.entity.Stores;
@@ -22,7 +21,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 
 @Transactional
@@ -96,7 +94,7 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
         response.setApplyId(applyForm.getApplyId());
         response.setProductName(applyForm.getProductName());
         response.setCategory(applyForm.getCategory());
-        response.setAppreance(applyForm.getAppearance());
+        response.setAppearance(applyForm.getAppearance());
         response.setImageUrl(applyForm.getImageUrl());
         response.setDescription(applyForm.getDescription());
         response.setEstimatedPrice(applyForm.getEstimatedPrice());

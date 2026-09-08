@@ -18,7 +18,7 @@ public class RecycleResponse {
     private String memberName;
     private String productName;
     private ProductCategory category;
-    private String appreance;
+    private String appearance;
     private String imageUrl;
     private String description;
     private Integer estimatedPrice;
