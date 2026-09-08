@@ -18,6 +18,10 @@ import { RouterLink } from "vue-router";
       <span class="nav-title"><span class="icon">⚙️</span> 商品管理</span>
       <span class="arrow">›</span>
     </RouterLink>
+    <RouterLink class="nav-item" to="/admin/applyForms">
+      <span class="nav-title"><span class="icon">📁</span> 回收單管理</span>
+      <span class="arrow">›</span>
+    </RouterLink>
     <RouterLink class="nav-item" to="/admin/orders">
       <span class="nav-title"><span class="icon">🔧</span> 訂單管理</span>
       <span class="arrow">›</span>
