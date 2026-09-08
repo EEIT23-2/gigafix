@@ -1,7 +1,9 @@
 package com.gigafix.forum.service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -17,11 +19,15 @@ import com.gigafix.forum.dto.CreateArticleRequest;
 import com.gigafix.forum.dto.CreateFloorRequest;
 import com.gigafix.forum.dto.UpdateArticleRequest;
 import com.gigafix.forum.dto.UpdateArticleStatusRequest;
+import com.gigafix.forum.dto.UpdateFloorRequest;
 import com.gigafix.forum.entity.Article;
 import com.gigafix.forum.entity.Category;
 import com.gigafix.forum.exception.ForumException;
 import com.gigafix.forum.repository.ArticleRepository;
+import com.gigafix.forum.repository.BookmarkRepository;
 import com.gigafix.forum.repository.CategoryRepository;
+import com.gigafix.forum.repository.LikeRepository;
+import com.gigafix.forum.util.HtmlSanitizer;
 import com.gigafix.member.entity.Member;
 import com.gigafix.member.repository.MemberRepository;
 
@@ -39,6 +45,12 @@ public class ArticleServiceImpl implements ArticleService {
 
 	// 會員 Repository
 	private final MemberRepository memberRepository;
+
+	// 讚 Repository（詳情/樓層列表要附上呼叫者是否已按讚）
+	private final LikeRepository likeRepository;
+
+	// 收藏 Repository（詳情/樓層列表要附上呼叫者是否已收藏）
+	private final BookmarkRepository bookmarkRepository;
 
 	// 前台列表/詳情：完整可見的狀態（1=發布 4=關閉 6=強制關閉，關閉只鎖留言/蓋樓，文章本身仍完整可見）
 	private static final Set<Article.ArticleStatus> FULLY_PUBLIC_STATUSES = EnumSet.of(
@@ -60,6 +72,12 @@ public class ArticleServiceImpl implements ArticleService {
 	// 後台可以變更狀態的來源（草稿、作者隱藏不開放管理員操作；強制處分後仍可再被管理員改回來，所以強制隱藏/強制關閉也是合法來源）
 	private static final Set<Article.ArticleStatus> ADMIN_ALLOWED_SOURCES = EnumSet.of(Article.ArticleStatus.PUBLISHED,
 			Article.ArticleStatus.CLOSED, Article.ArticleStatus.FORCE_HIDDEN, Article.ArticleStatus.FORCE_CLOSED);
+
+	// 編輯（含樓層）唯一擋下的狀態：討論串被關閉（含強制關閉）或已下架。
+	// 隱藏／強制隱藏都還能編輯——隱藏是可逆狀態，被強制隱藏的內容在重新公開前本來就只有作者自己看得到，
+	// 讓作者趁這段時間把內容改好，不會讓被下架的東西提早曝光
+	private static final Set<Article.ArticleStatus> EDIT_BLOCKED_STATUSES = EnumSet.of(
+			Article.ArticleStatus.CLOSED, Article.ArticleStatus.FORCE_CLOSED, Article.ArticleStatus.TAKEN_DOWN);
 
 	// ---------------會員前台功能----------------------
 
@@ -84,8 +102,9 @@ public class ArticleServiceImpl implements ArticleService {
 			throw ForumException.badRequest("建立文章時狀態僅能為草稿或發布");
 		}
 		// 只有要直接發布時才驗證標題/內文不能空白；草稿允許空白，供自動儲存流程使用
+		// 內文是富文本 HTML，空編輯器會送來 <p></p>，isBlank 擋不住，要用 isEmptyContent
 		if (requestedStatus == Article.ArticleStatus.PUBLISHED
-				&& (isBlank(request.getTitle()) || isBlank(request.getContent()))) {
+				&& (isBlank(request.getTitle()) || HtmlSanitizer.isEmptyContent(request.getContent()))) {
 			throw ForumException.badRequest("標題與內文不能為空");
 		}
 
@@ -94,7 +113,7 @@ public class ArticleServiceImpl implements ArticleService {
 		article.setAuthor(author);
 		article.setCategory(category);
 		article.setTitle(emptyIfNull(request.getTitle()));
-		article.setContent(emptyIfNull(request.getContent()));
+		article.setContent(HtmlSanitizer.clean(emptyIfNull(request.getContent())));
 		article.setCoverImage(request.getCoverImage());
 		article.setStatus(requestedStatus);
 
@@ -137,6 +156,7 @@ public class ArticleServiceImpl implements ArticleService {
 			// DRAFT 且非作者本人：視為不存在
 			throw new IllegalArgumentException("文章不存在，articleId：" + articleId);
 		}
+		applySingleMemberInteraction(response, memberId);
 		return response;
 	}
 
@@ -146,27 +166,77 @@ public class ArticleServiceImpl implements ArticleService {
 		boolean isAuthor = memberId != null && article.getAuthor().getId().equals(memberId);
 		Article.ArticleStatus status = article.getStatus();
 
+		ArticleResponse response;
 		if (FULLY_PUBLIC_STATUSES.contains(status)) {
+			// 先把 DTO 組完（順便把 lazy 關聯讀出來），再去加瀏覽數，
+			// 否則 incrementViewCount 清掉 persistence context 後這裡會抓不到 category/author
+			response = toArticleResponse(article, true, null);
 			if (incrementViewIfFull) {
-				article.setViewCount(article.getViewCount() + 1);
-				articleRepository.save(article);
+				articleRepository.incrementViewCount(article.getArticleId());
+				// entity 本身刻意不動（動了 dirty checking 一樣會觸發 @PreUpdate），所以自己把這次瀏覽補到回傳值上
+				response.setViewCount(response.getViewCount() + 1);
 			}
-			return toArticleResponse(article, true, null);
-		}
-		if (status == Article.ArticleStatus.HIDDEN) {
-			return isAuthor ? toArticleResponse(article, true, null)
+		} else if (status == Article.ArticleStatus.HIDDEN) {
+			// isAuthor 分支也帶說明文字：作者本人雖然看得到完整內容，但要有明顯提示，
+			// 不能跟一篇正常發布的文章長得一模一樣
+			response = isAuthor
+					? toArticleResponse(article, true, "此內容目前為隱藏狀態，只有你自己看得到")
 					: toArticleResponse(article, false, "此文章目前已被作者隱藏");
-		}
-		if (status == Article.ArticleStatus.FORCE_HIDDEN) {
-			return isAuthor ? toArticleResponse(article, true, null)
+		} else if (status == Article.ArticleStatus.FORCE_HIDDEN) {
+			response = isAuthor
+					? toArticleResponse(article, true, "此內容已被管理員隱藏，只有你自己看得到")
 					: toArticleResponse(article, false, "此文章已被管理員隱藏");
-		}
-		if (status == Article.ArticleStatus.TAKEN_DOWN) {
+		} else if (status == Article.ArticleStatus.TAKEN_DOWN) {
 			// 連作者本人透過這個公開端點都看不到完整內容，完整內容只有後台端點看得到
-			return toArticleResponse(article, false, "此文章已下架");
+			response = toArticleResponse(article, false, "此文章已下架");
+		} else if (isAuthor) {
+			// DRAFT：只有作者本人看得到
+			response = toArticleResponse(article, true, null);
+		} else {
+			// DRAFT 給非作者：視為不存在
+			return null;
 		}
-		// DRAFT：只有作者本人看得到，其他人視為不存在
-		return isAuthor ? toArticleResponse(article, true, null) : null;
+
+		return response;
+	}
+
+	// 附上呼叫者對「單篇」文章的讚／收藏狀態（文章詳情用）。
+	// 內容看不到時（已下架/被隱藏的遮蔽版）直接跳過，不必為了讀不到的內容多打兩次查詢
+	private void applySingleMemberInteraction(ArticleResponse response, Long memberId) {
+
+		if (memberId == null || !Boolean.TRUE.equals(response.getVisible())) {
+			return;
+		}
+		Long articleId = response.getArticleId();
+		response.setLikedByCurrentMember(
+				likeRepository.findByMember_IdAndArticle_ArticleId(memberId, articleId).isPresent());
+		response.setBookmarkedByCurrentMember(
+				bookmarkRepository.findByMember_IdAndArticle_ArticleId(memberId, articleId).isPresent());
+	}
+
+	// 附上呼叫者對「一批」文章的讚／收藏狀態（樓層列表用）。
+	// 逐層查會變成每層 2 次查詢，這裡改成整批各查一次，總共固定 2 次
+	private void applyBatchMemberInteraction(List<ArticleResponse> responses, Long memberId) {
+
+		// 只有看得到內容的才需要標示互動狀態
+		List<Long> targetIds = responses.stream()
+				.filter(r -> Boolean.TRUE.equals(r.getVisible()))
+				.map(ArticleResponse::getArticleId)
+				.toList();
+
+		if (memberId == null || targetIds.isEmpty()) {
+			return;
+		}
+
+		Set<Long> likedIds = new HashSet<>(likeRepository.findLikedArticleIds(memberId, targetIds));
+		Set<Long> bookmarkedIds = new HashSet<>(bookmarkRepository.findBookmarkedArticleIds(memberId, targetIds));
+
+		for (ArticleResponse response : responses) {
+			if (Boolean.TRUE.equals(response.getVisible())) {
+				response.setLikedByCurrentMember(likedIds.contains(response.getArticleId()));
+				response.setBookmarkedByCurrentMember(bookmarkedIds.contains(response.getArticleId()));
+			}
+		}
 	}
 
 	// 編輯自己的文章
@@ -188,6 +258,17 @@ public class ArticleServiceImpl implements ArticleService {
 			throw new IllegalStateException("無權限操作此文章");
 		}
 
+		// 樓層擋在這裡：樓層也是一筆 article，不擋的話這支端點會變成改樓層標題與分類的後門
+		// （兩者都是後端依樓主推導出來的，不該由呼叫者決定）
+		if (article.getParentArticle() != null) {
+			throw ForumException.badRequest("樓層請改用樓層編輯端點");
+		}
+
+		// 討論串關閉或已下架就不能再編輯；隱藏／強制隱藏仍可編輯，見 EDIT_BLOCKED_STATUSES 的宣告說明
+		if (EDIT_BLOCKED_STATUSES.contains(article.getStatus())) {
+			throw new IllegalStateException("目前狀態不允許編輯：" + article.getStatus());
+		}
+
 		// 檢查分類是否存在
 		Category category = categoryRepository.findById(request.getCategoryId())
 				.orElseThrow(
@@ -195,15 +276,16 @@ public class ArticleServiceImpl implements ArticleService {
 
 		// 草稿階段允許標題/內文空白（自動儲存用）；非草稿狀態才驗證不能為空
 		if (article.getStatus() != Article.ArticleStatus.DRAFT
-				&& (isBlank(request.getTitle()) || isBlank(request.getContent()))) {
+				&& (isBlank(request.getTitle()) || HtmlSanitizer.isEmptyContent(request.getContent()))) {
 			throw ForumException.badRequest("標題與內文不能為空");
 		}
 
 		// 更新文章內容
 		article.setCategory(category);
 		article.setTitle(request.getTitle());
-		article.setContent(request.getContent());
+		article.setContent(HtmlSanitizer.clean(request.getContent()));
 		article.setCoverImage(request.getCoverImage());
+		article.setArticleEditedTime(LocalDateTime.now()); // 真的編輯內文才寫入，跟 articleUpdatedTime（任何欄位變動都會動）分開
 
 		Article savedArticle = articleRepository.save(article);
 
@@ -263,7 +345,7 @@ public class ArticleServiceImpl implements ArticleService {
 		}
 		// 發布時要驗證標題/內文不能為空
 		if (request.getStatus() == Article.ArticleStatus.PUBLISHED
-				&& (isBlank(article.getTitle()) || isBlank(article.getContent()))) {
+				&& (isBlank(article.getTitle()) || HtmlSanitizer.isEmptyContent(article.getContent()))) {
 			throw ForumException.badRequest("標題與內文不能為空，無法發布");
 		}
 
@@ -305,6 +387,8 @@ public class ArticleServiceImpl implements ArticleService {
 				result.add(response);
 			}
 		}
+		// 整批一次帶回讚／收藏狀態，避免逐層查詢
+		applyBatchMemberInteraction(result, memberId);
 		return result;
 	}
 
@@ -318,6 +402,11 @@ public class ArticleServiceImpl implements ArticleService {
 
 		Article root = articleRepository.findById(articleId)
 				.orElseThrow(() -> new IllegalArgumentException("文章不存在，articleId：" + articleId));
+
+		// 樓層內容也是富文本，空編輯器輸出是 <p></p>，@NotBlank 擋不住
+		if (HtmlSanitizer.isEmptyContent(request.getContent())) {
+			throw ForumException.badRequest("樓層內容不能為空");
+		}
 
 		// 防止樓中樓：只有頂層文章能被蓋樓
 		if (root.getParentArticle() != null) {
@@ -336,7 +425,7 @@ public class ArticleServiceImpl implements ArticleService {
 		floor.setParentArticle(root);
 		floor.setCategory(root.getCategory()); // 樓層繼承根文章分類
 		floor.setTitle(root.getTitle() + "(" + floorNumber + "樓)");
-		floor.setContent(request.getContent());
+		floor.setContent(HtmlSanitizer.clean(request.getContent()));
 		floor.setStatus(Article.ArticleStatus.PUBLISHED); // 樓層不走草稿，直接發布
 
 		Article saved = articleRepository.save(floor);
@@ -344,6 +433,57 @@ public class ArticleServiceImpl implements ArticleService {
 		ArticleResponse response = toArticleResponse(saved);
 		response.setFloorNumber(floorNumber);
 		return response;
+	}
+
+	// 編輯樓層：只換內文。標題（樓主標題+樓層數）與分類是後端產生的，這支端點刻意不接受它們，
+	// 前端也就不需要（也不可能）把伺服器自己算出來的值再送回來
+	@Override
+	@Transactional
+	public ArticleResponse updateFloor(Long memberId, Long floorId, UpdateFloorRequest request) {
+
+		// 檢查會員是否存在
+		if (!memberRepository.existsById(memberId)) {
+			throw new IllegalArgumentException("會員不存在，memberId：" + memberId);
+		}
+
+		Article floor = articleRepository.findById(floorId)
+				.orElseThrow(() -> new IllegalArgumentException("文章不存在，articleId：" + floorId));
+
+		// 這支端點只處理樓層；一般文章請走 updateArticle（那邊才有標題與分類）
+		Article root = floor.getParentArticle();
+		if (root == null) {
+			throw ForumException.badRequest("此文章不是樓層");
+		}
+
+		// 確認為樓層作者本人
+		if (!floor.getAuthor().getId().equals(memberId)) {
+			throw new IllegalStateException("無權限操作此文章");
+		}
+
+		// 樓層自己不能處於討論串關閉或已下架狀態；隱藏／強制隱藏都還能編輯，
+		// 見 EDIT_BLOCKED_STATUSES 的宣告說明——編輯完在重新公開前一樣只有作者自己看得到
+		if (EDIT_BLOCKED_STATUSES.contains(floor.getStatus())) {
+			throw new IllegalStateException("此樓層目前無法編輯");
+		}
+
+		// 樓主文章也要通過同一道守衛：討論串被關閉或下架後，底下樓層也不能再編輯。
+		// 這裡比 createFloor（新增樓層仍嚴格要求 root 是 PUBLISHED）寬鬆——已存在的樓層在樓主隱藏期間
+		// 還能修正內容，但不能在隱藏期間長出新樓層
+		if (EDIT_BLOCKED_STATUSES.contains(root.getStatus())) {
+			throw new IllegalStateException("文章目前無法編輯樓層");
+		}
+
+		// 空編輯器輸出是 <p></p>，@NotBlank 擋不住
+		if (HtmlSanitizer.isEmptyContent(request.getContent())) {
+			throw ForumException.badRequest("樓層內容不能為空");
+		}
+
+		// articleUpdatedTime 由 Article 的 @PreUpdate 自動帶上，不用手動設；
+		// articleEditedTime 則要手動寫，這才是「內容真的被編輯過」的旗標
+		floor.setContent(HtmlSanitizer.clean(request.getContent()));
+		floor.setArticleEditedTime(LocalDateTime.now());
+
+		return toArticleResponse(articleRepository.save(floor));
 	}
 
 	// ---------------後台管理功能（暫無權限檢查）----------------------
@@ -442,12 +582,16 @@ public class ArticleServiceImpl implements ArticleService {
 				.viewCount(article.getViewCount())
 				.likeCount(article.getLikeCount())
 				.commentCount(article.getCommentCount())
-				.floorCount((int) articleRepository.countByParentArticle_ArticleId(article.getArticleId()))
+				// 樓層底下不會再有樓層（樓中樓在建立時就被擋掉），所以樓層的 floorCount 結構上恆為 0，
+				// 不需要為每一層都查一次資料庫
+				.floorCount(article.getParentArticle() != null ? 0
+						: (int) articleRepository.countByParentArticle_ArticleId(article.getArticleId()))
 				.coverImage(visible ? article.getCoverImage() : null)
 				.status(article.getStatus().name())
 				.isPinned(article.getIsPinned())
 				.articleCreatedTime(article.getArticleCreatedTime())
 				.articleUpdatedTime(article.getArticleUpdatedTime())
+				.articleEditedTime(article.getArticleEditedTime())
 				.parentArticleId(article.getParentArticle() != null ? article.getParentArticle().getArticleId() : null)
 				.visible(visible)
 				.visibilityMessage(visibilityMessage)

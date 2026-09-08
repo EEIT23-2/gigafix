@@ -1,8 +1,7 @@
 export default[
-    // {  //陣列裡設定網頁的path
-    //     path:,
-    //     name:,
-    //     component:,
-    //     props: true
-    // }
+    {
+        path: "repair-appointment", //客戶預約維修單
+        name: "repair-appointment",
+        component: () => import("../view/RepairAppointmentView.vue"),
+    }
 ]

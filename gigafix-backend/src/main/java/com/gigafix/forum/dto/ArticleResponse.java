@@ -29,9 +29,15 @@ public class ArticleResponse {
 	private Boolean isPinned; // 是否置頂
 	private LocalDateTime articleCreatedTime; // 文章建立時間
 	private LocalDateTime articleUpdatedTime; // 文章最後更新時間
+	private LocalDateTime articleEditedTime; // 內文最後被實際編輯的時間；狀態變更/置頂/建立不會動到它
 	private Boolean visible; // 呼叫者是否看得到完整內容；false 時 title/content/coverImage 為 null
-	private String visibilityMessage; // visible=false 時的說明文字；visible=true 時為 null
+	private String visibilityMessage; // 一般情況下 visible=false 時才有說明文字，visible=true 時為 null；
+										// 例外是作者預覽自己被隱藏/強制隱藏的內容：visible=true 但仍會帶一句只有作者看得到的提示
 	private Long parentArticleId; // 所屬根文章 id；一般文章/專欄為 null，樓層才有值
 	private Integer floorNumber; // 第幾樓；只有蓋樓相關 API（列表/建立）會填，其餘為 null
 	private Integer floorCount; // 這篇文章底下有幾樓；樓層本身查出來固定是 0
+	// 以下兩個欄位行為相同：只有「文章詳情」與「樓層列表」會填，其餘路徑（列表、發文、編輯、後台）一律為 null。
+	// 有填的情況下：沒帶 memberId、或內容因下架/隱藏而看不到時為 null（不做多餘查詢），其餘為 true/false
+	private Boolean likedByCurrentMember; // 查詢時帶的 memberId 是否已對這篇按讚
+	private Boolean bookmarkedByCurrentMember; // 查詢時帶的 memberId 是否已收藏這篇
 }

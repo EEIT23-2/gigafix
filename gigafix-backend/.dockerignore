@@ -1,0 +1,38 @@
+# 建置產物（會在 image 裡重新建置，不需要帶進 build context）
+target/
+
+# git
+.git/
+.gitignore
+.gitattributes
+
+# Eclipse / IDE 專案 metadata
+.classpath
+.factorypath
+.project
+.settings/
+.metadata/
+.vscode/
+.idea/
+
+# 文件（不影響建置結果，排除可縮小 build context）
+HELP.md
+README.md
+
+# OS 系統檔案
+.DS_Store
+Thumbs.db
+
+# 日誌
+*.log
+logs/
+
+# 環境變數（敏感資訊，絕對不能打包進 image）
+.env
+.env.local
+.env.*.local
+
+# Docker 相關檔案本身也可以排除（build 過程用不到自己）
+Dockerfile
+.dockerignore
+docker-compose*.yml

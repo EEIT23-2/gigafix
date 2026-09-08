@@ -53,6 +53,12 @@ public class ReportServiceImpl implements ReportService {
 			throw new IllegalStateException("不能檢舉自己的文章");
 		}
 
+		// 同一人對同一篇文章若已有待處理的檢舉，就不再重複受理（已處理/已關閉的案件之後仍可再次檢舉）
+		if (reportRepository.existsByReporter_IdAndArticle_ArticleIdAndStatus(memberId, articleId,
+				Report.ReportStatus.PENDING)) {
+			throw new IllegalStateException("你已經檢舉過這篇文章，管理員正在處理中");
+		}
+
 		// 建立檢舉
 		Report report = new Report();
 		report.setReporter(reporter);
@@ -81,6 +87,12 @@ public class ReportServiceImpl implements ReportService {
 		// 不能檢舉自己的留言
 		if (comment.getAuthor().getId().equals(memberId)) {
 			throw new IllegalStateException("不能檢舉自己的留言");
+		}
+
+		// 同一人對同一則留言若已有待處理的檢舉，就不再重複受理（已處理/已關閉的案件之後仍可再次檢舉）
+		if (reportRepository.existsByReporter_IdAndComment_CommentIdAndStatus(memberId, commentId,
+				Report.ReportStatus.PENDING)) {
+			throw new IllegalStateException("你已經檢舉過這則留言，管理員正在處理中");
 		}
 
 		// 建立檢舉

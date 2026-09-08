@@ -10,10 +10,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.gigafix.member.dto.AdminMemberInfoResp;
+import com.gigafix.member.dto.AdminMemberQueryParams;
 import com.gigafix.member.dto.AdminUpdateMemberReq;
 import com.gigafix.member.dto.MemberMonthlyCountResp;
 import com.gigafix.member.service.AdminMemberService;
@@ -27,11 +27,9 @@ import lombok.RequiredArgsConstructor;
 public class AdminMemberController {
 	private final AdminMemberService adminMemberService;
 
-	@GetMapping //分頁取得會員的資訊(不含密碼)，預設一頁20筆，page從0開始
-	public ResponseEntity<Page<AdminMemberInfoResp>> getAllMembers(
-			@RequestParam(defaultValue = "0") int page,
-			@RequestParam(defaultValue = "20") int size){
-		Page<AdminMemberInfoResp> members = adminMemberService.getAllMembers(page, size);
+	@GetMapping //分頁取得會員的資訊(不含密碼)，預設一頁20筆，page從0開始；可依關鍵字/性別/縣市/加入時間區間篩選
+	public ResponseEntity<Page<AdminMemberInfoResp>> getAllMembers(AdminMemberQueryParams queryParams){
+		Page<AdminMemberInfoResp> members = adminMemberService.getAllMembers(queryParams);
 		return ResponseEntity.ok(members);
 	}
 

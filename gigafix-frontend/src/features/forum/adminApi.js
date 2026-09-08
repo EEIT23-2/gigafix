@@ -38,9 +38,10 @@ export function updateCommentStatus(commentId, status) {
     .then((res) => res.data)
 }
 
-// 既有公開端點，後台沒有登入身份可代入 memberId，likedByCurrentMember 用不到
-export function getArticleComments(articleId) {
-  return http.get(`/api/articles/${articleId}/comments`).then((res) => res.data)
+// 後台專用的留言串：不過濾狀態，已下架（TAKEN_DOWN）的留言也會回傳供稽核。
+// 公開端點 /api/articles/{id}/comments 會濾掉下架留言，後台不能用
+export function getArticleCommentsForAdmin(articleId) {
+  return http.get(`/api/admin/articles/${articleId}/comments`).then((res) => res.data)
 }
 
 // ---------------- 檢舉（後台） ----------------

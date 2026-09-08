@@ -13,11 +13,16 @@ import lombok.Data;
 @Data
 public class AppointmentRequest {
 // 客戶填寫預約單
-	@NotNull(message = "會員 ID 不可為空")
-	private Long memberId;
-	
 	@NotNull(message = "請選擇分店")
 	private Byte storeId;
+
+	@NotNull(message = "請填寫連絡姓名")
+	@Size(max = 50)
+	private String contactName;
+
+	@NotNull(message = "請填寫連絡電話")
+	@Size(max = 20)
+	private String contactPhone;
 	
 	@NotNull(message = "請填寫手機品牌")
 	@Size(max = 20)

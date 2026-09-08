@@ -11,6 +11,7 @@ import com.gigafix.forum.dto.CreateArticleRequest;
 import com.gigafix.forum.dto.CreateFloorRequest;
 import com.gigafix.forum.dto.UpdateArticleRequest;
 import com.gigafix.forum.dto.UpdateArticleStatusRequest;
+import com.gigafix.forum.dto.UpdateFloorRequest;
 import com.gigafix.forum.dto.UpdatePinRequest;
 import com.gigafix.forum.entity.Article;
 import com.gigafix.forum.service.ArticleService;
@@ -128,6 +129,18 @@ public class ArticleController {
 			@Valid @RequestBody CreateFloorRequest request) {
 
 		ArticleResponse response = articleService.createFloor(memberId, articleId, request);
+
+		return ResponseEntity.ok(response);
+	}
+	// 編輯樓層。路徑放在頂層 /floors/{floorId} 而不是掛在樓主底下，
+	// 因為更新只需要樓層自己的 id——與 DELETE /api/members/{memberId}/comments/{commentId} 同一種形狀
+	@PutMapping("/api/members/{memberId}/floors/{floorId}")
+	public ResponseEntity<ArticleResponse> updateFloor(
+			@PathVariable Long memberId,
+			@PathVariable Long floorId,
+			@Valid @RequestBody UpdateFloorRequest request) {
+
+		ArticleResponse response = articleService.updateFloor(memberId, floorId, request);
 
 		return ResponseEntity.ok(response);
 	}

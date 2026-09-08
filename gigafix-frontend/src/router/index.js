@@ -30,7 +30,7 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
-      path: "/gigafix",
+      path: "/",
       name: "home",
       component: ClientLayout, //待寫
       children: [
@@ -78,7 +78,7 @@ const router = createRouter({
   ],
 });
 
-const fetchAdminExcludedPaths = ['/adminLogin', '/gigafix', '/creatSuperAdminView']
+const fetchAdminExcludedPaths = ['/adminLogin', '/', '/creatSuperAdminView']
 router.beforeEach(async (to) => {
   if (fetchAdminExcludedPaths.includes(to.path)) {
     return // 排除的路徑直接放行，不觸發抓取使用者資料

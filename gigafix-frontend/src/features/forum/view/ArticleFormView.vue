@@ -3,6 +3,8 @@ import { ref, onMounted, onBeforeUnmount, computed, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getArticle, createArticle, updateArticle, updateArticleStatus } from '../api'
 import CategorySelect from '../components/CategorySelect.vue'
+import RichTextEditor from '../components/RichTextEditor.vue'
+import { isHtmlEmpty } from '../htmlContent'
 
 const route = useRoute()
 const router = useRouter()
@@ -27,8 +29,9 @@ const draftArticleId = ref(null)
 const effectiveArticleId = computed(() => (isEdit.value ? articleId.value : draftArticleId.value))
 // 建立模式永遠走草稿流程；編輯模式只有原本就是草稿才走
 const isDraftFlow = computed(() => (isEdit.value ? currentStatus.value === 'DRAFT' : true))
+// 內文是 TipTap 產生的 HTML，空編輯器的輸出是 <p></p>——不能用 .trim() 判斷是否為空
 const canPublish = computed(
-  () => !!form.value.categoryId && form.value.title.trim() !== '' && form.value.content.trim() !== '',
+  () => !!form.value.categoryId && form.value.title.trim() !== '' && !isHtmlEmpty(form.value.content),
 )
 
 const loading = ref(false)
@@ -47,8 +50,9 @@ function scheduleAutosave() {
   autosaveMessage.value = ''
 
   if (suppressAutosave || !isDraftFlow.value) return
-  // 標題與內文都還空白時不排程，避免分類自動預選單獨觸發建立空白草稿
-  if (!form.value.title.trim() && !form.value.content.trim()) return
+  // 標題與內文都還空白時不排程，避免分類自動預選單獨觸發建立空白草稿。
+  // 內文同樣要用 isHtmlEmpty——編輯器一掛載就會產出 <p></p>，用 .trim() 會誤判成「已經有內容」
+  if (!form.value.title.trim() && isHtmlEmpty(form.value.content)) return
 
   if (debounceTimer) clearTimeout(debounceTimer)
   debounceTimer = setTimeout(runAutosave, AUTOSAVE_DELAY_MS)
@@ -171,10 +175,12 @@ onBeforeUnmount(() => {
         封面圖網址（選填）
         <input v-model="form.coverImage" type="text" placeholder="https://..." />
       </label>
-      <label>
-        內文
-        <textarea v-model="form.content" rows="10" />
-      </label>
+      <!-- 這裡刻意不用 <label>：label 會把點擊轉發給內部第一個可標記控制項，
+           而編輯器工具列的按鈕就在裡面，會變成「點編輯區＝按到工具列第一顆鈕」 -->
+      <div class="field">
+        <span class="field-label">內文</span>
+        <RichTextEditor v-model="form.content" />
+      </div>
       <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
 
       <template v-if="isDraftFlow">
@@ -207,10 +213,17 @@ form {
   gap: 16px;
 }
 
-label {
+label,
+.field {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  font-size: 14px;
+  color: #555555;
+}
+
+/* 純標示用，不是 <label>，不會有轉發點擊的行為 */
+.field-label {
   font-size: 14px;
   color: #555555;
 }

@@ -9,6 +9,7 @@ import com.gigafix.forum.dto.CreateArticleRequest;
 import com.gigafix.forum.dto.CreateFloorRequest;
 import com.gigafix.forum.dto.UpdateArticleRequest;
 import com.gigafix.forum.dto.UpdateArticleStatusRequest;
+import com.gigafix.forum.dto.UpdateFloorRequest;
 import com.gigafix.forum.entity.Article;
 
 /**
@@ -45,6 +46,9 @@ public interface ArticleService {
 
 	// 蓋樓
 	ArticleResponse createFloor(Long memberId, Long articleId, CreateFloorRequest request);
+
+	// 編輯樓層（只改內文；標題與分類仍由後端擁有）
+	ArticleResponse updateFloor(Long memberId, Long floorId, UpdateFloorRequest request);
 
 	// ---------------後台管理功能（暫無權限檢查）------------------
 

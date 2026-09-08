@@ -9,6 +9,7 @@ import {
   statusBadgeClass,
   statusLabel,
 } from '../../adminStatusMaps'
+import { sanitizeHtml } from '../../htmlContent'
 
 const route = useRoute()
 const router = useRouter()
@@ -128,7 +129,8 @@ onMounted(fetchArticle)
             </dl>
 
             <img v-if="article.coverImage" class="cover mb-3" :src="article.coverImage" alt="" />
-            <div class="content">{{ article.content }}</div>
+            <!-- 內文是 HTML，純文字渲染會把標籤印給管理員看；消毒後再 v-html -->
+            <div class="content" v-html="sanitizeHtml(article.content)"></div>
           </div>
         </section>
 

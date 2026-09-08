@@ -1,0 +1,78 @@
+# 用來測試「Jenkins 已經 push 到 Docker Hub 的 image」，不會本機重新 build。
+# 用法：
+#   docker compose -f docker-compose.images.yml --env-file .env up -d
+#
+# 使用前記得：
+#   1. docker login（如果 image 是 private repo）
+#   2. 把下面 DOCKERHUB_NAMESPACE 換成你實際的 Docker Hub 帳號
+#      （或是在 .env 裡加一行 DOCKERHUB_NAMESPACE=你的帳號）
+#   3. IMAGE_TAG 預設是 latest，也可以指定成 Jenkins 那次 build 的編號，例如：
+#      IMAGE_TAG=12 docker compose -f docker-compose.images.yml --env-file .env up -d
+
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: gigafix-db
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q \"SELECT 1\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - gigafix-net
+
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./db-init:/db-init:ro
+    entrypoint: ["/opt/mssql-tools18/bin/sqlcmd"]
+    command: ["-S", "db", "-U", "sa", "-P", "${MSSQL_SA_PASSWORD}", "-C", "-i", "/db-init/init-db.sql"]
+    networks:
+      - gigafix-net
+    restart: "no"
+
+  backend:
+    image: ${DOCKERHUB_NAMESPACE:-DOCKERHUB_NAMESPACE}/gigafix-backend:${IMAGE_TAG:-latest}
+    container_name: gigafix-backend
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      SPRING_DATASOURCE_URL: "jdbc:sqlserver://db:1433;databaseName=giga_fix;encrypt=true;trustServerCertificate=true;"
+      SPRING_DATASOURCE_USERNAME: sa
+      SPRING_DATASOURCE_PASSWORD: ${MSSQL_SA_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      GIGAFIX_GMAIL_USERNAME: ${GIGAFIX_GMAIL_USERNAME}
+      GIGAFIX_GMAIL_PASSWORD: ${GIGAFIX_GMAIL_PASSWORD}
+    ports:
+      - "8080:8080"
+    networks:
+      - gigafix-net
+
+  frontend:
+    image: ${DOCKERHUB_NAMESPACE:-DOCKERHUB_NAMESPACE}/gigafix-frontend:${IMAGE_TAG:-latest}
+    container_name: gigafix-frontend
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks:
+      - gigafix-net
+
+volumes:
+  mssql_data:
+
+networks:
+  gigafix-net:
+    driver: bridge

@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -60,4 +61,10 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
 
 	// 蓋樓時計算「目前已有幾樓」用
 	long countByParentArticle_ArticleId(Long parentArticleId);
+
+	// 瀏覽數 +1：故意不走 entity 的 setter + save，因為那會觸發 @PreUpdate，
+	// 讓 article_updated_time 變成「最後被瀏覽的時間」而不是「最後被編輯的時間」
+	@Modifying(clearAutomatically = true, flushAutomatically = true)
+	@Query("UPDATE Article a SET a.viewCount = a.viewCount + 1 WHERE a.articleId = :articleId")
+	void incrementViewCount(@Param("articleId") Long articleId);
 }

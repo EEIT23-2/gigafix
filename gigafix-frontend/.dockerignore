@@ -1,0 +1,20 @@
+# 相依套件會在 image 裡用 npm ci 重新安裝，不需要帶進 build context
+node_modules/
+
+# 建置產物（如果是在本機端npm run build的話，就會有該檔案）
+# (但是如果透過docker build執行dockerfile的腳本的話，就不會在本機的這個專案資料夾出現，會是在docker build時所建立的node image執行產出)
+dist/
+
+# git
+.git/
+.gitignore
+.gitattributes
+
+# IDE
+.vscode/
+
+# 舊的、目前沒在用的 scaffold 殘留資料夾，避免誤帶進 image
+vue-project/
+
+# 文件
+README.md

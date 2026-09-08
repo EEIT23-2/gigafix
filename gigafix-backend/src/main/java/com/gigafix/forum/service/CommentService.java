@@ -30,6 +30,9 @@ public interface CommentService {
 	// 後台單筆留言詳情，不受狀態限制
 	CommentResponse getCommentForAdmin(Long commentId);
 
+	// 後台的文章留言串：不做任何狀態過濾，已下架的留言也要回傳供稽核
+	List<CommentResponse> getCommentsForAdmin(Long articleId);
+
 	// 直接設定留言狀態（隱藏／下架／恢復）
 	CommentResponse updateCommentStatus(Long commentId, UpdateCommentStatusRequest request);
 }

@@ -9,14 +9,14 @@ const fetchMemberInfoStore = useFetchMemberInfoStore()
 //進入會員中心時檢查是否已登入，沒登入就踢回首頁
 onMounted(() => {
   if (!fetchMemberInfoStore.memberInfo) {
-    router.push('/gigafix')
+    router.push('/')
   }
 })
 
 //登出的非同步請求
 const logout = async () => {
   await fetchMemberInfoStore.logoutMember()
-  router.push('/gigafix')
+  router.push('/')
 }
 </script>
 
@@ -30,27 +30,27 @@ const logout = async () => {
     </div>
 
     <nav class="nav flex-column sidebar-nav">
-        <RouterLink to="/gigafix/member-center/memberInfo" class="nav-link sidebar-link" exact-active-class="active">
+        <RouterLink to="/member-center/memberInfo" class="nav-link sidebar-link" exact-active-class="active">
             <i class="bi bi-house-door"></i>
             <span>會員資料</span>
         </RouterLink>
 
-        <RouterLink to="/gigafix/member-center/profile" class="nav-link sidebar-link" active-class="active">
+        <RouterLink to="/member-center/profile" class="nav-link sidebar-link" active-class="active">
             <i class="bi bi-recycle"></i>
             <span>回收手機紀錄</span>
         </RouterLink>
 
-        <RouterLink to="/gigafix/member-center/orders" class="nav-link sidebar-link" active-class="active">
+        <RouterLink to="/member-center/orders" class="nav-link sidebar-link" active-class="active">
             <i class="bi bi-box-seam"></i>
             <span>訂單查詢</span>
         </RouterLink>
 
-        <RouterLink to="/gigafix/member-center/forum" class="nav-link sidebar-link" active-class="active">
+        <RouterLink to="/member-center/forum" class="nav-link sidebar-link" active-class="active">
             <i class="bi bi-chat-left-text"></i>
             <span>我的討論</span>
         </RouterLink>
 
-        <RouterLink to="/gigafix/member-center/repair" class="nav-link sidebar-link" active-class="active">
+        <RouterLink to="/member-center/repair" class="nav-link sidebar-link" active-class="active">
             <i class="bi bi-tools"></i>
             <span>維修進度</span>
         </RouterLink>
