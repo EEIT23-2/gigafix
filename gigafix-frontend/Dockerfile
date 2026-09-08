@@ -10,6 +10,10 @@ RUN npm ci
 #複製完dependencies後複製靜態檔案到/app(.表示當前目錄，也就是/app)
 #如果是COPY <明確目標檔案>的話，後面的image目標檔案就算是在根目錄，也會使用 ./ 而不是 . ，主要是撰寫風格還有可讀性問題(就算效果一樣)
 COPY . .
+#接住docker-compose.yml傳進來的build.args，Vite build時會直接讀process.env裡的VITE_GOOGLE_CLIENT_ID
+#(根目錄.env不在這個build context裡，所以不是靠檔案讀到，是靠這裡設成真正的環境變數)
+ARG VITE_GOOGLE_CLIENT_ID
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 #使用node指令將專案內的vue檔案打包成靜態資源(html,css,script)
 RUN npm run build
 

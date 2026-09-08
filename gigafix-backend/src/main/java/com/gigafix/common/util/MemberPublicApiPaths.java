@@ -17,5 +17,6 @@ public final class MemberPublicApiPaths {
 			"/api/gigafix/members/register/otp",
 			"/api/gigafix/members/forgot-password",
 			"/api/gigafix/members/forgot-password/otp",
+			"/api/gigafix/login/google",
 	};
 }
