@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { getOrder } from '../../api/adminOrderApi'
 import {
@@ -72,6 +72,35 @@ const formatPrice = (price) => {
 
     return Number(price).toLocaleString('zh-TW')
 }
+// 商品原價小計
+const subtotal = computed(() => {
+    if (!order.value?.orderItems) {
+        return 0
+    }
+
+    return order.value.orderItems.reduce((sum, item) => {
+        return sum + (item.unitPrice || 0)
+    }, 0)
+})
+
+// 優惠券折扣
+const couponDiscount = computed(() => {
+    if (!order.value) {
+        return 0
+    }
+
+    return Math.max(
+        subtotal.value - (order.value.totalAmount || 0),
+        0
+    )
+})
+
+// Demo 固定優惠券
+const usedCoupon = computed(() => {
+    return couponDiscount.value === 500
+        ? '新開幕優惠券'
+        : null
+})
 </script>
 <template>
     <main class="container-fluid px-3 px-lg-4 py-4 order-admin-page">
@@ -185,6 +214,70 @@ const formatPrice = (price) => {
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                </section>
+                <!-- 金額與優惠券 -->
+                <section class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h2 class="h5 fw-bold mb-0">
+                            金額與優惠券
+                        </h2>
+                    </div>
+
+                    <div class="card-body">
+
+                        <div class="d-flex justify-content-between mb-3">
+                            <span class="text-secondary">
+                                商品小計
+                            </span>
+
+                            <strong>
+                                NT$ {{ formatPrice(subtotal) }}
+                            </strong>
+                        </div>
+
+                        <div class="d-flex justify-content-between mb-3">
+                            <span class="text-secondary">
+                                運費
+                            </span>
+
+                            <strong>
+                                免運
+                            </strong>
+                        </div>
+
+                        <div v-if="usedCoupon" class="d-flex justify-content-between mb-3">
+                            <span class="text-secondary">
+                                使用優惠券
+                            </span>
+
+                            <strong>
+                                {{ usedCoupon }}
+                            </strong>
+                        </div>
+
+                        <div v-if="couponDiscount > 0" class="d-flex justify-content-between mb-3">
+                            <span class="text-secondary">
+                                優惠券折扣
+                            </span>
+
+                            <strong>
+                                -NT$ {{ formatPrice(couponDiscount) }}
+                            </strong>
+                        </div>
+
+                        <hr>
+
+                        <div class="d-flex justify-content-between">
+                            <strong>
+                                實付金額
+                            </strong>
+
+                            <strong class="fs-5 text-primary">
+                                NT$ {{ formatPrice(order.totalAmount) }}
+                            </strong>
+                        </div>
+
                     </div>
                 </section>
                 <!-- 訂單與付款資訊 -->

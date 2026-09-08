@@ -5,6 +5,7 @@ import { useRouter, useRoute } from 'vue-router'
 import CheckoutForm from '../../components/CheckoutForm.vue'
 import { getCartItems } from '../../api/cartApi'
 import { createOrder } from '../../api/memberOrderApi'
+import { getAvailableCoupons } from '../../api/couponApi'
 
 const router = useRouter()
 const route = useRoute()
@@ -13,6 +14,13 @@ const cartItems = ref([])
 const loading = ref(false)
 const submitting = ref(false)
 const errorMessage = ref('')
+const coupons = ref([])
+// 選取的優惠券代碼 (從路由查詢參數中取得)
+const selectedCouponCode = ref(
+    typeof route.query.couponCode === 'string'
+        ? route.query.couponCode
+        : ''
+)
 
 const form = ref({
     paymentMethod: 'CREDIT_CARD',
@@ -45,6 +53,37 @@ const loadCart = async () => {
         loading.value = false
     }
 }
+// 載入可用的優惠券
+const loadCoupons = async () => {
+    try {
+        const response = await getAvailableCoupons()
+        coupons.value = response.data
+    } catch (error) {
+        console.error('優惠券載入失敗', error)
+        coupons.value = []
+    }
+}
+// 選取的優惠券
+const selectedCoupon = computed(() => {
+    return coupons.value.find(
+        coupon => coupon.couponCode === selectedCouponCode.value
+    ) || null
+})
+// 選取的優惠券折扣金額
+const couponDiscount = computed(() => {
+    if (selectedTotalAmount.value <= 0) {
+        return 0
+    }
+
+    return selectedCoupon.value?.discountAmount || 0
+})
+// 最終結帳金額 (扣除優惠券折扣後)
+const finalAmount = computed(() => {
+    return Math.max(
+        selectedTotalAmount.value - couponDiscount.value,
+        0
+    )
+})
 //選取的購物車商品ID表
 const selectedCartItemIds = computed(() => {
     const raw = route.query.cartItemIds
@@ -82,7 +121,9 @@ const handleSubmit = async () => {
     try {
         const response = await createOrder({
             ...form.value,
-            cartItemIds: selectedCartItemIds.value
+            cartItemIds: selectedCartItemIds.value,
+            couponCode: selectedCouponCode.value || null
+
         })
         const orderId = response.data.orderId
 
@@ -95,7 +136,8 @@ const handleSubmit = async () => {
         submitting.value = false
     }
 }
-// 會員驗證與清空購物車
+
+// 會員驗證與載入購物車及優惠券
 const { checkMemberLogin } = useMemberAuth()
 
 onMounted(async () => {
@@ -112,6 +154,7 @@ onMounted(async () => {
     }
 
     await loadCart()
+    await loadCoupons()
 })
 </script>
 
@@ -141,16 +184,50 @@ onMounted(async () => {
                     </strong>
                 </div>
 
-                <div class="d-flex justify-content-between mt-3">
-                    <span>
-                        已選 {{ selectedItems.length }} 件
-                    </span>
+                <div class="d-flex justify-content-between mt-3 mb-2">
+                    <span>已選商品</span>
+                    <strong>{{ selectedItems.length }} 件</strong>
+                </div>
 
+                <div class="d-flex justify-content-between mb-2">
+                    <span>商品小計</span>
                     <strong>
-                        商品小計：
                         NT$ {{ selectedTotalAmount.toLocaleString() }}
                     </strong>
                 </div>
+
+                <div class="d-flex justify-content-between">
+                    <span>運費</span>
+                    <strong>免運</strong>
+                </div>
+
+                <div class="mt-4">
+                    <label class="form-label fw-bold">
+                        優惠券
+                    </label>
+
+                    <select v-model="selectedCouponCode" class="form-select">
+                        <option value="">
+                            不使用優惠券
+                        </option>
+
+                        <option v-for="coupon in coupons" :key="coupon.couponCode" :value="coupon.couponCode">
+                            {{ coupon.couponName }}
+                            - 折 NT$ {{ coupon.discountAmount.toLocaleString() }}
+                        </option>
+                    </select>
+                </div>
+
+                <hr>
+
+                <div class="d-flex justify-content-between">
+                    <strong>應付金額</strong>
+
+                    <strong class="fs-5">
+                        NT$ {{ finalAmount.toLocaleString() }}
+                    </strong>
+                </div>
+
             </div>
         </div>
         <CheckoutForm :form="form" :submitting="submitting" :disabled="selectedItems.length === 0"

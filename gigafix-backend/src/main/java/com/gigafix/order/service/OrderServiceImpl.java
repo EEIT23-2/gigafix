@@ -30,6 +30,8 @@ import com.gigafix.product.constant.ProductSaleStatus;
 import com.gigafix.product.entity.Product;
 import com.gigafix.product.repository.ProductDao;
 import com.gigafix.product.service.ProductService;
+import com.gigafix.coupon.entity.Coupon;
+import com.gigafix.coupon.service.CouponService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -50,9 +52,12 @@ public class OrderServiceImpl implements OrderService {
 
     // 商品 Repository
     private final ProductDao productDao;
+
     // 商品 Service
     private final ProductService productService;
 
+    // 優惠券 Service
+    private final CouponService couponService;
     // ---------------會員前台功能----------------------
 
     // 會員從購物車結帳建立訂單
@@ -102,6 +107,17 @@ public class OrderServiceImpl implements OrderService {
             }
 
             totalAmount += product.getPrice();
+        }
+        // 取得前端送出的優惠券代碼
+        String couponCode = request.getCouponCode();
+
+        if (couponCode != null && !couponCode.isBlank()) {
+
+            Coupon coupon = couponService.validateCoupon(couponCode);
+
+            int discountAmount = coupon.getDiscountAmount();
+
+            totalAmount = Math.max(totalAmount - discountAmount, 0);
         }
 
         // 5. 建立訂單主表

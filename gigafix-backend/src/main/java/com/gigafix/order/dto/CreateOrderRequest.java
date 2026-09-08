@@ -12,6 +12,7 @@ import lombok.Setter;
 public class CreateOrderRequest {
     @NotEmpty(message = "請至少選擇一項商品")
     private List<Long> cartItemIds;
+    private String couponCode; // 使用的優惠券代碼
     @NotBlank(message = "付款方式不能為空")
     private String paymentMethod;
     @NotBlank(message = "收件人姓名不能為空")

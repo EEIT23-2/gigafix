@@ -9,6 +9,7 @@ import {
     deleteCartItem,
     clearCart
 } from '../../api/cartApi'
+import { getAvailableCoupons } from '../../api/couponApi'
 //Router
 const router = useRouter()
 
@@ -18,7 +19,8 @@ const selectedCartItemIds = ref([])
 const loading = ref(false)
 const errorMessage = ref('')
 const clearing = ref(false)
-
+const coupons = ref([])
+const selectedCouponCode = ref('')
 // 載入購物車商品列表
 const loadCart = async () => {
     loading.value = true
@@ -34,6 +36,16 @@ const loadCart = async () => {
         loading.value = false
     }
 }
+// 載入可用的優惠券
+const loadCoupons = async () => {
+    try {
+        const response = await getAvailableCoupons()
+        coupons.value = response.data
+    } catch (error) {
+        console.error('優惠券載入失敗', error)
+        coupons.value = []
+    }
+}
 // 選取的購物車商品列表
 const selectedItems = computed(() => {
     return cartItems.value.filter(item =>
@@ -45,6 +57,28 @@ const selectedTotalAmount = computed(() => {
     return selectedItems.value.reduce((total, item) => {
         return total + (item.price || 0)
     }, 0)
+})
+// 目前選擇的優惠券
+const selectedCoupon = computed(() => {
+    return coupons.value.find(
+        coupon => coupon.couponCode === selectedCouponCode.value
+    ) || null
+})
+
+// 優惠券折扣金額
+const couponDiscount = computed(() => {
+    if (selectedTotalAmount.value <= 0) {
+        return 0
+    }
+    return selectedCoupon.value?.discountAmount || 0
+})
+
+// 預估應付金額
+const finalAmount = computed(() => {
+    return Math.max(
+        selectedTotalAmount.value - couponDiscount.value,
+        0
+    )
 })
 // 是否全選
 const allSelected = computed(() => {
@@ -117,7 +151,8 @@ const handleCheckout = () => {
     router.push({
         path: '/checkout',
         query: {
-            cartItemIds: selectedCartItemIds.value.join(',')
+            cartItemIds: selectedCartItemIds.value.join(','),
+            couponCode: selectedCouponCode.value || ''
         }
     })
 }
@@ -131,7 +166,8 @@ onMounted(async () => {
         return
     }
 
-    loadCart()
+    await loadCart()
+    await loadCoupons()
 })
 </script>
 
@@ -170,8 +206,10 @@ onMounted(async () => {
 
             <!-- 購物車摘要 -->
             <CartSummary :totalAmount="selectedTotalAmount" :itemCount="selectedItems.length" :clearing="clearing"
-                :checkoutDisabled="selectedItems.length === 0" @clear="handleClear" @checkout="handleCheckout" />
-
+                :checkoutDisabled="selectedItems.length === 0" :coupons="coupons"
+                :selectedCouponCode="selectedCouponCode" :couponDiscount="couponDiscount" :finalAmount="finalAmount"
+                @update:selectedCouponCode="selectedCouponCode = $event" @clear="handleClear"
+                @checkout="handleCheckout" />
         </div>
     </div>
 </template>
