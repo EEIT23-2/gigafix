@@ -10,7 +10,12 @@ defineProps({
   visiblePages: { type: Array, default: () => [] },
 });
 
-const emit = defineEmits(["retry", "change-page", "select-product"]);
+const emit = defineEmits([
+  "retry",
+  "change-page",
+  "select-product",
+  "add-to-cart",
+]);
 const formatter = new Intl.NumberFormat("zh-TW");
 
 function productName(product) {
@@ -90,6 +95,15 @@ function categoryLabel(category) {
           {{ categoryLabel(product.category) }}
         </p>
         <strong>NT$ {{ formatter.format(product.price ?? 0) }}</strong>
+        <button
+          class="add-to-cart-button"
+          type="button"
+          @click.stop="emit('add-to-cart', product)"
+          @keydown.enter.stop
+        >
+          <i class="bi bi-cart-plus" aria-hidden="true"></i>
+          加入購物車
+        </button>
       </article>
     </div>
   </div>
@@ -213,9 +227,33 @@ function categoryLabel(category) {
   color: #635d5e;
 }
 .product-card strong {
+  display: block;
   color: #000;
   font-size: 24px;
   font-weight: 600;
+}
+.add-to-cart-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 20px;
+  padding: 12px 18px;
+  border: 1px solid #1b1b1b;
+  border-radius: 10px;
+  color: #fff;
+  background: #1b1b1b;
+  font-weight: 600;
+  transition:
+    color 0.2s ease,
+    background-color 0.2s ease;
+}
+.add-to-cart-button:hover,
+.add-to-cart-button:focus-visible {
+  color: #1b1b1b;
+  background: #fff;
+  outline: none;
 }
 .loading-state,
 .empty-state {

@@ -26,7 +26,7 @@ public class    ProductController {
     private ProductService productService;
 
     //查詢商品列表  (條件查詢:類別查詢,關鍵字查詢 ;Page<>介面做分頁&總頁數計算)
-    @GetMapping("/api/products")
+    @GetMapping("/api/gigafix/products")
     public ResponseEntity<Page<Product>> getProducts(ProductQueryParams productQueryParams){
         Page<Product> pageResult = productService.getProducts(productQueryParams);
         return ResponseEntity.status(HttpStatus.OK).body(pageResult);
@@ -34,7 +34,7 @@ public class    ProductController {
 
 
     //Id搜尋商品的路由controller
-    @GetMapping("/api/products/{productId}")
+    @GetMapping("/api/gigafix/products/{productId}")
     public ResponseEntity<Product> getProduct(@PathVariable Long productId){
         Product product = productService.getProductById(productId);
         //回傳狀態 ,若找不到 回傳404並用.build()建body

@@ -33,8 +33,10 @@ const totalPages = ref(0);
 const totalElements = ref(0);
 const loading = ref(false);
 const errorMessage = ref("");
+const cartMessage = ref("");
 let requestSequence = 0;
 let debounceTimer;
+let cartMessageTimer;
 
 const selectedCategoryLabel = computed(
   () =>
@@ -77,6 +79,7 @@ async function fetchProducts() {
     const page = await getProducts(
       compactParams({
         category: selectedCategory.value,
+        saleStatus: "AVAILABLE",
         search: filters.search.trim(),
         modelName: filters.modelName.trim(),
         color: filters.color,
@@ -118,6 +121,15 @@ function handleSelectProduct(product) {
   console.log("選擇商品：", product);
 }
 
+function handleAddToCart(product) {
+  clearTimeout(cartMessageTimer);
+  const name = product.product_name ?? product.productName ?? product.name ?? "商品";
+  cartMessage.value = `${name} 已準備加入購物車（購物車 API 尚未串接）`;
+  cartMessageTimer = setTimeout(() => {
+    cartMessage.value = "";
+  }, 3000);
+}
+
 watch([selectedCategory, sort, pageSize], () => {
   pageNumber.value = 0;
   fetchProducts();
@@ -134,7 +146,10 @@ watch(
   { deep: true },
 );
 onMounted(fetchProducts);
-onBeforeUnmount(() => clearTimeout(debounceTimer));
+onBeforeUnmount(() => {
+  clearTimeout(debounceTimer);
+  clearTimeout(cartMessageTimer);
+});
 </script>
 
 <template>
@@ -227,6 +242,15 @@ onBeforeUnmount(() => clearTimeout(debounceTimer));
       </aside>
 
       <section class="col-lg-9">
+        <div
+          v-if="cartMessage"
+          class="alert alert-success cart-message"
+          role="status"
+          aria-live="polite"
+        >
+          <i class="bi bi-check-circle me-2" aria-hidden="true"></i>
+          {{ cartMessage }}
+        </div>
         <header
           class="page-header d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-end gap-4"
         >
@@ -271,6 +295,7 @@ onBeforeUnmount(() => clearTimeout(debounceTimer));
           @retry="fetchProducts"
           @change-page="changePage"
           @select-product="handleSelectProduct"
+          @add-to-cart="handleAddToCart"
         />
       </section>
     </div>
@@ -360,6 +385,12 @@ onBeforeUnmount(() => clearTimeout(debounceTimer));
 }
 .page-header {
   margin-bottom: 64px;
+}
+.cart-message {
+  position: sticky;
+  top: 16px;
+  z-index: 10;
+  margin-bottom: 24px;
 }
 .page-header h1 {
   margin: 0 0 8px;
