@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getArticlesForAdmin, updateArticlePin } from '../../adminApi'
 import { ARTICLE_STATUS_MAP } from '../../adminStatusMaps'
@@ -86,13 +86,28 @@ function goToDetail(article) {
   router.push({ name: 'admin-forum-article-detail', params: { articleId: article.articleId } })
 }
 
+// 文章列表每一列的分類欄顯示的是抓取當下的 categoryName，切換分頁不會重抓。
+// 分類被改名後這裡會停在舊名字，所以標記為過期，切回文章分頁時重抓（停在原本那一頁）
+const articlesStale = ref(false)
+
+watch(activeTab, (tab) => {
+  // 兩個分頁各有各的訊息，切換時把上一個分頁留下的提示清掉
+  errorMessage.value = ''
+  successMessage.value = ''
+  if (tab === 'articles' && articlesStale.value) {
+    articlesStale.value = false
+    fetchArticles(page.value)
+  }
+})
+
 async function handleTogglePin(article) {
   errorMessage.value = ''
   try {
-    const newPinned = !article.isPinned
-    await updateArticlePin(article.articleId, newPinned)
-    article.isPinned = newPinned
-    successMessage.value = newPinned ? '已設為置頂' : '已取消置頂'
+    const updated = await updateArticlePin(article.articleId, !article.isPinned)
+    // 以後端回傳的狀態為準，而不是前端自己推算的值：真正生效的是資料庫那一筆，
+    // 之後若後端加上「置頂上限」之類的規則，畫面才不會顯示成跟資料庫不同的狀態
+    article.isPinned = updated.isPinned
+    successMessage.value = article.isPinned ? '已設為置頂' : '已取消置頂'
   } catch (error) {
     console.error(error)
     errorMessage.value = error.response
@@ -137,7 +152,7 @@ onMounted(() => fetchArticles(0))
         </li>
       </ul>
 
-      <CategoryAdminPanel v-if="activeTab === 'categories'" />
+      <CategoryAdminPanel v-if="activeTab === 'categories'" @category-renamed="articlesStale = true" />
 
       <template v-else>
         <section class="card mb-4">

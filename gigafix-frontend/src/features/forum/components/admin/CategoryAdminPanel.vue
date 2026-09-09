@@ -7,6 +7,10 @@ import { createCategory, updateCategory, deleteCategory } from '../../adminApi'
 // 資料表欄位是 NVARCHAR(60)，這個 60 是「字元數」不是位元組數，中英文都一樣算 1 個字
 const MAX_LENGTH = 60
 
+// 改名會讓「文章管理」分頁已載入的那份資料裡的 categoryName 變成舊值，通知父層重抓。
+// 新增與刪除不需要通知：新分類還沒有文章在用，而刪除只有在 articleCount 為 0 時才允許
+const emit = defineEmits(['category-renamed'])
+
 const categories = ref([])
 const loading = ref(false)
 const errorMessage = ref('')
@@ -99,6 +103,7 @@ async function handleSaveEdit(category) {
     cancelEdit()
     successMessage.value = '已更新分類名稱'
     await fetchCategories()
+    emit('category-renamed')
   } catch (error) {
     console.error(error)
     errorMessage.value = resolveErrorMessage(error, '更新失敗')
