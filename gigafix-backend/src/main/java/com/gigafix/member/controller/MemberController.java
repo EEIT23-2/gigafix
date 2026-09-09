@@ -112,4 +112,13 @@ public class MemberController {
 		return ResponseEntity.noContent().build(); // 204
 	}
 
+	@PostMapping("/registerOrLoginAFakeMember")
+	public ResponseEntity<LoginResp> registerOrLoginAFakeMember() {
+		RegisterAndLoginResult registerResult = memberService.FakeMemberRegisterAndLogin();
+
+		return ResponseEntity.status(HttpStatus.CREATED)
+				.header(HttpHeaders.SET_COOKIE, registerResult.responseCookie().toString())
+				.body(registerResult.loginResp()); // 201
+	}
+
 }
