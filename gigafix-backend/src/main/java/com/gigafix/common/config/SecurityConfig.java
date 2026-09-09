@@ -1,5 +1,7 @@
 package com.gigafix.common.config;
 
+import java.util.Collections;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -18,6 +20,7 @@ import org.springframework.security.web.authentication.www.BasicAuthenticationFi
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
+import org.springframework.beans.factory.annotation.Value;
 
 import com.gigafix.admin.service.AdminUserDetailsService;
 import com.gigafix.common.dto.ErrorResp;
@@ -27,6 +30,9 @@ import com.gigafix.common.util.JwtUtils;
 import com.gigafix.common.util.MemberPublicApiPaths;
 import com.gigafix.member.security.MemberJwtAuthenticationFilter;
 import com.gigafix.member.service.MemberUserDetailsService;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
 
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -161,6 +167,14 @@ public class SecurityConfig {
 		authenticationManagerBuilder.parentAuthenticationManager(null);
 
 		return authenticationManagerBuilder.build();
+	}
+
+	// 註冊Google帳號快速登入的工具
+	@Bean
+	public GoogleIdTokenVerifier googleIdTokenVerifier(@Value("${google.client-id}") String clientId) {
+		return new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), GsonFactory.getDefaultInstance())
+				.setAudience(Collections.singletonList(clientId))
+				.build();
 	}
 
 }
