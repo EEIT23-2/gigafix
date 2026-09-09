@@ -1,12 +1,14 @@
 <script setup>
-import { ref, computed, watch } from "vue";
-import { RouterLink } from "vue-router";
-import { useRouter } from "vue-router";
-import LoginRegisterModal from "./LoginRegisterModal.vue";
-import AddressSelect from "./AddressSelect.vue";
-import axios from "axios";
-import { useFetchMemberInfoStore } from "@/stores/member";
-import { storeToRefs } from "pinia";
+import { ref, computed, watch } from 'vue';
+import { RouterLink } from 'vue-router';
+import { useRouter } from 'vue-router';
+import LoginRegisterModal from './LoginRegisterModal.vue';
+import AddressSelect from './AddressSelect.vue';
+import axios from 'axios';
+import { useFetchMemberInfoStore } from '@/stores/member';
+import { storeToRefs } from 'pinia'
+import client from '@/features/cart/router/client.js';
+
 
 //跟登入有關的變數宣告
 const mail = ref("");
@@ -104,6 +106,31 @@ const login = async () => {
     password.value = "";
   }
 };
+
+//==Google登入相關==
+//<GoogleLogin>元件登入成功後會呼叫這個callback，response.credential就是Google發的id_token
+//TODO: 在這裡實作拿到id_token之後的邏輯，細節請看對話裡的說明
+const handleGoogleCredential =async (response) => {
+  // response就是使用者的id_token，直接給後端去驗證跟使用
+  try {
+      const resp = await axios.post('/api/gigafix/login/google',{
+          idToken: response.credential
+          //response.credential才是真正的id_token字串
+      })
+      await fetchMemberInfoStore.fetchMember(true) //登入成功後強制重抓一次會員資料
+      showloginModal.value = false
+      alert(`${resp.data.nickName}您好~登入成功！`)
+      //如果是從需要登入的功能(例如維修手機)跳出來登入的，登入成功後直接導去該頁面，不用使用者自己再點一次
+      if (afterLoginRedirect.value) {
+        router.push(afterLoginRedirect.value)
+        afterLoginRedirect.value = null
+      }
+  } catch (err) { //回傳4xx,5xx
+      const message = err.response?.data?.message || '請稍後再試'
+      alert(`登入失敗，原因: ${message}`)
+  }
+  
+}
 
 //==註冊相關==
 const openRegisterModal = () => {
@@ -433,6 +460,18 @@ const goToRepairAppointment = () => {
         >請輸入正確資訊</span
       >
       <button v-else class="btn btn-primary" @click="login()">送出</button>
+
+      <div class="w-100 d-flex align-items-center gap-2 my-2">
+        <hr class="flex-grow-1 m-0">
+        <span class="text-muted small">或</span>
+        <hr class="flex-grow-1 m-0">
+      </div>
+      <!-- 使用第三方登入的按鈕 -->
+      <div class="w-100 d-flex justify-content-center">
+        <!-- 按下這個google登入的按鈕標籤，會讓使用者去選擇帳號
+        之後:callback會帶著這個回應去呼叫我自訂義函數 -->
+        <GoogleLogin :callback="handleGoogleCredential" />
+      </div>
     </template>
   </LoginRegisterModal>
 
@@ -666,6 +705,7 @@ const goToRepairAppointment = () => {
 .forgot-password-link:hover {
   text-decoration: underline;
 }
+
 
 /* footer裡的錯誤提示文字，字級跟旁邊的按鈕(1.05rem)對齊，並去掉<p>預設的margin，
    避免在flex排列的footer裡被撐開高度，導致跟按鈕、其他文字沒有對齊在同一條基準線上 */

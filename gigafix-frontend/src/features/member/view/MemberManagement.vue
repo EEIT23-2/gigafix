@@ -7,6 +7,11 @@ import { parseTaiwanAddress, taiwanDistricts } from '@/static/taiwanDistricts'
 import MemberGrowthChart from '../component/MemberGrowthChart.vue'
 import MemberDistrictHeatmap from '../component/MemberDistrictHeatmap.vue'
 
+// ============================================================
+// 變數宣告區(依功能分區，跟下面函式宣告區的分區順序一致)
+// ============================================================
+
+// ====會員列表與統計資料相關====
 const allMembers = ref([]) //目前這一頁的會員(給表格用)
 const allMembersForStats = ref([]) //全部會員(不分頁，給上面兩個圖表統計用)
 const errorMsg = ref('')
@@ -16,105 +21,6 @@ const currentPage = ref(0) //跟後端一樣從0開始算
 const pageSize = 20
 const totalPages = ref(0)
 const totalElements = ref(0)
-
-// ====篩選列相關(關鍵字/性別/縣市/加入時間區間)====
-const keyword = ref('') //模糊搜尋真實姓名/暱稱/Email/手機
-const genderFilter = ref('') //空字串代表不篩選性別
-const cityFilter = ref('') //空字串代表不篩選縣市
-const startDate = ref('') //加入時間區間(起)，<input type="date">格式為yyyy-MM-dd
-const endDate = ref('') //加入時間區間(迄)
-const cityOptions = taiwanDistricts.map(item => item.city) //縣市下拉選單選項，沿用註冊表單同一份縣市資料
-const filterErrorMsg = ref('') //篩選條件本身的錯誤訊息(例如起迄日期顛倒)，跟errorMsg(API錯誤)分開顯示
-
-//性別代碼轉中文顯示用的對照表
-const genderLabelMap = {
-    MALE: '男',
-    FEMALE: '女',
-}
-const genderLabel = (gender) => genderLabelMap[gender] ?? '未提供'
-
-//後端LocalDateTime格式化成yyyy/MM/dd HH:mm:ss顯示
-const formatDateTime = (ldtString) => {
-    if (!ldtString) return ''
-
-    // 拆出日期跟時間兩部分
-    const [datePart, timePart] = ldtString.split('T')
-    if (!datePart || !timePart) return ldtString // 格式不符預期時,原樣顯示,不讓畫面壞掉
-
-    const [year, month, day] = datePart.split('-')
-
-    // 時間部分可能帶奈秒(.8387595),只取到秒
-    const [hour, minute, secondWithNano] = timePart.split(':')
-    const second = secondWithNano.split('.')[0]
-
-    return `${year}/${month}/${day} ${hour}:${minute}:${second}`
-}
-
-//====取得會員列表(分頁，一次20筆，給表格用)，依目前篩選列的條件查詢====
-const fetchAllMembers = async (page = 0) => {
-    errorMsg.value = ''
-    try {
-        const rep = await axios.get('/api/admin/members', {
-            params: {
-                page,
-                size: pageSize,
-                //空字串當作沒有輸入，不要傳給後端，避免後端把空字串當成篩選條件
-                keyword: keyword.value.trim() || undefined,
-                gender: genderFilter.value || undefined,
-                city: cityFilter.value || undefined,
-                startDate: startDate.value || undefined,
-                endDate: endDate.value || undefined,
-            }
-        })
-        allMembers.value = rep.data.content
-        currentPage.value = rep.data.number
-        totalPages.value = rep.data.totalPages
-        totalElements.value = rep.data.totalElements
-    } catch (err) {
-        alert(`會員列表讀取失敗，原因: ${err.response.data.message}`)
-        errorMsg.value = '無法載入會員列表,請稍後再試'
-    }
-}
-
-//====按下「搜尋」時觸發，檢查起迄日期合理後，帶著篩選條件重新查詢第一頁====
-const searchMembers = () => {
-    if (startDate.value && endDate.value && startDate.value > endDate.value) {
-        filterErrorMsg.value = '起始日期不能晚於結束日期'
-        return
-    }
-    filterErrorMsg.value = ''
-    fetchAllMembers(0)
-}
-
-//====清除所有篩選條件，回到未篩選狀態的第一頁====
-const resetFilters = () => {
-    keyword.value = ''
-    genderFilter.value = ''
-    cityFilter.value = ''
-    startDate.value = ''
-    endDate.value = ''
-    filterErrorMsg.value = ''
-    fetchAllMembers(0)
-}
-
-//====取得全部會員(不分頁，只給上面兩個統計圖表用，跟表格的分頁資料分開抓，避免圖表只統計到當頁20筆)====
-const fetchAllMembersForStats = async () => {
-    try {
-        const rep = await axios.get('/api/admin/members', { params: { page: 0, size: 1000 } }) //size給大一點，一次撈全部會員
-        allMembersForStats.value = rep.data.content
-    } catch (err) {
-        //統計圖表載入失敗不影響會員列表的主要功能，不特別跳alert打擾使用者
-    }
-}
-
-//切換分頁頁碼，超出範圍或點目前這頁就不動作
-const goToPage = (page) => {
-    if (page < 0 || page >= totalPages.value || page === currentPage.value) {
-        return
-    }
-    fetchAllMembers(page)
-}
-
 //分頁列要顯示的頁碼(都是1開始算給畫面看)：固定顯示第1頁、目前頁前後各1頁、最後3頁，其餘用...省略
 //例如目前頁n超過3時會是 1 ... n-1 n n+1 ... m-2 m-1 m(m為總頁數)；範圍重疊或太靠近頭尾時會自動合併，不會出現多餘的...
 const pageWindow = computed(() => {
@@ -156,6 +62,22 @@ const pageWindow = computed(() => {
     return withEllipsis
 })
 
+// ====篩選列相關(關鍵字/性別/縣市/加入時間區間)====
+const keyword = ref('') //模糊搜尋真實姓名/暱稱/Email/手機
+const genderFilter = ref('') //空字串代表不篩選性別
+const cityFilter = ref('') //空字串代表不篩選縣市
+const startDate = ref('') //加入時間區間(起)，<input type="date">格式為yyyy-MM-dd
+const endDate = ref('') //加入時間區間(迄)
+const cityOptions = taiwanDistricts.map(item => item.city) //縣市下拉選單選項，沿用註冊表單同一份縣市資料
+const filterErrorMsg = ref('') //篩選條件本身的錯誤訊息(例如起迄日期顛倒)，跟errorMsg(API錯誤)分開顯示
+
+// ====表格顯示格式化相關====
+//性別代碼轉中文顯示用的對照表
+const genderLabelMap = {
+    MALE: '男',
+    FEMALE: '女',
+}
+
 // ====修改會員資料的相關宣告====
 const showEditModal = ref(false)
 const editMemberId = ref(null)
@@ -170,6 +92,101 @@ const editGender = ref('')
 const editSubmitting = ref(false)
 const editErrorMsg = ref('')
 
+// 刪除會員、初始化掛載都直接沿用上面已經宣告的變數，沒有各自專屬的變數
+
+// ============================================================
+// 函式宣告區(分區順序跟上面變數宣告區一致)
+// ============================================================
+
+// ====會員列表與統計資料相關====
+//====取得會員列表(分頁，一次20筆，給表格用)，依目前篩選列的條件查詢====
+const fetchAllMembers = async (page = 0) => {
+    errorMsg.value = ''
+    try {
+        const rep = await axios.get('/api/admin/members', {
+            params: {
+                page,
+                size: pageSize,
+                //空字串當作沒有輸入，不要傳給後端，避免後端把空字串當成篩選條件
+                keyword: keyword.value.trim() || undefined,
+                gender: genderFilter.value || undefined,
+                city: cityFilter.value || undefined,
+                startDate: startDate.value || undefined,
+                endDate: endDate.value || undefined,
+            }
+        })
+        allMembers.value = rep.data.content
+        currentPage.value = rep.data.number
+        totalPages.value = rep.data.totalPages
+        totalElements.value = rep.data.totalElements
+    } catch (err) {
+        alert(`會員列表讀取失敗，原因: ${err.response.data.message}`)
+        errorMsg.value = '無法載入會員列表,請稍後再試'
+    }
+}
+
+//====取得全部會員(不分頁，只給上面兩個統計圖表用，跟表格的分頁資料分開抓，避免圖表只統計到當頁20筆)====
+const fetchAllMembersForStats = async () => {
+    try {
+        const rep = await axios.get('/api/admin/members', { params: { page: 0, size: 1000 } }) //size給大一點，一次撈全部會員
+        allMembersForStats.value = rep.data.content
+    } catch (err) {
+        //統計圖表載入失敗不影響會員列表的主要功能，不特別跳alert打擾使用者
+    }
+}
+
+// ====分頁相關====
+//切換分頁頁碼，超出範圍或點目前這頁就不動作
+const goToPage = (page) => {
+    if (page < 0 || page >= totalPages.value || page === currentPage.value) {
+        return
+    }
+    fetchAllMembers(page)
+}
+
+// ====篩選列相關====
+//====按下「搜尋」時觸發，檢查起迄日期合理後，帶著篩選條件重新查詢第一頁====
+const searchMembers = () => {
+    if (startDate.value && endDate.value && startDate.value > endDate.value) {
+        filterErrorMsg.value = '起始日期不能晚於結束日期'
+        return
+    }
+    filterErrorMsg.value = ''
+    fetchAllMembers(0)
+}
+
+//====清除所有篩選條件，回到未篩選狀態的第一頁====
+const resetFilters = () => {
+    keyword.value = ''
+    genderFilter.value = ''
+    cityFilter.value = ''
+    startDate.value = ''
+    endDate.value = ''
+    filterErrorMsg.value = ''
+    fetchAllMembers(0)
+}
+
+// ====表格顯示格式化相關====
+const genderLabel = (gender) => genderLabelMap[gender] ?? '未提供'
+
+//後端LocalDateTime格式化成yyyy/MM/dd HH:mm:ss顯示
+const formatDateTime = (ldtString) => {
+    if (!ldtString) return ''
+
+    // 拆出日期跟時間兩部分
+    const [datePart, timePart] = ldtString.split('T')
+    if (!datePart || !timePart) return ldtString // 格式不符預期時,原樣顯示,不讓畫面壞掉
+
+    const [year, month, day] = datePart.split('-')
+
+    // 時間部分可能帶奈秒(.8387595),只取到秒
+    const [hour, minute, secondWithNano] = timePart.split(':')
+    const second = secondWithNano.split('.')[0]
+
+    return `${year}/${month}/${day} ${hour}:${minute}:${second}`
+}
+
+// ====修改會員資料的相關函式====
 //開啟彈窗前，把表單值同步成該會員目前的資料
 const openEditModal = (member) => {
     editMemberId.value = member.id
@@ -263,6 +280,7 @@ const deleteMember = async (member) => {
     }
 }
 
+// ====初始化====
 //只要元件掛載就去抓會員列表(第一頁)跟圖表用的全部會員
 onMounted(() => {
     fetchAllMembers()
