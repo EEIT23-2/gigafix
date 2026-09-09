@@ -248,31 +248,99 @@ public class OrderServiceImpl implements OrderService {
         if (!order.getMember().getId().equals(memberId)) {
             throw new IllegalStateException("無權操作此訂單");
         }
-        // 已取消訂單不能付款
-        if (OrderStatus.CANCELLED.name().equals(order.getOrderStatus())) {
-            throw new IllegalStateException("訂單已取消，無法付款");
-        }
-        // 防止重複付款
-        if (PaymentStatus.PAID.name().equals(order.getPaymentStatus())) {
-            throw new IllegalStateException("訂單已完成付款");
-        }
-        // 更新付款資訊
-        order.setPaymentStatus(PaymentStatus.PAID.name());
-        order.setTransactionId(request.getTransactionId());
-        order.setPaidAt(LocalDateTime.now());
 
-        // 儲存付款後的訂單資料
+        // 保留既有模擬付款的「重複付款直接擋掉」
+        if (PaymentStatus.PAID
+                .name()
+                .equals(order.getPaymentStatus())) {
+
+            throw new IllegalStateException(
+                    "訂單已完成付款");
+        }
+
+        return completePayment(
+                orderId,
+                request.getTransactionId());
+    }
+
+    @Transactional
+    @Override
+    public OrderResponse completePayment(
+            Long orderId,
+            String transactionId) {
+
+        //  驗證交易編號
+        if (transactionId == null
+                || transactionId.isBlank()) {
+
+            throw new IllegalArgumentException(
+                    "transactionId 不可空白");
+        }
+
+        String normalizedTransactionId = transactionId.trim();
+
+        //  查詢訂單
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(
+                        () -> new IllegalArgumentException(
+                                "訂單不存在，orderId：" + orderId));
+
+        //  已取消訂單不能付款
+        if (OrderStatus.CANCELLED
+                .name()
+                .equals(order.getOrderStatus())) {
+
+            throw new IllegalStateException(
+                    "訂單已取消，無法付款");
+        }
+
+        //  處理重複 Callback
+        if (PaymentStatus.PAID
+                .name()
+                .equals(order.getPaymentStatus())) {
+
+            // 同一筆交易重送
+            if (normalizedTransactionId.equals(
+                    order.getTransactionId())) {
+
+                return toOrderResponse(order);
+            }
+
+            // 訂單已付款，但交易編號不同
+            throw new IllegalStateException(
+                    "訂單已完成付款");
+        }
+
+        //  防止 transactionId 被其他訂單使用
+        if (orderRepository.existsByTransactionId(
+                normalizedTransactionId)) {
+
+            throw new IllegalStateException(
+                    "交易編號已被使用");
+        }
+
+        //  更新付款資訊
+        order.setPaymentStatus(
+                PaymentStatus.PAID.name());
+
+        order.setTransactionId(
+                normalizedTransactionId);
+
+        order.setPaidAt(
+                LocalDateTime.now());
+
         Order savedOrder = orderRepository.save(order);
 
-        // 查詢訂單內所有商品
-        List<OrderItem> orderItems = orderItemRepository.findByOrderId(orderId);
+        //  查詢訂單商品
+        List<OrderItem> orderItems = orderItemRepository.findByOrderId(
+                orderId);
 
-        // 付款成功，將商品改為 SOLD
+        //  RESERVED → SOLD
         for (OrderItem orderItem : orderItems) {
-            productService.sellProduct(orderItem.getProductId());
-        }
 
-        // 回傳 OrderResponse
+            productService.sellProduct(
+                    orderItem.getProductId());
+        }
 
         return toOrderResponse(savedOrder);
     }
