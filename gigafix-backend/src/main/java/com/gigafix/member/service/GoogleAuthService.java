@@ -25,9 +25,15 @@ public class GoogleAuthService {
     private final MemberUserDetailsService memberUserDetailsService;
 
     public RegisterAndLoginResult googleLogin(String idTokenString) throws Exception {
-        GoogleIdToken idToken = googleIdTokenVerifier.verify(idTokenString);
-        // 認證失敗的話.verify()的回傳值會是null，那麼就拋出例外給前端
+        GoogleIdToken idToken;
+        try {
+            idToken = googleIdTokenVerifier.verify(idTokenString);
+        } catch (IllegalArgumentException e) {// 如果傳進的字串為一個不是JWT的假字串，會拋出這個例外，然後回傳給前端錯的格式，所以要catch
+            throw new InvalidCredentialsException();// 回傳自訂格式
+        }
+
         // 認證失敗的情況→簽章不對/過期/audience不符
+        // 認證失敗的話.verify()的回傳值會是null，那麼就拋出例外給前端
         if (idToken == null) {
             throw new InvalidCredentialsException();
         }
@@ -35,7 +41,8 @@ public class GoogleAuthService {
         // 拿到payload裡的email，以及檢查有沒有註冊過這個mail
         Payload payload = idToken.getPayload();
         String email = payload.getEmail();
-        if (!payload.getEmailVerified()) {
+        // getEmailVerified() 回傳的是 Boolean 物件，怕回傳是null，所以用Wrapper class的Boolean.TRUE做比較
+        if (!Boolean.TRUE.equals(payload.getEmailVerified())) {
             throw new InvalidCredentialsException();
         }
         // Google帳號的名稱，用來填realName/nickName
@@ -49,7 +56,7 @@ public class GoogleAuthService {
                         .phone("0900000000")
                         .address("尚未填寫")
                         .gender(Gender.MALE)
-                        .password(passwordEncoder.encode(java.util.UUID.randomUUID().toString()))
+                        .password(passwordEncoder.encode(java.util.UUID.randomUUID().toString()))// 如果使用第三方登入的話，替使用者隨機生成一個假密碼佔位，但這個密碼誰也不知道是啥(除非使用者用忘記密碼)
                         .createTime(java.time.LocalDateTime.now())
                         .build()));
 
