@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useFetchMemberInfoStore } from "@/stores/member";
 import { createAppointment, getBookedSlots, getStores } from "../api";
+import { REPAIR_ITEMS } from "../priceTable";
 
 // 取得目前登入的會員資料，聯絡姓名/電話會預設帶入這裡的值
 const fetchMemberInfoStore = useFetchMemberInfoStore();
@@ -145,6 +146,19 @@ function selectTimeSlot(slot) {
     return;
   }
   form.value.timeSlot = slot;
+}
+
+// 故障狀況描述上方的常見項目下拉選單：只帶項目名稱文字，不帶價格(客戶是自己描述症狀，不是議價)
+const selectedIssueItem = ref("");
+
+// 選了項目後把名稱插入描述框，用頓號分隔已有內容；插入後選單重置，可以連續加選多個項目
+// textarea本身有maxlength="200"限制使用者手動輸入，但這裡是程式賦值不受HTML maxlength限制，所以自己做字數上限
+function insertIssueItem() {
+  if (!selectedIssueItem.value) return;
+  const current = form.value.issueDescription;
+  const combined = current ? `${current}、${selectedIssueItem.value}` : selectedIssueItem.value;
+  form.value.issueDescription = combined.slice(0, 200);
+  selectedIssueItem.value = "";
 }
 
 // 每個必填欄位對應的錯誤訊息，跟「判斷欄位有沒有填」共用同一份，
@@ -369,6 +383,17 @@ onMounted(async () => {
           </div>
           <div class="col-12">
             <label class="form-label">故障狀況描述<span class="text-danger">*</span></label>
+            <select
+              v-model="selectedIssueItem"
+              class="form-select mb-2"
+              :disabled="submitting"
+              @change="insertIssueItem"
+            >
+              <option value="">選擇常見故障項目，快速加入描述(可複選)</option>
+              <option v-for="item in REPAIR_ITEMS" :key="item.key" :value="item.label">
+                {{ item.label }}
+              </option>
+            </select>
             <textarea
               v-model.trim="form.issueDescription"
               class="form-control"
