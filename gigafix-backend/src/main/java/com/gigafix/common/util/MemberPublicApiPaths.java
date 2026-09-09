@@ -18,5 +18,8 @@ public final class MemberPublicApiPaths {
 			"/api/gigafix/members/forgot-password",
 			"/api/gigafix/members/forgot-password/otp",
 			"/api/gigafix/login/google",
+			// jack的商城路由加入機不可失路由監管
+			"/api/gigafix/products",
+			"/api/gigafix/products/**"
 	};
 }

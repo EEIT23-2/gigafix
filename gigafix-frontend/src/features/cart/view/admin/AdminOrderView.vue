@@ -7,9 +7,8 @@ import {
     getCreateOptions,
     deleteOrder as deleteOrderApi,
     deliverOrder as deliverOrderApi,
-    cancelOrder as cancelOrderApi,
-    payOrder
-} from '../api'
+    cancelOrder as cancelOrderApi
+} from '../../api/adminOrderApi'
 import {
     orderStatusText,
     paymentStatusText,
@@ -17,7 +16,7 @@ import {
     orderStatusClass,
     paymentStatusClass,
     shippingStatusClass
-} from '../status'
+} from '../../status'
 
 //******訂單管理頁面******
 
@@ -86,11 +85,6 @@ const searchByMember = async () => {
         console.error('查詢會員訂單失敗：', error)
         alert('查詢失敗')
     }
-}
-// 顯示全部訂單
-const showAllOrders = () => {
-    selectedMemberId.value = ''
-    loadOrders()
 }
 // 刪除訂單
 const deleteOrder = async (orderId) => {
@@ -233,38 +227,7 @@ const cancelOrder = async (orderId) => {
         alert('取消訂單失敗')
     }
 }
-// Demo：模擬會員付款成功
-// 呼叫member-pay-api的payOrder，傳入交易編號
-// 假裝交易成功，並更新訂單的付款狀態為PAID
-// 交易編號使用時間戳記加上訂單編號，例如：DEMO-123456-1690000000000
-// 正式環境中，交易編號應該由支付平台回傳，而不是自己生成
-const demoPayOrder = async (order) => {
-    const confirmed = confirm(
-        `確定要模擬訂單 ${order.orderId} 付款成功嗎？`
-    )
-    if (!confirmed) {
-        return
-    }
-    try {
-        // Demo 用交易編號
-        const transactionId =
-            `DEMO-${order.orderId}-${Date.now()}`
 
-        await payOrder(
-            order.memberId,
-            order.orderId,
-            {
-                transactionId: transactionId
-            }
-        )
-        alert('模擬付款成功')
-        // 重新查詢訂單
-        loadOrders()
-    } catch (error) {
-        console.error('模擬付款失敗：', error)
-        alert('模擬付款失敗')
-    }
-}
 const formatPrice = (price) => {
     if (price == null) {
         return '0'
@@ -513,15 +476,6 @@ const formatPrice = (price) => {
                                         " class="btn btn-sm btn-outline-danger" type="button"
                                             @click="cancelOrder(order.orderId)">
                                             取消訂單
-                                        </button>
-
-                                        <!-- Demo：模擬付款 -->
-                                        <button v-if="
-                                            order.orderStatus === 'PENDING' &&
-                                            order.paymentStatus === 'UNPAID' &&
-                                            order.shippingStatus === 'PENDING'
-                                        " class="btn btn-sm btn-success" type="button" @click="demoPayOrder(order)">
-                                            模擬付款
                                         </button>
                                     </div>
                                 </td>
