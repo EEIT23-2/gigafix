@@ -40,4 +40,5 @@ public class ArticleResponse {
 	// 有填的情況下：沒帶 memberId、或內容因下架/隱藏而看不到時為 null（不做多餘查詢），其餘為 true/false
 	private Boolean likedByCurrentMember; // 查詢時帶的 memberId 是否已對這篇按讚
 	private Boolean bookmarkedByCurrentMember; // 查詢時帶的 memberId 是否已收藏這篇
+	private Boolean isAuthor; // 目前登入的會員是否為這篇（或這個樓層）的作者本人，未登入時為 false
 }

@@ -50,12 +50,13 @@ function parentArticleLabel(article) {
           </td>
           <td>
             <button
-              class="btn btn-sm"
+              class="btn btn-sm pin-button"
               :class="article.isPinned ? 'btn-warning' : 'btn-outline-secondary'"
               type="button"
+              :title="article.isPinned ? '點擊取消置頂' : '點擊設為置頂'"
               @click="emit('toggle-pin', article)"
             >
-              {{ article.isPinned ? '📌 已置頂（點擊取消）' : '設為置頂' }}
+              {{ article.isPinned ? '📌 已置頂' : '設為置頂' }}
             </button>
           </td>
           <td class="text-end font-monospace">
@@ -88,6 +89,14 @@ function parentArticleLabel(article) {
 .article-title-button:hover {
   color: #0d6efd;
   text-decoration: underline;
+}
+/* 置頂鈕的兩種文字寬度必須一致，否則點下去整張表會重排：
+   原本「設為置頂」與「📌 已置頂（點擊取消）」差了一倍寬，置頂欄會從 104px 撐到 190px，
+   標題、所屬文章、建立時間等欄位全部被連帶擠窄。
+   「點擊取消」的提示改放 title，畫面上不佔寬度 */
+.pin-button {
+  min-width: 6rem;
+  white-space: nowrap;
 }
 th {
   white-space: nowrap;

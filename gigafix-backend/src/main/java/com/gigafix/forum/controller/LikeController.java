@@ -1,8 +1,10 @@
 package com.gigafix.forum.controller;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import com.gigafix.common.util.SecurityUtils;
 import com.gigafix.forum.dto.LikeResponse;
 import com.gigafix.forum.service.LikeService;
 
@@ -20,64 +22,70 @@ public class LikeController {
 	private final LikeService likeService;
 
 	// 對文章按讚
-	@PostMapping("/api/members/{memberId}/articles/{articleId}/like")
+	@PostMapping("/api/members/me/articles/{articleId}/like")
 	public ResponseEntity<LikeResponse> likeArticle(
-			@PathVariable Long memberId,
+			Authentication authentication,
 			@PathVariable Long articleId) {
 
+		Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
 		LikeResponse response = likeService.likeArticle(memberId, articleId);
 
 		return ResponseEntity.ok(response);
 	}
 
 	// 取消對文章的讚
-	@DeleteMapping("/api/members/{memberId}/articles/{articleId}/like")
+	@DeleteMapping("/api/members/me/articles/{articleId}/like")
 	public ResponseEntity<Void> unlikeArticle(
-			@PathVariable Long memberId,
+			Authentication authentication,
 			@PathVariable Long articleId) {
 
+		Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
 		likeService.unlikeArticle(memberId, articleId);
 
 		return ResponseEntity.noContent().build();
 	}
 
 	// 對留言按讚
-	@PostMapping("/api/members/{memberId}/comments/{commentId}/like")
+	@PostMapping("/api/members/me/comments/{commentId}/like")
 	public ResponseEntity<LikeResponse> likeComment(
-			@PathVariable Long memberId,
+			Authentication authentication,
 			@PathVariable Long commentId) {
 
+		Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
 		LikeResponse response = likeService.likeComment(memberId, commentId);
 
 		return ResponseEntity.ok(response);
 	}
 
 	// 取消對留言的讚
-	@DeleteMapping("/api/members/{memberId}/comments/{commentId}/like")
+	@DeleteMapping("/api/members/me/comments/{commentId}/like")
 	public ResponseEntity<Void> unlikeComment(
-			@PathVariable Long memberId,
+			Authentication authentication,
 			@PathVariable Long commentId) {
 
+		Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
 		likeService.unlikeComment(memberId, commentId);
 
 		return ResponseEntity.noContent().build();
 	}
 
 	// 查詢會員是否已對某篇文章按讚
-	@GetMapping("/api/members/{memberId}/articles/{articleId}/like")
+	@GetMapping("/api/members/me/articles/{articleId}/like")
 	public ResponseEntity<Boolean> hasLikedArticle(
-			@PathVariable Long memberId,
+			Authentication authentication,
 			@PathVariable Long articleId) {
 
+		Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
 		return ResponseEntity.ok(likeService.hasLikedArticle(memberId, articleId));
 	}
 
 	// 查詢會員是否已對某則留言按讚
-	@GetMapping("/api/members/{memberId}/comments/{commentId}/like")
+	@GetMapping("/api/members/me/comments/{commentId}/like")
 	public ResponseEntity<Boolean> hasLikedComment(
-			@PathVariable Long memberId,
+			Authentication authentication,
 			@PathVariable Long commentId) {
 
+		Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
 		return ResponseEntity.ok(likeService.hasLikedComment(memberId, commentId));
 	}
 }

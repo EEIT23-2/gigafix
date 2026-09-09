@@ -76,6 +76,9 @@ public class ArticleServiceImpl implements ArticleService {
 	// 編輯（含樓層）唯一擋下的狀態：討論串被關閉（含強制關閉）或已下架。
 	// 隱藏／強制隱藏都還能編輯——隱藏是可逆狀態，被強制隱藏的內容在重新公開前本來就只有作者自己看得到，
 	// 讓作者趁這段時間把內容改好，不會讓被下架的東西提早曝光
+	// 最近瀏覽一次最多帶幾筆，跟前端 localStorage 保留的筆數一致
+	private static final int RECENT_VIEWED_LIMIT = 10;
+
 	private static final Set<Article.ArticleStatus> EDIT_BLOCKED_STATUSES = EnumSet.of(
 			Article.ArticleStatus.CLOSED, Article.ArticleStatus.FORCE_CLOSED, Article.ArticleStatus.TAKEN_DOWN);
 
@@ -197,6 +200,7 @@ public class ArticleServiceImpl implements ArticleService {
 			return null;
 		}
 
+		response.setIsAuthor(isAuthor);
 		return response;
 	}
 
@@ -316,6 +320,42 @@ public class ArticleServiceImpl implements ArticleService {
 		articleRepository.save(article);
 	}
 
+	// 捨棄草稿：真的刪列，不是改狀態
+	@Override
+	@Transactional
+	public void deleteDraft(Long memberId, Long articleId) {
+
+		// 檢查會員是否存在
+		if (!memberRepository.existsById(memberId)) {
+			throw new IllegalArgumentException("會員不存在，memberId：" + memberId);
+		}
+
+		// 查詢文章
+		Article article = articleRepository.findById(articleId)
+				.orElseThrow(() -> new IllegalArgumentException("文章不存在，articleId：" + articleId));
+
+		// 確認為文章作者本人
+		if (!article.getAuthor().getId().equals(memberId)) {
+			throw new IllegalStateException("無權限操作此文章");
+		}
+
+		// 只有草稿能硬刪除。已經公開過的文章一律走 deleteArticle 的軟刪除，保留稽核軌跡
+		if (article.getStatus() != Article.ArticleStatus.DRAFT) {
+			throw new IllegalStateException("只有草稿可以捨棄，已發布過的文章請用下架");
+		}
+
+		// 草稿理論上只有作者看得到，不該有依附資料；真的有就擋下來，
+		// 避免直接砍列撞上外鍵約束變成沒頭沒尾的 500
+		if (article.getCommentCount() != null && article.getCommentCount() > 0) {
+			throw new IllegalStateException("這篇草稿底下還有留言，無法捨棄");
+		}
+		if (articleRepository.countByParentArticle_ArticleId(articleId) > 0) {
+			throw new IllegalStateException("這篇草稿底下還有樓層，無法捨棄");
+		}
+
+		articleRepository.delete(article);
+	}
+
 	// 會員自行變更自己文章的狀態
 	@Override
 	@Transactional
@@ -366,6 +406,28 @@ public class ArticleServiceImpl implements ArticleService {
 		return articleRepository.findByAuthor_IdOrderByArticleCreatedTimeDesc(memberId).stream()
 				.filter(a -> a.getStatus() != Article.ArticleStatus.TAKEN_DOWN)
 				.map(this::toArticleResponse)
+				.toList();
+	}
+
+	// 最近瀏覽：依 id 批次帶回。前端只把根文章的 id 記進 localStorage，這裡再擋一次樓層
+	@Override
+	public List<ArticleResponse> getArticlesByIds(List<Long> articleIds, Long memberId) {
+
+		if (articleIds == null || articleIds.isEmpty()) {
+			return List.of();
+		}
+
+		// 上限 10：這支是「最近瀏覽」專用，不是通用的批次查詢，不開放無限制帶 id
+		List<Long> limited = articleIds.stream().distinct().limit(RECENT_VIEWED_LIMIT).toList();
+
+		return articleRepository.findByArticleIdIn(limited).stream()
+				// 只回根文章
+				.filter(a -> a.getParentArticle() == null)
+				// 第三個參數務必是 false：渲染一次最近瀏覽就會帶 10 個 id 進來，
+				// 若在這裡加瀏覽數，等於每看一次列表就幫每篇灌一次
+				.map(a -> resolveVisibility(a, memberId, false))
+				// null 代表呼叫者完全看不到（別人的草稿），直接不回傳
+				.filter(r -> r != null)
 				.toList();
 	}
 

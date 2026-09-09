@@ -1,18 +1,40 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, computed, nextTick, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { getArticle, createArticle, updateArticle, updateArticleStatus } from '../api'
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
+import { storeToRefs } from 'pinia'
+import {
+  getArticle,
+  createArticle,
+  updateArticle,
+  updateArticleStatus,
+  deleteDraft,
+  flushArticleOnUnload,
+  updateFloor,
+} from '../api'
 import CategorySelect from '../components/CategorySelect.vue'
 import RichTextEditor from '../components/RichTextEditor.vue'
 import { isHtmlEmpty } from '../htmlContent'
+import { useFetchMemberInfoStore } from '@/stores/member'
+import { normalizeTab, backToMemberForum } from '../utils/memberForumNav'
 
 const route = useRoute()
 const router = useRouter()
+const { memberInfo } = storeToRefs(useFetchMemberInfoStore())
 
 const AUTOSAVE_DELAY_MS = 1500
+const TITLE_MAX = 255
 
 const articleId = computed(() => route.params.articleId)
 const isEdit = computed(() => !!articleId.value)
+
+// 這一頁同時掛在前台（forumCreate / forumEdit）與會員中心（member-forum-*）兩組路由底下。
+// 從會員中心進來時，完成或取消都要回「我的討論」，而不是把使用者丟到前台去
+const inMemberCenter = computed(() => String(route.name ?? '').startsWith('member-forum'))
+// 離開這頁時的落腳處：會員中心版本回列表，前台版本維持原本的行為
+function leaveTo(fallback) {
+  // 帶上來源分頁：從草稿分頁進來編輯，完成後要回草稿分頁而不是我的文章
+  return inMemberCenter.value ? backToMemberForum(route.query.tab) : fallback
+}
 
 const form = ref({
   categoryId: null,
@@ -26,33 +48,64 @@ const currentStatus = ref(null)
 // 建立模式專用：第一次自動存檔（建立草稿）後拿到的文章 id
 const draftArticleId = ref(null)
 
+// 樓層也是一篇 Article，但標題與分類是從根文章繼承來的、封面圖根本沒有，
+// 而且儲存要走 updateFloor（只收內文）。載入後才知道，所以用 ref 不是 computed
+const isFloor = ref(false)
+
 const effectiveArticleId = computed(() => (isEdit.value ? articleId.value : draftArticleId.value))
 // 建立模式永遠走草稿流程；編輯模式只有原本就是草稿才走
 const isDraftFlow = computed(() => (isEdit.value ? currentStatus.value === 'DRAFT' : true))
 // 內文是 TipTap 產生的 HTML，空編輯器的輸出是 <p></p>——不能用 .trim() 判斷是否為空
+const contentEmpty = computed(() => isHtmlEmpty(form.value.content))
 const canPublish = computed(
-  () => !!form.value.categoryId && form.value.title.trim() !== '' && !isHtmlEmpty(form.value.content),
+  () => !!form.value.categoryId && form.value.title.trim() !== '' && !contentEmpty.value,
 )
+// 發布鈕停用時給使用者看的原因（不講 <p></p> 或 trim 這種實作細節）
+const publishBlockedReason = computed(() => {
+  if (canPublish.value) return ''
+  const missing = []
+  if (!form.value.title.trim()) missing.push('標題')
+  if (contentEmpty.value) missing.push('內文')
+  if (!form.value.categoryId) missing.push('分類')
+  return `還差${missing.join('、')}才能發布`
+})
+
+const coverPreviewFailed = ref(false)
+// 只把看起來像網址的值送去預覽，避免使用者才打兩個字就閃一次破圖
+const coverPreviewUrl = computed(() => {
+  const url = form.value.coverImage.trim()
+  return /^https?:\/\/\S+$/i.test(url) ? url : ''
+})
+watch(coverPreviewUrl, () => {
+  coverPreviewFailed.value = false
+})
 
 const loading = ref(false)
 const submitting = ref(false)
 const publishing = ref(false)
+const discarding = ref(false)
 const autosaving = ref(false)
-const autosaveMessage = ref('')
+const autosavedAt = ref('')
 const errorMessage = ref('')
 
 // 非響應式狀態：debounce 計時器與「還不算使用者編輯」的抑制旗標
 let debounceTimer = null
 let suppressAutosave = true
 
-function scheduleAutosave() {
-  // 任何新的編輯都先清掉上一次的「已自動存檔」提示
-  autosaveMessage.value = ''
+// 已發布文章編輯沒有自動存檔，需要自己追蹤有沒有改動，離開前才知道要不要提示。
+// 草稿流程不需要這個——草稿本來就會自動存檔，離開永遠是安全的
+const savedSnapshot = ref('')
+const isDirty = computed(() => !isDraftFlow.value && savedSnapshot.value !== JSON.stringify(form.value))
 
+function buildPayload() {
+  return { ...form.value, coverImage: form.value.coverImage || null }
+}
+
+function scheduleAutosave() {
   if (suppressAutosave || !isDraftFlow.value) return
   // 標題與內文都還空白時不排程，避免分類自動預選單獨觸發建立空白草稿。
   // 內文同樣要用 isHtmlEmpty——編輯器一掛載就會產出 <p></p>，用 .trim() 會誤判成「已經有內容」
-  if (!form.value.title.trim() && isHtmlEmpty(form.value.content)) return
+  if (!form.value.title.trim() && contentEmpty.value) return
 
   if (debounceTimer) clearTimeout(debounceTimer)
   debounceTimer = setTimeout(runAutosave, AUTOSAVE_DELAY_MS)
@@ -61,9 +114,10 @@ function scheduleAutosave() {
 watch(form, scheduleAutosave, { deep: true })
 
 async function runAutosave() {
+  debounceTimer = null
   autosaving.value = true
   try {
-    const payload = { ...form.value, coverImage: form.value.coverImage || null }
+    const payload = buildPayload()
     if (!isEdit.value && !draftArticleId.value) {
       // 這篇文章的第一次存檔：用 POST 建立草稿
       const created = await createArticle({ ...payload, status: 'DRAFT' })
@@ -72,7 +126,11 @@ async function runAutosave() {
     } else {
       await updateArticle(effectiveArticleId.value, payload)
     }
-    autosaveMessage.value = '已自動存檔'
+    autosavedAt.value = new Date().toLocaleTimeString('zh-TW', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
   } catch (error) {
     console.error(error)
     // 自動存檔失敗不打斷編輯，下一次編輯會重新排程並重試
@@ -89,6 +147,48 @@ async function flushPendingAutosave() {
   }
 }
 
+// 分頁被關掉／重新整理時：
+// 草稿流程——debounce 還沒到期的那 1.5 秒編輯不能就這樣消失，這裡只能同步發出請求，
+// 所以走 keepalive 的 fetch，不能 await；如果連第一次自動存檔都還沒發生（還沒有 id 可以 PUT），
+// 沒辦法用 keepalive 補救，只能靠瀏覽器原生的離開提示擋一下。
+// 非草稿（編輯已發布文章）——完全沒有自動存檔，有改動就一定要靠原生提示攔
+function handleBeforeUnload(event) {
+  if (isDraftFlow.value) {
+    if (!debounceTimer) return
+    if (effectiveArticleId.value) {
+      clearTimeout(debounceTimer)
+      debounceTimer = null
+      flushArticleOnUnload(effectiveArticleId.value, buildPayload())
+      return
+    }
+    event.preventDefault()
+    event.returnValue = ''
+    return
+  }
+  if (isDirty.value) {
+    event.preventDefault()
+    event.returnValue = ''
+  }
+}
+
+// 站內換頁（router）走得到 async，可以好好等存檔完成再離開。
+// 草稿：等自動存檔送完後單純告知已經存好、去哪裡找，不攔截離開——內容真的存了，沒有什麼好讓使用者取消的。
+// 非草稿（編輯已發布文章）：有改動就用問句攔，取消可以留在頁面上
+onBeforeRouteLeave(async (to) => {
+  if (isDraftFlow.value) {
+    await flushPendingAutosave()
+    // 回會員中心時不用跳提示：那篇草稿下一秒就出現在列表上了，再 alert 一次只是吵
+    const backToList = String(to.name ?? '').startsWith('member-forum')
+    if (effectiveArticleId.value && !backToList) {
+      alert('草稿已儲存，可至「我的討論」查看。')
+    }
+    return
+  }
+  if (isDirty.value && !confirm('離開將會捨棄本次編輯，確定要離開嗎？')) {
+    return false
+  }
+})
+
 // 修正原生 <select> 初次渲染不觸發 change 的落差，同時讓「建立草稿需要 categoryId」這件事自動成立
 function handleCategoriesLoaded(categories) {
   if (!isEdit.value && form.value.categoryId == null && categories.length > 0) {
@@ -104,7 +204,7 @@ async function handlePublish() {
     await flushPendingAutosave()
     if (!effectiveArticleId.value) await runAutosave()
     await updateArticleStatus(effectiveArticleId.value, 'PUBLISHED')
-    router.push({ name: 'forumDetail', params: { articleId: effectiveArticleId.value } })
+    router.push(leaveTo({ name: 'forumDetail', params: { articleId: effectiveArticleId.value } }))
   } catch {
     errorMessage.value = '發布失敗，請確認欄位是否都已正確填寫'
   } finally {
@@ -112,14 +212,51 @@ async function handlePublish() {
   }
 }
 
+async function handleDiscardDraft() {
+  if (!confirm('捨棄後這篇草稿會被永久刪除，確定嗎？')) return
+  // 還沒存過任何一次的話，資料庫裡根本沒有這篇，直接離開就好
+  if (!effectiveArticleId.value) {
+    router.push(leaveTo({ name: 'forumList' }))
+    return
+  }
+  discarding.value = true
+  errorMessage.value = ''
+  try {
+    // 先取消待處理的自動存檔，否則刪掉之後那個計時器會再把它寫回來
+    if (debounceTimer) {
+      clearTimeout(debounceTimer)
+      debounceTimer = null
+    }
+    await deleteDraft(effectiveArticleId.value)
+    suppressAutosave = true
+    router.push(leaveTo({ name: 'forumList' }))
+  } catch (error) {
+    const data = error.response?.data
+    errorMessage.value = data?.message || '捨棄草稿失敗，請稍後再試'
+  } finally {
+    discarding.value = false
+  }
+}
+
+// 草稿的單純離開。不做任何刪除——草稿一直都在自動存檔，離開是安全的
+function handleBackFromDraft() {
+  router.push(leaveTo({ name: 'forumList' }))
+}
+
 // 編輯已發布（非草稿）文章時的既有流程：維持不動，不接自動存檔
 async function handleSubmit() {
   submitting.value = true
   errorMessage.value = ''
   try {
-    const payload = { ...form.value, coverImage: form.value.coverImage || null }
-    await updateArticle(articleId.value, payload)
-    router.push({ name: 'forumDetail', params: { articleId: articleId.value } })
+    // 樓層只有內文可改，走專用端點；updateArticle 那支會要求標題與分類
+    if (isFloor.value) {
+      await updateFloor(articleId.value, form.value.content)
+    } else {
+      await updateArticle(articleId.value, buildPayload())
+    }
+    // 存檔成功，把「有沒有改動」的基準更新成剛存下去的內容，離開頁面才不會又被自己的 isDirty 攔下來
+    savedSnapshot.value = JSON.stringify(form.value)
+    router.push(leaveTo({ name: 'forumDetail', params: { articleId: articleId.value } }))
   } catch {
     errorMessage.value = '儲存失敗，請確認欄位是否都已正確填寫'
   } finally {
@@ -127,177 +264,591 @@ async function handleSubmit() {
   }
 }
 
+// 「查看公開頁面」跟「取消」語意不同，不能共用一支：
+// 前者就是要離開去看前台，後者要回到使用者原本待的地方
+function goToPublicArticle() {
+  router.push({ name: 'forumDetail', params: { articleId: articleId.value } })
+}
+
+function handleCancel() {
+  if (inMemberCenter.value) {
+    router.push({ name: 'member-forum' })
+    return
+  }
+  goToPublicArticle()
+}
+
 onMounted(async () => {
-  if (isEdit.value) {
-    loading.value = true
-    try {
-      const article = await getArticle(articleId.value)
-      form.value = {
-        categoryId: article.categoryId,
-        title: article.title,
-        content: article.content,
-        coverImage: article.coverImage ?? '',
+  // 沒登入的話畫面交給模板的 v-else 內嵌提示處理，這裡不用做任何跳轉或 alert
+  if (memberInfo.value) {
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    if (isEdit.value) {
+      loading.value = true
+      try {
+        const article = await getArticle(articleId.value)
+        form.value = {
+          categoryId: article.categoryId,
+          title: article.title,
+          content: article.content,
+          coverImage: article.coverImage ?? '',
+        }
+        currentStatus.value = article.status
+        isFloor.value = article.parentArticleId != null
+      } catch {
+        errorMessage.value = '文章資料載入失敗，請確認文章是否存在'
+      } finally {
+        loading.value = false
       }
-      currentStatus.value = article.status
-    } catch {
-      errorMessage.value = '文章資料載入失敗，請確認文章是否存在'
-    } finally {
-      loading.value = false
     }
   }
+
+  // 「有沒有改動」的比對基準，載入成功、載入失敗、根本沒登入這三種情況都要立。
+  // 少了任何一條路徑，savedSnapshot 會停在空字串、isDirty 恆為 true，使用者一離開就被
+  // 「離開將會捨棄本次編輯」擋下來——連路由守衛的自動導向都會被 onBeforeRouteLeave 擋掉
+  savedSnapshot.value = JSON.stringify(form.value)
+
   // 等這次掛載造成的表單賦值處理完，才開始把後續變動視為使用者編輯
   await nextTick()
   suppressAutosave = false
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', handleBeforeUnload)
   if (debounceTimer) clearTimeout(debounceTimer)
 })
 </script>
 
 <template>
-  <div class="article-form-view">
-    <h1>{{ isEdit ? '編輯文章' : '發表文章' }}</h1>
-    <form @submit.prevent="handleSubmit">
-      <label>
-        分類
-        <CategorySelect
-          v-model="form.categoryId"
-          :include-all-option="false"
-          @categories-loaded="handleCategoriesLoaded"
-        />
-      </label>
-      <label>
-        標題
-        <input v-model="form.title" type="text" maxlength="255" />
-      </label>
-      <label>
-        封面圖網址（選填）
-        <input v-model="form.coverImage" type="text" placeholder="https://..." />
-      </label>
-      <!-- 這裡刻意不用 <label>：label 會把點擊轉發給內部第一個可標記控制項，
-           而編輯器工具列的按鈕就在裡面，會變成「點編輯區＝按到工具列第一顆鈕」 -->
-      <div class="field">
-        <span class="field-label">內文</span>
-        <RichTextEditor v-model="form.content" />
-      </div>
-      <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
+  <!-- 嵌在會員中心裡時要降級成 div：MemberCenterLayout 的容器本身已經是 <main>，巢狀 <main> 是無效的 HTML -->
+  <component
+    :is="inMemberCenter ? 'div' : 'main'"
+    class="article-form-page"
+    :class="{ embedded: inMemberCenter }"
+  >
+    <div class="form-shell">
+      <!-- 標題列：不管有沒有登入都先讓使用者知道自己在哪一頁 -->
+      <header class="page-head">
+        <span v-if="memberInfo" class="mode-label">{{ isFloor ? '樓層' : (isDraftFlow ? '草稿流程' : '已發布') }}</span>
+        <h1 class="page-title">{{ isFloor ? '編輯樓層' : (isEdit ? '編輯文章' : '發表文章') }}</h1>
+      </header>
 
-      <template v-if="isDraftFlow">
-        <p v-if="autosaving" class="autosave-status">存檔中...</p>
-        <div v-if="autosaveMessage" class="autosave-banner" role="alert">
-          {{ autosaveMessage }}
-          <button class="dismiss-btn" type="button" aria-label="關閉" @click="autosaveMessage = ''"></button>
-        </div>
-        <button type="button" :disabled="!canPublish || publishing" @click="handlePublish">
-          {{ publishing ? '發布中...' : '發布' }}
-        </button>
-      </template>
+      <!-- 沒登入：直接貼網址進來這頁（例如重新整理），比照 repair 模組的做法給一句內嵌提示，不彈窗也不跳轉 -->
+      <p v-if="!memberInfo" class="alert alert-warning">
+        請先登入會員才能{{ isEdit ? '編輯文章' : '發表文章' }}。
+      </p>
+
       <template v-else>
-        <button type="submit" :disabled="submitting">{{ submitting ? '儲存中...' : '儲存變更' }}</button>
+      <!-- 草稿：狀態與自動存檔放在視線內，不再壓在頁尾 -->
+      <div v-if="isDraftFlow" class="status-bar">
+        <span class="pill pill-draft">草稿</span>
+        <span class="status-text">尚未公開，只有你看得到</span>
+        <span v-if="autosaving" class="status-note">存檔中...</span>
+        <span v-else-if="autosavedAt" class="status-saved">
+          <i class="bi bi-check-lg"></i>已自動存檔 {{ autosavedAt }}
+        </span>
+      </div>
+
+      <!-- 已發布：藍色橫幅，明確區隔於草稿流程 -->
+      <div v-else class="status-bar status-bar-live">
+        <span class="pill pill-live">發布中</span>
+        <span class="status-text">{{ isFloor ? '蓋樓僅提供編輯內文' : '這篇文章目前公開，儲存後改動會立即生效' }}</span>
+        <button type="button" class="link-btn" @click="goToPublicArticle">查看公開頁面</button>
+        <span class="status-note w-100">注意:若未「儲存變更」離開將會捨棄變更</span>
+      </div>
+
+      <form class="form-card" @submit.prevent="handleSubmit">
+        <!-- 標題：放最大，它是文章的門面 -->
+        <div class="field">
+          <div class="field-head">
+            <label class="field-label" for="article-title">標題</label>
+            <span v-if="!isFloor" class="required">必填</span>
+            <span v-else class="optional">繼承自根文章，不可修改</span>
+            <span class="counter">{{ form.title.length }} / {{ TITLE_MAX }}</span>
+          </div>
+          <input
+            id="article-title"
+            v-model="form.title"
+            class="title-input"
+            type="text"
+            :maxlength="TITLE_MAX"
+            :disabled="isFloor"
+            :title="isFloor ? '樓層的標題繼承自根文章，不能修改' : null"
+            placeholder="為這篇文章下一個標題"
+          />
+        </div>
+
+        <div class="field field-narrow">
+          <div class="field-head">
+            <span class="field-label">分類</span>
+            <span v-if="!isFloor" class="required">必填</span>
+            <span v-else class="optional">繼承自根文章，不可修改</span>
+          </div>
+          <CategorySelect
+            v-model="form.categoryId"
+            :include-all-option="false"
+            :disabled="isFloor"
+            @categories-loaded="handleCategoriesLoaded"
+          />
+        </div>
+
+        <!-- 這裡刻意不用 <label>：label 會把點擊轉發給內部第一個可標記控制項，
+             而編輯器工具列的按鈕就在裡面，會變成「點編輯區＝按到工具列第一顆鈕」 -->
+        <div class="field">
+          <div class="field-head">
+            <span class="field-label">內文</span>
+            <span class="required">必填</span>
+          </div>
+          <RichTextEditor v-model="form.content" />
+        </div>
+
+        <!-- 封面圖：網址 ＋ 即時預覽，貼錯立刻看得出來。
+             樓層整個藏起來而不是停用——updateFloor 只收內文，留一個存不進去的欄位在畫面上只會誤導 -->
+        <div v-if="!isFloor" class="field">
+          <div class="field-head">
+            <label class="field-label" for="article-cover">封面圖</label>
+            <span class="optional">選填 · 貼圖片網址</span>
+          </div>
+          <div class="cover-row">
+            <input
+              id="article-cover"
+              v-model="form.coverImage"
+              class="cover-input"
+              type="url"
+              placeholder="https://..."
+            />
+            <div class="cover-preview">
+              <img
+                v-if="coverPreviewUrl && !coverPreviewFailed"
+                :src="coverPreviewUrl"
+                alt="封面預覽"
+                @error="coverPreviewFailed = true"
+              />
+              <span v-else-if="coverPreviewFailed" class="cover-hint cover-hint-error">圖片載入失敗</span>
+              <span v-else class="cover-hint">尚未設定</span>
+              <button
+                v-if="form.coverImage"
+                type="button"
+                class="cover-clear"
+                aria-label="清除封面圖"
+                @click="form.coverImage = ''"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
+      </form>
+
+      <!-- 動作列 -->
+      <div class="action-bar">
+        <template v-if="isDraftFlow">
+          <!-- 返回與捨棄放在一起但語意相反：一個保留草稿、一個永久刪除，用分隔線拉開視覺距離 -->
+          <button type="button" class="back-btn" @click="handleBackFromDraft">返回</button>
+          <span class="action-divider" aria-hidden="true">|</span>
+          <button type="button" class="discard-btn" :disabled="discarding" @click="handleDiscardDraft">
+            {{ discarding ? '捨棄中...' : '捨棄草稿' }}
+          </button>
+          <div class="action-right">
+            <span v-if="publishBlockedReason" class="blocked-reason">{{ publishBlockedReason }}</span>
+            <span v-else class="action-note">發布後所有人都看得到</span>
+            <button
+              type="button"
+              class="primary-btn"
+              :disabled="!canPublish || publishing"
+              @click="handlePublish"
+            >
+              {{ publishing ? '發布中...' : '發布' }}
+            </button>
+          </div>
+        </template>
+        <template v-else>
+          <button type="button" class="discard-btn" @click="handleCancel">
+            {{ inMemberCenter ? '取消，返回我的討論' : '取消，返回文章' }}
+          </button>
+          <div class="action-right">
+            <button type="button" class="primary-btn" :disabled="submitting" @click="handleSubmit">
+              {{ submitting ? '儲存中...' : '儲存變更' }}
+            </button>
+          </div>
+        </template>
+      </div>
       </template>
-    </form>
-  </div>
+    </div>
+  </component>
 </template>
 
 <style scoped>
-.article-form-view {
-  max-width: 700px;
-  margin: 0 auto;
-  padding: 20px;
+.article-form-page {
+  background: #f6f8fa;
+  padding: 24px 20px 40px;
+  min-height: 100vh;
 }
 
-form {
+/* 上面那組樣式是為「獨佔整個視窗」寫的。嵌進會員中心時，滿版灰底會在白色內容區裡
+   畫出一塊突兀的色塊，min-height:100vh 還會多撐出一個視窗高度的空白 */
+.article-form-page.embedded {
+  background: transparent;
+  padding: 0;
+  min-height: auto;
+}
+
+.form-shell {
+  max-width: 900px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
-label,
+/* 會員中心的其他頁面都是靠左對齊，這裡跟著靠左才不會只有編輯頁往中間跑 */
+.embedded .form-shell {
+  margin: 0;
+}
+
+/* ── 標題列 ── */
+.page-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding-bottom: 4px;
+  border-bottom: 2px solid #2b77c5;
+}
+
+.mode-label {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #2b77c5;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1d324b;
+}
+
+/* ── 狀態列 ── */
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 18px;
+  background: #ffffff;
+  border: 1px solid #e5e9f0;
+  border-radius: 8px;
+}
+
+.status-bar-live {
+  background: #eaf2fb;
+  border-color: #b8d4ef;
+}
+
+.pill {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pill-draft {
+  background: #eef1f5;
+  color: #6c757d;
+}
+
+.pill-live {
+  background: #1e7e34;
+  color: #ffffff;
+}
+
+.status-text {
+  font-size: 13px;
+  color: #888888;
+}
+
+.status-bar-live .status-text {
+  color: #1f5fa8;
+}
+
+.status-note {
+  font-size: 12px;
+  color: #adb5bd;
+}
+
+.status-bar-live .status-note {
+  color: #5a86b3;
+}
+
+.status-saved {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #1e7e34;
+}
+
+.status-bar .status-note:not(.w-100) {
+  margin-left: auto;
+}
+
+.w-100 {
+  width: 100%;
+}
+
+.link-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #2b77c5;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.link-btn:hover {
+  text-decoration: underline;
+}
+
+/* ── 表單卡 ── */
+.form-card {
+  background: #ffffff;
+  border: 1px solid #e5e9f0;
+  border-radius: 8px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
 .field {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 14px;
-  color: #555555;
 }
 
-/* 純標示用，不是 <label>，不會有轉發點擊的行為 */
+.field-narrow {
+  max-width: 280px;
+}
+
+.field-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
 .field-label {
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 600;
   color: #555555;
 }
 
-input,
-textarea {
-  padding: 8px 10px;
+.required {
+  font-size: 12px;
+  color: #c0392b;
+}
+
+.optional {
+  font-size: 12px;
+  color: #adb5bd;
+}
+
+.counter {
+  margin-left: auto;
+  font-size: 12px;
+  color: #adb5bd;
+}
+
+/* 標題是文章門面，字級明顯大於其他欄位 */
+.title-input {
+  padding: 12px 14px;
   border: 1px solid #d0d0d0;
-  border-radius: 4px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 20px;
+  font-weight: 600;
+  color: #1d324b;
+}
+
+/* 樓層的標題繼承自根文章，停用時要看得出來是「不能改」而不是「壞了」 */
+.title-input:disabled {
+  background-color: #f1f3f5;
+  color: #868e96;
+  cursor: not-allowed;
+}
+
+.title-input::placeholder {
+  font-weight: 400;
+  color: #adb5bd;
+}
+
+.title-input:focus,
+.cover-input:focus {
+  outline: none;
+  border-color: #2b77c5;
+}
+
+/* ── 封面圖 ── */
+.cover-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.cover-input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
   font-family: inherit;
   font-size: 14px;
+  color: #555555;
 }
 
-textarea {
-  resize: vertical;
+/* 尺寸與 object-fit 刻意跟 ArticleCard 的 .thumb 一致（120×120 + contain），
+   這樣這裡看到的就是文章列表上會看到的樣子 */
+.cover-preview {
+  position: relative;
+  flex-shrink: 0;
+  width: 120px;
+  height: 120px;
+  border: 1px solid #e5e9f0;
+  border-radius: 6px;
+  background: #f6f8fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 
-button[type='submit'],
-button[type='button'] {
-  align-self: flex-start;
-  padding: 8px 20px;
-  background-color: #2b77c5;
-  color: #ffffff;
-  border: none;
-  border-radius: 4px;
+.cover-preview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.cover-hint {
+  font-size: 11px;
+  color: #6c757d;
+}
+
+.cover-hint-error {
+  color: #c0392b;
+}
+
+.cover-clear {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid #d0d0d0;
+  background: #ffffff;
+  color: #888888;
+  font-size: 12px;
+  line-height: 1;
   cursor: pointer;
-  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-button[type='submit']:disabled,
-button[type='button']:disabled {
+.cover-clear:hover {
+  color: #c0392b;
+  border-color: #c0392b;
+}
+
+/* ── 動作列 ── */
+.action-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 20px;
+  background: #ffffff;
+  border: 1px solid #e5e9f0;
+  border-radius: 8px;
+}
+
+.action-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.action-note {
+  font-size: 12px;
+  color: #adb5bd;
+}
+
+.blocked-reason {
+  font-size: 12px;
+  color: #a15c00;
+}
+
+/* 返回沿用捨棄的外觀（都是次要動作），但用主色而不是灰色，
+   跟旁邊那顆會永久刪除的按鈕在視覺上分開 */
+.back-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 14px;
+  color: #2b77c5;
+  cursor: pointer;
+}
+
+.back-btn:hover {
+  color: #1f5b99;
+  text-decoration: underline;
+}
+
+.action-divider {
+  color: #dee2e6;
+  user-select: none;
+}
+
+.discard-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 14px;
+  color: #6c757d;
+  cursor: pointer;
+}
+
+.discard-btn:hover:not(:disabled) {
+  color: #c0392b;
+}
+
+.discard-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.primary-btn {
+  padding: 9px 24px;
+  border: none;
+  border-radius: 6px;
+  background: #2b77c5;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.primary-btn:disabled {
   opacity: 0.6;
   cursor: default;
 }
 
 .error {
+  margin: 0;
   color: #c0392b;
   font-size: 13px;
-}
-
-.autosave-status {
-  margin: 0;
-  font-size: 13px;
-  color: #888888;
-}
-
-.autosave-banner {
-  padding: 8px 36px 8px 12px;
-  border-radius: 4px;
-  font-size: 13px;
-  position: relative;
-  background-color: #e6f4ea;
-  color: #1e7e34;
-  border: 1px solid #b7dfc0;
-}
-
-.dismiss-btn {
-  position: absolute;
-  top: 6px;
-  right: 8px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-  color: inherit;
-  opacity: 0.6;
-}
-
-.dismiss-btn::before {
-  content: '×';
-}
-
-.dismiss-btn:hover {
-  opacity: 1;
 }
 </style>

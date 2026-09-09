@@ -5,6 +5,8 @@ import { getCategories } from '../api'
 const props = defineProps({
   modelValue: { type: [Number, String, null], default: null },
   includeAllOption: { type: Boolean, default: true },
+  // 這個元件是多根節點（select ＋ 錯誤訊息），屬性不會自動落到 select 上，要明確宣告
+  disabled: { type: Boolean, default: false },
 })
 const emit = defineEmits(['update:modelValue', 'categories-loaded'])
 
@@ -27,7 +29,7 @@ function handleChange(event) {
 </script>
 
 <template>
-  <select class="category-select" :value="modelValue ?? ''" @change="handleChange">
+  <select class="category-select" :value="modelValue ?? ''" :disabled="disabled" @change="handleChange">
     <option v-if="includeAllOption" value="">全部分類</option>
     <option v-for="category in categories" :key="category.categoryId" :value="category.categoryId">
       {{ category.name }}
@@ -42,6 +44,12 @@ function handleChange(event) {
   border: 1px solid #d0d0d0;
   border-radius: 4px;
   font-size: 14px;
+}
+
+.category-select:disabled {
+  background-color: #f1f3f5;
+  color: #868e96;
+  cursor: not-allowed;
 }
 
 .error {
