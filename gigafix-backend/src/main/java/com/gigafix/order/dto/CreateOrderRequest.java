@@ -19,9 +19,13 @@ public class CreateOrderRequest {
     private String receiverName;
     @NotBlank(message = "收件人電話不能為空")
     private String receiverPhone;
-    @NotBlank(message = "收件人地址不能為空")
-    private String receiverAddress;
+    private String receiverAddress; // 宅配使用
     @NotBlank(message = "物流方式不能為空")
     private String shippingMethod;
+    // 超商取貨使用
+    private String storeType;
+    private String storeId;
+    private String storeName;
+    private String storeAddress;
     private String customerRemark; // 客戶備註 允許NULL
 }

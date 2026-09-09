@@ -20,6 +20,9 @@ public final class MemberPublicApiPaths {
 
 			//jack的商城路由加入機不可失路由監管
 			"/api/gigafix/products",
-			"/api/gigafix/products/**"
+			"/api/gigafix/products/**",
+			
+			//ECPay 超商選店回傳
+			"/api/gigafix/ecpay/logistics/store-callback",
 	};
 }

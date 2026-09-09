@@ -6,10 +6,11 @@ import CheckoutForm from '../../components/CheckoutForm.vue'
 import { getCartItems } from '../../api/cartApi'
 import { createOrder } from '../../api/memberOrderApi'
 import { getAvailableCoupons } from '../../api/couponApi'
+import { redirectToEcpayStoreMap } from '../../api/ecpayLogisticsApi'
 
 const router = useRouter()
 const route = useRoute()
-
+const CHECKOUT_DRAFT_KEY = 'gigafix_checkout_draft'
 const cartItems = ref([])
 const loading = ref(false)
 const submitting = ref(false)
@@ -28,6 +29,102 @@ const selectedStore = ref({
     storeName: '',
     storeAddress: ''
 })
+// 處理超商品牌變更
+const handleStoreTypeChange = () => {
+    selectedStore.value = {
+        cvsType: selectedStore.value.cvsType,
+        storeId: '',
+        storeName: '',
+        storeAddress: ''
+    }
+
+    saveCheckoutDraft()
+
+}
+const handleSelectStore = () => {
+    if (!selectedStore.value.cvsType) {
+        errorMessage.value =
+            '請先選擇超商品牌'
+        return
+    }
+
+    errorMessage.value = ''
+
+    saveCheckoutDraft()
+
+    redirectToEcpayStoreMap(
+        selectedStore.value.cvsType
+    )
+}
+const applyStoreCallbackFromRoute = async () => {
+    const storeType = route.query.storeType
+    const storeId = route.query.storeId
+    const storeName = route.query.storeName
+    const storeAddress = route.query.storeAddress
+
+    const hasStoreCallback =
+        typeof storeType === 'string'
+        || typeof storeId === 'string'
+        || typeof storeName === 'string'
+        || typeof storeAddress === 'string'
+
+    if (!hasStoreCallback) {
+        return
+    }
+
+    if (
+        typeof storeType !== 'string'
+        || typeof storeId !== 'string'
+        || typeof storeName !== 'string'
+        || typeof storeAddress !== 'string'
+    ) {
+        errorMessage.value =
+            'ECPay 回傳的門市資料不完整'
+
+        return
+    }
+
+    const allowedStoreTypes = [
+        'UNIMART',
+        'FAMI',
+        'HILIFE'
+    ]
+
+    if (!allowedStoreTypes.includes(storeType)) {
+        errorMessage.value =
+            'ECPay 回傳了不支援的超商品牌'
+
+        return
+    }
+
+    selectedStore.value = {
+        cvsType: storeType,
+        storeId,
+        storeName,
+        storeAddress
+    }
+
+    form.value.shippingMethod = 'STORE'
+
+    // 把已選門市也寫回 Draft
+    // 等一下清掉 URL 後，F5 仍然可以恢復
+    saveCheckoutDraft()
+
+    // 清除 Callback query
+    // 避免重新整理一直重複處理
+    const {
+        storeType: _storeType,
+        storeId: _storeId,
+        storeName: _storeName,
+        storeAddress: _storeAddress,
+        ...remainingQuery
+    } = route.query
+
+    await router.replace({
+        path: route.path,
+        query: remainingQuery
+    })
+}
 // 結帳表單資料
 const form = ref({
     paymentMethod: 'CREDIT_CARD',
@@ -55,7 +152,6 @@ const loadCart = async () => {
         }
     } catch (error) {
         console.error(error)
-        errorMessage.value = '購物車載入失敗'
     } finally {
         loading.value = false
     }
@@ -91,8 +187,8 @@ const finalAmount = computed(() => {
         0
     )
 })
-//選取的購物車商品ID表
-const selectedCartItemIds = computed(() => {
+// 解析路由中的購物車商品ID列表
+const parseRouteCartItemIds = () => {
     const raw = route.query.cartItemIds
 
     if (!raw) {
@@ -103,7 +199,138 @@ const selectedCartItemIds = computed(() => {
         .split(',')
         .map(id => Number(id))
         .filter(id => Number.isInteger(id) && id > 0)
-})
+}
+//選擇的購物車商品ID列表
+const selectedCartItemIds = ref(
+    parseRouteCartItemIds()
+)
+// 比較兩個購物車商品ID列表是否相同
+const hasSameCartItemIds = (left, right) => {
+    const a = [...left].sort((x, y) => x - y)
+    const b = [...right].sort((x, y) => x - y)
+
+    return (
+        a.length === b.length
+        && a.every((id, index) => id === b[index])
+    )
+}
+//新增保存 Checkout Draft
+const saveCheckoutDraft = () => {
+    const draft = {
+        cartItemIds: [
+            ...selectedCartItemIds.value
+        ],
+
+        couponCode:
+            selectedCouponCode.value || '',
+
+        form: {
+            ...form.value
+        },
+
+        selectedStore: {
+            ...selectedStore.value
+        }
+    }
+
+    sessionStorage.setItem(
+        CHECKOUT_DRAFT_KEY,
+        JSON.stringify(draft)
+    )
+}
+const restoreCheckoutDraft = () => {
+    const raw = sessionStorage.getItem(
+        CHECKOUT_DRAFT_KEY
+    )
+
+    if (!raw) {
+        return
+    }
+
+    try {
+        const draft = JSON.parse(raw)
+
+        const draftCartItemIds = Array.isArray(
+            draft.cartItemIds
+        )
+            ? draft.cartItemIds
+                .map(id => Number(id))
+                .filter(
+                    id =>
+                        Number.isInteger(id)
+                        && id > 0
+                )
+            : []
+
+        const routeCartItemIds =
+            parseRouteCartItemIds()
+
+        // 正常從購物車進 Checkout
+        if (routeCartItemIds.length > 0) {
+            selectedCartItemIds.value =
+                routeCartItemIds
+
+            // URL 商品和舊草稿不同
+            // 代表這是新的結帳流程
+            if (
+                !hasSameCartItemIds(
+                    routeCartItemIds,
+                    draftCartItemIds
+                )
+            ) {
+                sessionStorage.removeItem(
+                    CHECKOUT_DRAFT_KEY
+                )
+
+                return
+            }
+        } else {
+            // ECPay 回來時 URL 可能沒有 cartItemIds
+            selectedCartItemIds.value =
+                draftCartItemIds
+        }
+
+        // URL 有 couponCode 時，以 URL 為主
+        // 沒有才使用 Draft
+        if (
+            typeof route.query.couponCode
+            !== 'string'
+        ) {
+            selectedCouponCode.value =
+                draft.couponCode || ''
+        }
+
+        if (
+            draft.form
+            && typeof draft.form === 'object'
+        ) {
+            form.value = {
+                ...form.value,
+                ...draft.form
+            }
+        }
+
+        if (
+            draft.selectedStore
+            && typeof draft.selectedStore
+            === 'object'
+        ) {
+            selectedStore.value = {
+                ...selectedStore.value,
+                ...draft.selectedStore
+            }
+        }
+    } catch (error) {
+        console.error(
+            'Checkout Draft 讀取失敗',
+            error
+        )
+
+        sessionStorage.removeItem(
+            CHECKOUT_DRAFT_KEY
+        )
+    }
+}
 // 選取的購物車商品列表
 const selectedItems = computed(() => {
     return cartItems.value.filter(item =>
@@ -121,18 +348,41 @@ const handleSubmit = async () => {
         errorMessage.value = '請至少選擇一項商品進行結帳'
         return
     }
+    if (
+        form.value.shippingMethod === 'STORE'
+        && (
+            !selectedStore.value.cvsType
+            || !selectedStore.value.storeId
+            || !selectedStore.value.storeName
+            || !selectedStore.value.storeAddress
+        )
+    ) {
+        errorMessage.value =
+            '請先選擇完整的超商取貨門市'
 
+        return
+    }
     submitting.value = true
     errorMessage.value = ''
 
     try {
+        const isStore =
+            form.value.shippingMethod === 'STORE'
         const response = await createOrder({
             ...form.value,
             cartItemIds: selectedCartItemIds.value,
-            couponCode: selectedCouponCode.value || null
+            couponCode: selectedCouponCode.value || null,
+            storeType:isStore? selectedStore.value.cvsType: null,
+            storeId:isStore? selectedStore.value.storeId: null,
+            storeName:isStore? selectedStore.value.storeName: null,
+            storeAddress:isStore? selectedStore.value.storeAddress: null
 
         })
         const orderId = response.data.orderId
+
+        sessionStorage.removeItem(
+            CHECKOUT_DRAFT_KEY
+        )
 
         router.push(`/member-center/orders/${orderId}`)
     } catch (error) {
@@ -153,7 +403,13 @@ onMounted(async () => {
     if (!loggedIn) {
         return
     }
+    //復原 Checkout Draft
+    restoreCheckoutDraft()
 
+    // 套用 ECPay 超商選店回傳
+    await applyStoreCallbackFromRoute()
+
+    //再檢查是否有選取的購物車商品
     if (selectedCartItemIds.value.length === 0) {
         alert('請先選擇要結帳的商品')
         router.push('/cart')
@@ -237,7 +493,8 @@ onMounted(async () => {
 
             </div>
         </div>
-        <CheckoutForm :form="form" :submitting="submitting" :disabled="selectedItems.length === 0"
-            @submit="handleSubmit" />
+        <CheckoutForm :form="form" :selected-store="selectedStore" :submitting="submitting"
+            :disabled="selectedItems.length === 0" @submit="handleSubmit" @select-store="handleSelectStore"
+            @store-type-change="handleStoreTypeChange" />
     </div>
 </template>

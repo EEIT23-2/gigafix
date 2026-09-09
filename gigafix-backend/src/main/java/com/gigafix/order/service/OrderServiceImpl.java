@@ -3,6 +3,7 @@ package com.gigafix.order.service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -119,6 +120,13 @@ public class OrderServiceImpl implements OrderService {
 
             totalAmount = Math.max(totalAmount - discountAmount, 0);
         }
+        // 驗證配送方式並取得實際保存地址
+        String shippingMethod = normalizeShippingMethod(
+                request.getShippingMethod());
+
+        String receiverAddress = resolveReceiverAddress(
+                request,
+                shippingMethod);
 
         // 5. 建立訂單主表
         Order order = new Order();
@@ -130,8 +138,8 @@ public class OrderServiceImpl implements OrderService {
         order.setPaymentStatus(PaymentStatus.UNPAID.name());
         order.setReceiverName(request.getReceiverName());
         order.setReceiverPhone(request.getReceiverPhone());
-        order.setReceiverAddress(request.getReceiverAddress());
-        order.setShippingMethod(request.getShippingMethod());
+        order.setReceiverAddress(receiverAddress);
+        order.setShippingMethod(shippingMethod);
         order.setShippingStatus(ShippingStatus.PENDING.name());
         order.setCustomerRemark(request.getCustomerRemark());
 
@@ -614,6 +622,113 @@ public class OrderServiceImpl implements OrderService {
 
         // 再刪除訂單主表
         orderRepository.delete(order);
+    }
+
+    // 標準化物流方式，確保為 宅配 或 超取
+    private String normalizeShippingMethod(
+            String shippingMethod) {
+
+        if (shippingMethod == null
+                || shippingMethod.isBlank()) {
+
+            throw new IllegalArgumentException(
+                    "物流方式不能為空");
+        }
+
+        String value = shippingMethod
+                .trim()
+                .toUpperCase(Locale.ROOT);
+
+        if (!"HOME".equals(value)
+                && !"STORE".equals(value)) {
+
+            throw new IllegalArgumentException(
+                    "不支援的物流方式：" + shippingMethod);
+        }
+
+        return value;
+    }
+
+    private String resolveReceiverAddress(
+            CreateOrderRequest request,
+            String shippingMethod) {
+
+        if ("HOME".equals(shippingMethod)) {
+
+            if (isBlank(request.getReceiverAddress())) {
+                throw new IllegalArgumentException(
+                        "宅配地址不能為空");
+            }
+
+            return request
+                    .getReceiverAddress()
+                    .trim();
+        }
+
+        validateStoreInformation(request);
+
+        String storeBrand = getStoreBrandName(
+                request.getStoreType());
+
+        return String.format(
+                "%s %s｜%s｜門市代號 %s",
+                storeBrand,
+                request.getStoreName().trim(),
+                request.getStoreAddress().trim(),
+                request.getStoreId().trim());
+    }
+
+    private void validateStoreInformation(
+            CreateOrderRequest request) {
+
+        if (isBlank(request.getStoreType())) {
+            throw new IllegalArgumentException(
+                    "請選擇超商品牌");
+        }
+
+        if (isBlank(request.getStoreId())) {
+            throw new IllegalArgumentException(
+                    "請先選擇取貨門市");
+        }
+
+        if (isBlank(request.getStoreName())) {
+            throw new IllegalArgumentException(
+                    "門市名稱不能為空");
+        }
+
+        if (isBlank(request.getStoreAddress())) {
+            throw new IllegalArgumentException(
+                    "門市地址不能為空");
+        }
+    }
+
+    private String getStoreBrandName(
+            String storeType) {
+
+        String value = storeType
+                .trim()
+                .toUpperCase(Locale.ROOT);
+
+        return switch (value) {
+
+            case "UNIMART" ->
+                "7-ELEVEN";
+
+            case "FAMI" ->
+                "全家";
+
+            case "HILIFE" ->
+                "萊爾富";
+
+            default ->
+                throw new IllegalArgumentException(
+                        "不支援的超商品牌：" + storeType);
+        };
+    }
+
+    private boolean isBlank(String value) {
+        return value == null
+                || value.trim().isEmpty();
     }
 
     // 將 Order Entity 轉成 OrderResponse DTO

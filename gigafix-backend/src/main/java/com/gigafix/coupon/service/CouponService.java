@@ -9,7 +9,6 @@ import org.springframework.stereotype.Service;
 import com.gigafix.coupon.dto.CouponResponse;
 import com.gigafix.coupon.entity.Coupon;
 import com.gigafix.coupon.repository.CouponRepository;
-import com.gigafix.coupon.entity.Coupon;
 
 import lombok.RequiredArgsConstructor;
 
