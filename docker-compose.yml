@@ -79,7 +79,6 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       GIGAFIX_GMAIL_USERNAME: ${GIGAFIX_GMAIL_USERNAME}
       GIGAFIX_GMAIL_PASSWORD: ${GIGAFIX_GMAIL_PASSWORD}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
     ports: #容器的8080綁定宿主機的8080
       - "8080:8080"
     networks:
@@ -89,10 +88,6 @@ services:
     build: #一樣透過下面的屬性指定docker build的workdir和dockerfile
       context: ./gigafix-frontend
       dockerfile: Dockerfile
-      #Vite在npm run build(docker build階段)時就把環境變數寫死進打包出來的靜態檔案了，
-      #容器啟動後才給的environment不會生效，所以這裡要用build.args在build階段傳進去
-      args:
-        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID}
     container_name: gigafix-frontend
     depends_on: #如果有後端服務才執行
       - backend
