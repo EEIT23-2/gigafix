@@ -428,19 +428,19 @@ const goToRepairAppointment = () => {
     <input
       type="email"
       class="form-control mb-3"
-      v-model="mail"
+      :value="mail"
       :disabled="loginLoading"
       placeholder="請輸入Email"
-      @input="checkLoginError()"
+      @input="mail = $event.target.value.replace(/\s/g, ''); checkLoginError()"
     />
     <label class="form-label">密碼</label>
     <input
       type="password"
       class="form-control"
-      v-model="password"
+      :value="password"
       :disabled="loginLoading"
       placeholder="請輸入密碼"
-      @input="checkLoginError()"
+      @input="password = $event.target.value.replace(/\s/g, ''); checkLoginError()"
     />
     <p v-if="loginErrorMsg" class="text-danger form-error-msg">
       {{ loginErrorMsg }}
@@ -482,9 +482,9 @@ const goToRepairAppointment = () => {
     <input
       type="email"
       class="form-control mb-2"
-      v-model="regEmail"
+      :value="regEmail"
       placeholder="請輸入Email"
-      @input="checkRegisterError()"
+      @input="regEmail = $event.target.value.replace(/\s/g, ''); checkRegisterError()"
     />
     <label class="form-label">OTP驗證碼</label>
     <div class="otp-row mb-2">
@@ -515,9 +515,9 @@ const goToRepairAppointment = () => {
     <input
       type="password"
       class="form-control mb-2"
-      v-model="regPassword"
+      :value="regPassword"
       placeholder="至少8碼，需含大小寫英文字母及數字"
-      @input="checkRegisterError()"
+      @input="regPassword = $event.target.value.replace(/\s/g, ''); checkRegisterError()"
     />
     <!-- 真實姓名+暱稱併成一排，縮短表單高度，密碼/手機號碼維持獨立一排避免看起來擁擠 -->
     <div class="row g-2 mb-2">

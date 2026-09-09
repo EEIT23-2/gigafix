@@ -9,8 +9,9 @@ import lombok.Builder;
 public record LoginReq(
 		@NotBlank(message = "Email不可為空")
 	    @Email(message = "Email格式錯誤")
+	    @Pattern(regexp = "^\\S+$", message = "Email不可包含空格")
 		String email,
 		@NotBlank(message = "password不可為空")
-	    @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}$", message = "密碼需至少8碼，並包含大小寫英文字母及數字")
+	    @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)\\S{8,}$", message = "密碼需至少8碼，並包含大小寫英文字母及數字，且不可包含空格")
 		String password
 		) {}
