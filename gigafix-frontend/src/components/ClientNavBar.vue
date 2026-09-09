@@ -129,7 +129,24 @@ const handleGoogleCredential =async (response) => {
       const message = err.response?.data?.message || '請稍後再試'
       alert(`登入失敗，原因: ${message}`)
   }
-  
+
+}
+
+//==一鍵註冊登入相關(demo用，不需要填任何資訊，按下去後端會直接生一個假會員讓你登入)==
+const registerOrLoginAFakeMember = async () => {
+  try {
+    const resp = await axios.post('/api/gigafix/members/registerOrLoginAFakeMember')
+    await fetchMemberInfoStore.fetchMember(true) //登入成功後強制重抓一次會員資料
+    showloginModal.value = false
+    alert(`${resp.data.nickName}您好~登入成功！`)
+    if (afterLoginRedirect.value) {
+      router.push(afterLoginRedirect.value)
+      afterLoginRedirect.value = null
+    }
+  } catch (err) { //回傳4xx,5xx
+    const message = err.response?.data?.message || '請稍後再試'
+    alert(`登入失敗，原因: ${message}`)
+  }
 }
 
 //==註冊相關==
@@ -335,7 +352,7 @@ const goToRepairAppointment = () => {
 <template>
   <header class="site-header-wrapper">
     <div class="top-announcement-bar">
-      <span>加入會員就送可愛正彥寶寶一組</span>
+      <span>加入會員就送可愛政諺寶寶一組</span>
       <!-- 這個應該在layout或是抽成元件????? -->
     </div>
 
@@ -380,6 +397,19 @@ const goToRepairAppointment = () => {
               <i class="bi bi-cart icon"></i>
             </span>
           </RouterLink>
+
+          <!-- demo用的一鍵註冊登入，不用填任何資訊，已登入就不用顯示 -->
+          <button
+            v-if="!memberInfo"
+            type="button"
+            class="action-item fake-login-btn"
+            @click="registerOrLoginAFakeMember()"
+          >
+            <span class="icon-box"
+              ><i class="bi bi-lightning-charge icon"></i
+            ></span>
+            <span class="action-text">一鍵註冊登入</span>
+          </button>
         </nav>
 
         <!-- 導覽區 -->
@@ -821,6 +851,23 @@ const goToRepairAppointment = () => {
   border: none;
   box-shadow: none;
   color: #2b77c5;
+}
+
+/* 一鍵註冊登入的框，深藍色但比上面公告列的#1e3557淺一階，避免跟公告列同色太搶戲 */
+.fake-login-btn {
+  border: 2px solid #6d7c92;
+  border-radius: 0.6rem;
+  padding: 4px 12px;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.1s ease;
+}
+
+.fake-login-btn:hover {
+  background-color: #6d7c92;
+  color: #ffffff;
+}
+
+.fake-login-btn:active {
+  transform: scale(0.95);
 }
 
 /* 統一每個 icon 的視覺框大小，讓不同圖示對齊在同一個尺寸內 */

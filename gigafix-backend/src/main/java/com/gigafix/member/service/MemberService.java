@@ -19,6 +19,7 @@ import com.gigafix.member.dto.UpdateMemberInfoReq;
 import com.gigafix.member.dto.UpdatedMemberInfoResp;
 import com.gigafix.member.dto.DeleteMemberReq;
 import com.gigafix.member.entity.Member;
+import com.gigafix.member.entity.Member.Gender;
 import com.gigafix.member.exception.DuplicateEmailException;
 import com.gigafix.member.exception.InvalidCredentialsException;
 import com.gigafix.member.exception.MemberNotFoundException;
@@ -134,6 +135,41 @@ public class MemberService {
 			throw new InvalidCredentialsException(); // 密碼輸入錯誤
 		}
 		memberRepository.delete(member);
+	}
+
+	public RegisterAndLoginResult FakeMemberRegisterAndLogin() {
+		Member member;
+		if (!memberRepository.existsByEmail("JavaJava5241@gmail.com")) {
+			// 如果資料庫裡面有真的member，就創建一個
+			member = Member.builder()
+					.password("GigafixJava520")
+					.realName("江村諺")
+					.nickName("政寶<3")
+					.email("JavaJava5241@gmail.com")
+					.phone("0900000000")
+					.address("臺北市信義區安康里松勇路66號")
+					.gender(Gender.FEMALE)
+					.createTime(LocalDateTime.now()).build();
+			memberRepository.save(member);// 使用hibernate會讓物件變成永續狀態，不需要另外賦值
+		} else {
+			// 如果資料庫裡面已經有假的member就直接找member
+			member = memberRepository.findByEmail("JavaJava5241@gmail.com")
+					.orElseThrow(() -> new MemberNotFoundException());
+		}
+		// 發放JWT
+		String jwt = jwtUtils.createToken(CreateJwtDto.builder().subject(String.valueOf(member.getId())).build());
+		ResponseCookie cookie = ResponseCookie.from("token", jwt)
+				.httpOnly(true)
+				.secure(true)
+				.sameSite("None") // 允許跨網域帶cookie
+				.path("/")
+				.maxAge(Duration.ofMinutes(15))
+				.build();
+		LoginResp loginResp = LoginResp.builder()
+				.email(member.getEmail())
+				.nickName(member.getNickName())
+				.build();
+		return RegisterAndLoginResult.builder().loginResp(loginResp).responseCookie(cookie).build();
 	}
 
 }
