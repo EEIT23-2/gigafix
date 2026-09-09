@@ -11,11 +11,6 @@ export default [
     component: () => import('@/features/forum/view/ArticleFormView.vue'),
   },
   {
-    path: 'forum/bookmarks',
-    name: 'forumBookmarks',
-    component: () => import('@/features/forum/view/MyBookmarksView.vue'),
-  },
-  {
     path: 'forum/:articleId/edit',
     name: 'forumEdit',
     component: () => import('@/features/forum/view/ArticleFormView.vue'),

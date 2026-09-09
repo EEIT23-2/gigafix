@@ -41,6 +41,9 @@ public interface ArticleService {
 	// 會員自己的文章列表（個人中心用，含草稿/隱藏，排除下架）
 	List<ArticleResponse> getMyArticles(Long memberId);
 
+	// 最近瀏覽：依 id 批次帶回根文章。刻意不加瀏覽數，也不保證順序
+	List<ArticleResponse> getArticlesByIds(List<Long> articleIds, Long memberId);
+
 	// 捨棄草稿：真的把列刪掉。只接受 DRAFT，其餘狀態一律拒絕
 	// （deleteArticle 是軟刪除，會留下 TAKEN_DOWN 的列；從未公開過的草稿不該以「下架」的身分留在稽核清單裡）
 	void deleteDraft(Long memberId, Long articleId);

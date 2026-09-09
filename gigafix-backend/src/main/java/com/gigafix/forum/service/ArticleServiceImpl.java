@@ -76,6 +76,9 @@ public class ArticleServiceImpl implements ArticleService {
 	// 編輯（含樓層）唯一擋下的狀態：討論串被關閉（含強制關閉）或已下架。
 	// 隱藏／強制隱藏都還能編輯——隱藏是可逆狀態，被強制隱藏的內容在重新公開前本來就只有作者自己看得到，
 	// 讓作者趁這段時間把內容改好，不會讓被下架的東西提早曝光
+	// 最近瀏覽一次最多帶幾筆，跟前端 localStorage 保留的筆數一致
+	private static final int RECENT_VIEWED_LIMIT = 10;
+
 	private static final Set<Article.ArticleStatus> EDIT_BLOCKED_STATUSES = EnumSet.of(
 			Article.ArticleStatus.CLOSED, Article.ArticleStatus.FORCE_CLOSED, Article.ArticleStatus.TAKEN_DOWN);
 
@@ -403,6 +406,28 @@ public class ArticleServiceImpl implements ArticleService {
 		return articleRepository.findByAuthor_IdOrderByArticleCreatedTimeDesc(memberId).stream()
 				.filter(a -> a.getStatus() != Article.ArticleStatus.TAKEN_DOWN)
 				.map(this::toArticleResponse)
+				.toList();
+	}
+
+	// 最近瀏覽：依 id 批次帶回。前端只把根文章的 id 記進 localStorage，這裡再擋一次樓層
+	@Override
+	public List<ArticleResponse> getArticlesByIds(List<Long> articleIds, Long memberId) {
+
+		if (articleIds == null || articleIds.isEmpty()) {
+			return List.of();
+		}
+
+		// 上限 10：這支是「最近瀏覽」專用，不是通用的批次查詢，不開放無限制帶 id
+		List<Long> limited = articleIds.stream().distinct().limit(RECENT_VIEWED_LIMIT).toList();
+
+		return articleRepository.findByArticleIdIn(limited).stream()
+				// 只回根文章
+				.filter(a -> a.getParentArticle() == null)
+				// 第三個參數務必是 false：渲染一次最近瀏覽就會帶 10 個 id 進來，
+				// 若在這裡加瀏覽數，等於每看一次列表就幫每篇灌一次
+				.map(a -> resolveVisibility(a, memberId, false))
+				// null 代表呼叫者完全看不到（別人的草稿），直接不回傳
+				.filter(r -> r != null)
 				.toList();
 	}
 

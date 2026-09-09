@@ -24,6 +24,20 @@ export function getArticle(articleId) {
   return http.get(`/api/articles/${articleId}`).then((res) => res.data)
 }
 
+// 最近瀏覽用的批次讀取。跟 getArticle 不同，這支「不會」讓瀏覽數 +1——
+// 否則每渲染一次最近瀏覽列表，就會幫列表上的每一篇各灌一次
+export function getRecentArticles(ids) {
+  if (!ids || ids.length === 0) return Promise.resolve([])
+  return http
+    .get('/api/articles/recent', { params: { ids: ids.join(',') } })
+    .then((res) => res.data)
+}
+
+// 會員自己的文章。包含草稿與自己蓋的樓層，由呼叫端自己分流
+export function getMyArticles() {
+  return http.get('/api/members/me/articles').then((res) => res.data)
+}
+
 export function createArticle(data) {
   return http.post('/api/members/me/articles', data).then((res) => res.data)
 }

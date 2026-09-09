@@ -47,6 +47,18 @@ public class ArticleController {
 		return ResponseEntity.ok(response);
 	}
 
+	// 最近瀏覽（公開）：依 id 批次帶回根文章，刻意不加瀏覽數。
+	// 寫在 /api/articles/{articleId} 前面純粹是好讀——Spring 的字面路徑本來就優先於路徑變數
+	@GetMapping("/api/articles/recent")
+	public ResponseEntity<List<ArticleResponse>> getRecentArticles(
+			@RequestParam List<Long> ids,
+			Authentication authentication) {
+
+		List<ArticleResponse> responses = articleService.getArticlesByIds(ids, currentMemberId(authentication));
+
+		return ResponseEntity.ok(responses);
+	}
+
 	// 文章詳情（公開，瀏覽數 +1；有登入的話會附上是否為作者本人、按讚/收藏狀態）
 	@GetMapping("/api/articles/{articleId}")
 	public ResponseEntity<ArticleResponse> getArticle(

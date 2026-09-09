@@ -21,6 +21,8 @@ import { sanitizeHtml, isHtmlEmpty } from '../htmlContent'
 import RichTextEditor from '../components/RichTextEditor.vue'
 import ForumLoginModal from '../components/ForumLoginModal.vue'
 import { useForumLoginModalStore } from '../store/loginModal'
+import { pushRecentViewed } from '../utils/recentViewed'
+import { TAB_LABELS, normalizeTab, backToMemberForum, fromMemberForum } from '../utils/memberForumNav'
 
 const route = useRoute()
 const router = useRouter()
@@ -68,6 +70,15 @@ const reportSuccessMessage = ref('')
 const reportSuccessTargetId = ref(null)
 
 const articleId = computed(() => route.params.articleId)
+
+// 這一頁也會從會員中心（我的收藏、活動、管理頁的「查看公開頁面」）進來。
+// 帶了 from=member-forum 就要走得回原本那個分頁，而不是把人丟到前台論壇列表
+const backTarget = computed(() =>
+  fromMemberForum(route) ? backToMemberForum(route.query.tab) : { name: 'forumList' },
+)
+const backLabel = computed(() =>
+  fromMemberForum(route) ? `返回${TAB_LABELS[normalizeTab(route.query.tab)]}` : '返回討論區',
+)
 const isAuthor = computed(() => article.value?.isAuthor === true)
 // 跟後端 EDIT_BLOCKED_STATUSES 一致：只有討論串關閉（凍結）或下架才不能編輯，隱藏／強制隱藏都還能編輯
 const EDIT_BLOCKED_STATUSES = ['CLOSED', 'FORCE_CLOSED', 'TAKEN_DOWN']
@@ -112,6 +123,10 @@ async function load() {
     // 讚/收藏狀態已經跟著文章一起回來（likedByCurrentMember / bookmarkedByCurrentMember），
     // 不用再另外打 hasLikedArticle / hasBookmarked
     article.value = await getArticle(articleId.value)
+    // 只記根文章：樓層本身就是 Article，但「最近瀏覽」列的是討論串不是某一層
+    if (article.value.parentArticleId == null) {
+      pushRecentViewed(article.value.articleId)
+    }
   } catch {
     errorMessage.value = '文章不存在、已被下架，或載入失敗'
   } finally {
@@ -355,14 +370,14 @@ async function handleDeleteFloor(floorId) {
         <section v-if="!article.visible" class="card masked-card">
           <i class="bi bi-eye-slash masked-icon"></i>
           <p class="masked-text">{{ article.visibilityMessage }}</p>
-          <RouterLink :to="{ name: 'forumList' }" class="btn btn-outline-secondary btn-sm">
-            返回討論區
+          <RouterLink :to="backTarget" class="btn btn-outline-secondary btn-sm">
+            {{ backLabel }}
           </RouterLink>
         </section>
 
         <template v-else>
-          <RouterLink :to="{ name: 'forumList' }" class="back-link">
-            <i class="bi bi-chevron-left"></i>返回討論區
+          <RouterLink :to="backTarget" class="back-link">
+            <i class="bi bi-chevron-left"></i>{{ backLabel }}
           </RouterLink>
 
           <!-- 讚/收藏操作失敗的提示。不能併進 errorMessage，那個會把整頁換成錯誤畫面 -->

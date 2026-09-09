@@ -9,11 +9,13 @@ import {
   updateArticleStatus,
   deleteDraft,
   flushArticleOnUnload,
+  updateFloor,
 } from '../api'
 import CategorySelect from '../components/CategorySelect.vue'
 import RichTextEditor from '../components/RichTextEditor.vue'
 import { isHtmlEmpty } from '../htmlContent'
 import { useFetchMemberInfoStore } from '@/stores/member'
+import { normalizeTab, backToMemberForum } from '../utils/memberForumNav'
 
 const route = useRoute()
 const router = useRouter()
@@ -24,6 +26,15 @@ const TITLE_MAX = 255
 
 const articleId = computed(() => route.params.articleId)
 const isEdit = computed(() => !!articleId.value)
+
+// 這一頁同時掛在前台（forumCreate / forumEdit）與會員中心（member-forum-*）兩組路由底下。
+// 從會員中心進來時，完成或取消都要回「我的討論」，而不是把使用者丟到前台去
+const inMemberCenter = computed(() => String(route.name ?? '').startsWith('member-forum'))
+// 離開這頁時的落腳處：會員中心版本回列表，前台版本維持原本的行為
+function leaveTo(fallback) {
+  // 帶上來源分頁：從草稿分頁進來編輯，完成後要回草稿分頁而不是我的文章
+  return inMemberCenter.value ? backToMemberForum(route.query.tab) : fallback
+}
 
 const form = ref({
   categoryId: null,
@@ -36,6 +47,10 @@ const form = ref({
 const currentStatus = ref(null)
 // 建立模式專用：第一次自動存檔（建立草稿）後拿到的文章 id
 const draftArticleId = ref(null)
+
+// 樓層也是一篇 Article，但標題與分類是從根文章繼承來的、封面圖根本沒有，
+// 而且儲存要走 updateFloor（只收內文）。載入後才知道，所以用 ref 不是 computed
+const isFloor = ref(false)
 
 const effectiveArticleId = computed(() => (isEdit.value ? articleId.value : draftArticleId.value))
 // 建立模式永遠走草稿流程；編輯模式只有原本就是草稿才走
@@ -159,10 +174,12 @@ function handleBeforeUnload(event) {
 // 站內換頁（router）走得到 async，可以好好等存檔完成再離開。
 // 草稿：等自動存檔送完後單純告知已經存好、去哪裡找，不攔截離開——內容真的存了，沒有什麼好讓使用者取消的。
 // 非草稿（編輯已發布文章）：有改動就用問句攔，取消可以留在頁面上
-onBeforeRouteLeave(async () => {
+onBeforeRouteLeave(async (to) => {
   if (isDraftFlow.value) {
     await flushPendingAutosave()
-    if (effectiveArticleId.value) {
+    // 回會員中心時不用跳提示：那篇草稿下一秒就出現在列表上了，再 alert 一次只是吵
+    const backToList = String(to.name ?? '').startsWith('member-forum')
+    if (effectiveArticleId.value && !backToList) {
       alert('草稿已儲存，可至「我的討論」查看。')
     }
     return
@@ -187,7 +204,7 @@ async function handlePublish() {
     await flushPendingAutosave()
     if (!effectiveArticleId.value) await runAutosave()
     await updateArticleStatus(effectiveArticleId.value, 'PUBLISHED')
-    router.push({ name: 'forumDetail', params: { articleId: effectiveArticleId.value } })
+    router.push(leaveTo({ name: 'forumDetail', params: { articleId: effectiveArticleId.value } }))
   } catch {
     errorMessage.value = '發布失敗，請確認欄位是否都已正確填寫'
   } finally {
@@ -199,7 +216,7 @@ async function handleDiscardDraft() {
   if (!confirm('捨棄後這篇草稿會被永久刪除，確定嗎？')) return
   // 還沒存過任何一次的話，資料庫裡根本沒有這篇，直接離開就好
   if (!effectiveArticleId.value) {
-    router.push({ name: 'forumList' })
+    router.push(leaveTo({ name: 'forumList' }))
     return
   }
   discarding.value = true
@@ -212,7 +229,7 @@ async function handleDiscardDraft() {
     }
     await deleteDraft(effectiveArticleId.value)
     suppressAutosave = true
-    router.push({ name: 'forumList' })
+    router.push(leaveTo({ name: 'forumList' }))
   } catch (error) {
     const data = error.response?.data
     errorMessage.value = data?.message || '捨棄草稿失敗，請稍後再試'
@@ -221,15 +238,25 @@ async function handleDiscardDraft() {
   }
 }
 
+// 草稿的單純離開。不做任何刪除——草稿一直都在自動存檔，離開是安全的
+function handleBackFromDraft() {
+  router.push(leaveTo({ name: 'forumList' }))
+}
+
 // 編輯已發布（非草稿）文章時的既有流程：維持不動，不接自動存檔
 async function handleSubmit() {
   submitting.value = true
   errorMessage.value = ''
   try {
-    await updateArticle(articleId.value, buildPayload())
+    // 樓層只有內文可改，走專用端點；updateArticle 那支會要求標題與分類
+    if (isFloor.value) {
+      await updateFloor(articleId.value, form.value.content)
+    } else {
+      await updateArticle(articleId.value, buildPayload())
+    }
     // 存檔成功，把「有沒有改動」的基準更新成剛存下去的內容，離開頁面才不會又被自己的 isDirty 攔下來
     savedSnapshot.value = JSON.stringify(form.value)
-    router.push({ name: 'forumDetail', params: { articleId: articleId.value } })
+    router.push(leaveTo({ name: 'forumDetail', params: { articleId: articleId.value } }))
   } catch {
     errorMessage.value = '儲存失敗，請確認欄位是否都已正確填寫'
   } finally {
@@ -237,33 +264,49 @@ async function handleSubmit() {
   }
 }
 
-function goToArticle() {
+// 「查看公開頁面」跟「取消」語意不同，不能共用一支：
+// 前者就是要離開去看前台，後者要回到使用者原本待的地方
+function goToPublicArticle() {
   router.push({ name: 'forumDetail', params: { articleId: articleId.value } })
+}
+
+function handleCancel() {
+  if (inMemberCenter.value) {
+    router.push({ name: 'member-forum' })
+    return
+  }
+  goToPublicArticle()
 }
 
 onMounted(async () => {
   // 沒登入的話畫面交給模板的 v-else 內嵌提示處理，這裡不用做任何跳轉或 alert
-  if (!memberInfo.value) return
-  window.addEventListener('beforeunload', handleBeforeUnload)
-  if (isEdit.value) {
-    loading.value = true
-    try {
-      const article = await getArticle(articleId.value)
-      form.value = {
-        categoryId: article.categoryId,
-        title: article.title,
-        content: article.content,
-        coverImage: article.coverImage ?? '',
+  if (memberInfo.value) {
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    if (isEdit.value) {
+      loading.value = true
+      try {
+        const article = await getArticle(articleId.value)
+        form.value = {
+          categoryId: article.categoryId,
+          title: article.title,
+          content: article.content,
+          coverImage: article.coverImage ?? '',
+        }
+        currentStatus.value = article.status
+        isFloor.value = article.parentArticleId != null
+      } catch {
+        errorMessage.value = '文章資料載入失敗，請確認文章是否存在'
+      } finally {
+        loading.value = false
       }
-      currentStatus.value = article.status
-      // 編輯已發布文章時，這是「有沒有改動」的比對基準；草稿流程用不到（isDirty 只認非草稿）
-      savedSnapshot.value = JSON.stringify(form.value)
-    } catch {
-      errorMessage.value = '文章資料載入失敗，請確認文章是否存在'
-    } finally {
-      loading.value = false
     }
   }
+
+  // 「有沒有改動」的比對基準，載入成功、載入失敗、根本沒登入這三種情況都要立。
+  // 少了任何一條路徑，savedSnapshot 會停在空字串、isDirty 恆為 true，使用者一離開就被
+  // 「離開將會捨棄本次編輯」擋下來——連路由守衛的自動導向都會被 onBeforeRouteLeave 擋掉
+  savedSnapshot.value = JSON.stringify(form.value)
+
   // 等這次掛載造成的表單賦值處理完，才開始把後續變動視為使用者編輯
   await nextTick()
   suppressAutosave = false
@@ -276,12 +319,17 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="article-form-page">
+  <!-- 嵌在會員中心裡時要降級成 div：MemberCenterLayout 的容器本身已經是 <main>，巢狀 <main> 是無效的 HTML -->
+  <component
+    :is="inMemberCenter ? 'div' : 'main'"
+    class="article-form-page"
+    :class="{ embedded: inMemberCenter }"
+  >
     <div class="form-shell">
       <!-- 標題列：不管有沒有登入都先讓使用者知道自己在哪一頁 -->
       <header class="page-head">
-        <span v-if="memberInfo" class="mode-label">{{ isDraftFlow ? '草稿流程' : '已發布' }}</span>
-        <h1 class="page-title">{{ isEdit ? '編輯文章' : '發表文章' }}</h1>
+        <span v-if="memberInfo" class="mode-label">{{ isFloor ? '樓層' : (isDraftFlow ? '草稿流程' : '已發布') }}</span>
+        <h1 class="page-title">{{ isFloor ? '編輯樓層' : (isEdit ? '編輯文章' : '發表文章') }}</h1>
       </header>
 
       <!-- 沒登入：直接貼網址進來這頁（例如重新整理），比照 repair 模組的做法給一句內嵌提示，不彈窗也不跳轉 -->
@@ -303,8 +351,8 @@ onBeforeUnmount(() => {
       <!-- 已發布：藍色橫幅，明確區隔於草稿流程 -->
       <div v-else class="status-bar status-bar-live">
         <span class="pill pill-live">發布中</span>
-        <span class="status-text">這篇文章目前公開，儲存後改動會立即生效</span>
-        <button type="button" class="link-btn" @click="goToArticle">查看公開頁面</button>
+        <span class="status-text">{{ isFloor ? '蓋樓僅提供編輯內文' : '這篇文章目前公開，儲存後改動會立即生效' }}</span>
+        <button type="button" class="link-btn" @click="goToPublicArticle">查看公開頁面</button>
         <span class="status-note w-100">注意:若未「儲存變更」離開將會捨棄變更</span>
       </div>
 
@@ -313,7 +361,8 @@ onBeforeUnmount(() => {
         <div class="field">
           <div class="field-head">
             <label class="field-label" for="article-title">標題</label>
-            <span class="required">必填</span>
+            <span v-if="!isFloor" class="required">必填</span>
+            <span v-else class="optional">繼承自根文章，不可修改</span>
             <span class="counter">{{ form.title.length }} / {{ TITLE_MAX }}</span>
           </div>
           <input
@@ -322,6 +371,8 @@ onBeforeUnmount(() => {
             class="title-input"
             type="text"
             :maxlength="TITLE_MAX"
+            :disabled="isFloor"
+            :title="isFloor ? '樓層的標題繼承自根文章，不能修改' : null"
             placeholder="為這篇文章下一個標題"
           />
         </div>
@@ -329,11 +380,13 @@ onBeforeUnmount(() => {
         <div class="field field-narrow">
           <div class="field-head">
             <span class="field-label">分類</span>
-            <span class="required">必填</span>
+            <span v-if="!isFloor" class="required">必填</span>
+            <span v-else class="optional">繼承自根文章，不可修改</span>
           </div>
           <CategorySelect
             v-model="form.categoryId"
             :include-all-option="false"
+            :disabled="isFloor"
             @categories-loaded="handleCategoriesLoaded"
           />
         </div>
@@ -348,8 +401,9 @@ onBeforeUnmount(() => {
           <RichTextEditor v-model="form.content" />
         </div>
 
-        <!-- 封面圖：網址 ＋ 即時預覽，貼錯立刻看得出來 -->
-        <div class="field">
+        <!-- 封面圖：網址 ＋ 即時預覽，貼錯立刻看得出來。
+             樓層整個藏起來而不是停用——updateFloor 只收內文，留一個存不進去的欄位在畫面上只會誤導 -->
+        <div v-if="!isFloor" class="field">
           <div class="field-head">
             <label class="field-label" for="article-cover">封面圖</label>
             <span class="optional">選填 · 貼圖片網址</span>
@@ -390,6 +444,9 @@ onBeforeUnmount(() => {
       <!-- 動作列 -->
       <div class="action-bar">
         <template v-if="isDraftFlow">
+          <!-- 返回與捨棄放在一起但語意相反：一個保留草稿、一個永久刪除，用分隔線拉開視覺距離 -->
+          <button type="button" class="back-btn" @click="handleBackFromDraft">返回</button>
+          <span class="action-divider" aria-hidden="true">|</span>
           <button type="button" class="discard-btn" :disabled="discarding" @click="handleDiscardDraft">
             {{ discarding ? '捨棄中...' : '捨棄草稿' }}
           </button>
@@ -407,7 +464,9 @@ onBeforeUnmount(() => {
           </div>
         </template>
         <template v-else>
-          <button type="button" class="discard-btn" @click="goToArticle">取消，返回文章</button>
+          <button type="button" class="discard-btn" @click="handleCancel">
+            {{ inMemberCenter ? '取消，返回我的討論' : '取消，返回文章' }}
+          </button>
           <div class="action-right">
             <button type="button" class="primary-btn" :disabled="submitting" @click="handleSubmit">
               {{ submitting ? '儲存中...' : '儲存變更' }}
@@ -417,7 +476,7 @@ onBeforeUnmount(() => {
       </div>
       </template>
     </div>
-  </main>
+  </component>
 </template>
 
 <style scoped>
@@ -427,12 +486,25 @@ onBeforeUnmount(() => {
   min-height: 100vh;
 }
 
+/* 上面那組樣式是為「獨佔整個視窗」寫的。嵌進會員中心時，滿版灰底會在白色內容區裡
+   畫出一塊突兀的色塊，min-height:100vh 還會多撐出一個視窗高度的空白 */
+.article-form-page.embedded {
+  background: transparent;
+  padding: 0;
+  min-height: auto;
+}
+
 .form-shell {
   max-width: 900px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+/* 會員中心的其他頁面都是靠左對齊，這裡跟著靠左才不會只有編輯頁往中間跑 */
+.embedded .form-shell {
+  margin: 0;
 }
 
 /* ── 標題列 ── */
@@ -600,6 +672,13 @@ onBeforeUnmount(() => {
   color: #1d324b;
 }
 
+/* 樓層的標題繼承自根文章，停用時要看得出來是「不能改」而不是「壞了」 */
+.title-input:disabled {
+  background-color: #f1f3f5;
+  color: #868e96;
+  cursor: not-allowed;
+}
+
 .title-input::placeholder {
   font-weight: 400;
   color: #adb5bd;
@@ -710,6 +789,27 @@ onBeforeUnmount(() => {
 .blocked-reason {
   font-size: 12px;
   color: #a15c00;
+}
+
+/* 返回沿用捨棄的外觀（都是次要動作），但用主色而不是灰色，
+   跟旁邊那顆會永久刪除的按鈕在視覺上分開 */
+.back-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 14px;
+  color: #2b77c5;
+  cursor: pointer;
+}
+
+.back-btn:hover {
+  color: #1f5b99;
+  text-decoration: underline;
+}
+
+.action-divider {
+  color: #dee2e6;
+  user-select: none;
 }
 
 .discard-btn {
