@@ -6,7 +6,7 @@ const PRODUCT_URL = "/api/gigafix/products";
 const ADMIN_PRODUCT_URL = "/api/admin/products";
 
 //回收單Controller的共同路徑
-const RECYCLE_APPLICATION_URL = "/api/recycle-applications";
+const RECYCLE_APPLICATION_URL = "/api/gigafix/members/me/recycle-applications";
 const ADMIN_RECYCLE_APPLICATION_URL = "/api/admin/recycle-applications";
 
 /**

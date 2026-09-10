@@ -425,7 +425,12 @@ const goToRepairAppointment = () => {
           <!-- 選單項目置中 -->
           <ul class="nav-list">
             <router-link class="nav-item">最新活動 ▾</router-link>
-            <router-link class="nav-item" to="/mall">二手手機 ▾</router-link>
+            <router-link class="nav-item" to="/mall"
+              >認證二手手機 ▾</router-link
+            >
+            <router-link class="nav-item" to="/recycle"
+              >二手機收購/回收 ▾</router-link
+            >
             <div class="dropdown">
               <a class="nav-item dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">維修手機</a>
               <ul class="dropdown-menu">

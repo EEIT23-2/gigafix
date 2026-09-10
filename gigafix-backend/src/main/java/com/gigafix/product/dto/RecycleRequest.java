@@ -11,8 +11,7 @@ import lombok.Setter;
 @Getter
 public class RecycleRequest {
 
-    @NotNull(message = "會員 ID 不可為空")  //最後確定跟spring security連動的時候 這個屬性要註釋掉
-    private Long memberId;//目前for開發用
+
 
     @NotBlank(message = "商品名稱不可為空")
     private String productName;
