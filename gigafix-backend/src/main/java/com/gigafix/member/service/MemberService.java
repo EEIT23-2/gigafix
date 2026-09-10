@@ -11,12 +11,11 @@ import com.gigafix.common.util.JwtUtils;
 import com.gigafix.member.dto.UpdatePasswordReq;
 import com.gigafix.member.dto.CreateJwtDto;
 import com.gigafix.member.dto.ForgotPasswordReq;
-import com.gigafix.member.dto.GetMemberInfoResp;
 import com.gigafix.member.dto.LoginResp;
+import com.gigafix.member.dto.MemberInfoResp;
 import com.gigafix.member.dto.RegisterReq;
 import com.gigafix.member.dto.RegisterAndLoginResult;
 import com.gigafix.member.dto.UpdateMemberInfoReq;
-import com.gigafix.member.dto.UpdatedMemberInfoResp;
 import com.gigafix.member.dto.DeleteMemberReq;
 import com.gigafix.member.entity.Member;
 import com.gigafix.member.entity.Member.Gender;
@@ -75,16 +74,9 @@ public class MemberService {
 	}
 
 	// 獲取某位的資訊
-	public GetMemberInfoResp getMemberInfo(Long id) {
+	public MemberInfoResp getMemberInfo(Long id) {
 		Member member = memberRepository.findById(id).orElseThrow(() -> new MemberNotFoundException());
-		GetMemberInfoResp getMemberInfoResp = GetMemberInfoResp.builder()
-				.realName(member.getRealName())
-				.nickName(member.getNickName())
-				.email(member.getEmail())
-				.phone(member.getPhone())
-				.address(member.getAddress())
-				.gender(member.getGender()).build();
-		return getMemberInfoResp;
+		return toMemberInfoResp(member);
 	}
 
 	// 登出
@@ -99,17 +91,24 @@ public class MemberService {
 	}
 
 	// 更新使用者資訊
-	public UpdatedMemberInfoResp updateMemberInfo(UpdateMemberInfoReq updateMemberInfoReq, Long id) {
+	public MemberInfoResp updateMemberInfo(UpdateMemberInfoReq updateMemberInfoReq, Long id) {
 		Member member = memberRepository.findById(id).orElseThrow(() -> new MemberNotFoundException());
 		objectMapper.updateValue(member, updateMemberInfoReq);// dto有用spring validation檢查過
 		// 因為是永續狀態所以不需要用repository save
-		return UpdatedMemberInfoResp.builder()
+		return toMemberInfoResp(member);
+	}
+
+	// 把Member組裝成對外回傳的個人資訊DTO，查詢/修改個人資訊/修改頭像都共用這個方法，避免每個方法都重複寫一次builder
+	private MemberInfoResp toMemberInfoResp(Member member) {
+		return MemberInfoResp.builder()
 				.realName(member.getRealName())
 				.nickName(member.getNickName())
 				.email(member.getEmail())
 				.phone(member.getPhone())
 				.address(member.getAddress())
-				.gender(member.getGender()).build();
+				.gender(member.getGender())
+				.profileImageUrl(member.getProfileImageUrl())
+				.build();
 	}
 
 	// 忘記密碼(登入前使用)：mail、新密碼、OTP三者都驗證通過才會真的改密碼
