@@ -7,6 +7,7 @@ import com.gigafix.product.dto.RecycleResponse;
 import com.gigafix.product.entity.RecycleApplication;
 import org.springframework.data.domain.Page;
 
+import java.io.IOException;
 import java.util.List;
 
 public interface RecycleApplicationService {
@@ -39,4 +40,7 @@ public interface RecycleApplicationService {
 
     //刪除所有回收單
     void deleteAllApplyForms();
+
+    //匯出全部回收單 JSON
+    byte[] exportApplyForms() throws IOException;
 }
