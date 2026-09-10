@@ -171,20 +171,34 @@ function addPickerItem() {
   if (!pickerItemKey.value) return;
   const item = REPAIR_ITEMS.find((i) => i.key === pickerItemKey.value);
   const price = getItemPrice(pickerSeries.value, pickerModelIndex.value, pickerItemKey.value);
-  quoteItems.value.push({ id: ++quoteItemSeq, label: item.label, price, itemKey: item.key });
+  quoteItems.value.push({
+    id: ++quoteItemSeq,
+    label: item.label,
+    type: "amount",
+    price,
+    itemKey: item.key,
+  });
   pickerItemKey.value = "";
 }
 
 // ===== 購物車最下面：技師自己手動新增項目(不在13個標準項目裡的，或是折扣/優惠列) =====
+// 類型「金額」：直接加(打負數就是扣錢)；類型「折扣」：把這一列以上已經加總的金額乘上折數(例如打8折輸入8)
 const customItemLabel = ref("");
+const customItemType = ref("amount"); // "amount" | "percent"
 const customItemPrice = ref("");
 
 function addCustomItem() {
   const label = customItemLabel.value.trim();
   if (!label) return;
-  const price = customItemPrice.value === "" ? 0 : Number(customItemPrice.value);
-  quoteItems.value.push({ id: ++quoteItemSeq, label, price, itemKey: null });
+  if (customItemType.value === "percent") {
+    const percent = customItemPrice.value === "" ? 10 : Number(customItemPrice.value);
+    quoteItems.value.push({ id: ++quoteItemSeq, label, type: "percent", percent, itemKey: null });
+  } else {
+    const price = customItemPrice.value === "" ? 0 : Number(customItemPrice.value);
+    quoteItems.value.push({ id: ++quoteItemSeq, label, type: "amount", price, itemKey: null });
+  }
   customItemLabel.value = "";
+  customItemType.value = "amount";
   customItemPrice.value = "";
 }
 
@@ -192,14 +206,25 @@ function removeQuoteItem(id) {
   quoteItems.value = quoteItems.value.filter((i) => i.id !== id);
 }
 
-// 目前加總：購物車全部項目的價格加起來(自訂列打負數就是扣錢，用來表示折扣/優惠)
-const cartTotal = computed(() =>
-  quoteItems.value.reduce((sum, i) => sum + (Number(i.price) || 0), 0),
-);
+// 目前加總：由上到下依序計算，「金額」列直接加(可打負數扣錢)，「折扣」列把目前為止的加總乘上折數，
+// 所以折扣列要套用在全部品項上的話，記得放在購物車最後一列
+const cartTotal = computed(() => {
+  let total = 0;
+  for (const item of quoteItems.value) {
+    if (item.type === "percent") {
+      total = total * (item.percent / 10);
+    } else {
+      total += Number(item.price) || 0;
+    }
+  }
+  return total;
+});
 
 // 組成要送給後端的報價項目文字，跟畫面上購物車顯示的內容一致
 const repairItemsText = computed(() =>
-  quoteItems.value.map((i) => `${i.label}(${formatPrice(i.price)})`).join("、"),
+  quoteItems.value
+    .map((i) => (i.type === "percent" ? `${i.label}(×${i.percent}折)` : `${i.label}(${formatPrice(i.price)})`))
+    .join("、"),
 );
 
 // ===== 送出報價前的確認彈窗：唯讀顯示目前內容，技師再看一次確認沒填錯 =====
@@ -554,7 +579,9 @@ onMounted(() => {
             <div class="quote-cart">
               <div v-for="item in quoteItems" :key="item.id" class="quote-cart-row">
                 <span class="quote-cart-label">{{ item.label }}</span>
-                <span class="quote-cart-price">{{ formatPrice(item.price) }}</span>
+                <span class="quote-cart-price">
+                  {{ item.type === "percent" ? `× ${item.percent}折` : formatPrice(item.price) }}
+                </span>
                 <button
                   type="button"
                   class="btn-close"
@@ -573,11 +600,15 @@ onMounted(() => {
                   placeholder="自訂項目名稱"
                   @keyup.enter="addCustomItem"
                 />
+                <select v-model="customItemType" class="form-select form-select-sm" style="max-width: 90px">
+                  <option value="amount">金額</option>
+                  <option value="percent">折扣</option>
+                </select>
                 <input
                   v-model="customItemPrice"
                   type="number"
                   class="form-control form-control-sm no-spinner"
-                  placeholder="金額(折扣可打負數)"
+                  :placeholder="customItemType === 'percent' ? '折數(例如8=8折)' : '金額(折扣可打負數)'"
                   @keyup.enter="addCustomItem"
                 />
                 <button
