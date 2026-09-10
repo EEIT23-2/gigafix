@@ -79,9 +79,10 @@ public class RepairsController {
 		return ResponseEntity.ok(rServ.search(id, memberId, memberName, technicianId, technicianName, status));// 200
 	}
 
-	// 會員中心「維修進度」用：查登入會員自己的所有維修單，memberId 由 AuthInterceptor 從登入的 token 解析出來
+	// 會員中心「維修進度」用：查登入會員自己的所有維修單，memberId 從SecurityContextHolder的Authentication解析出來
 	@GetMapping("/me")
-	public ResponseEntity<List<RepairsResponse>> selectByMember(@RequestAttribute("memberId") Long memberId) {
+	public ResponseEntity<List<RepairsResponse>> selectByMember(Authentication authentication) {
+		Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
 		return ResponseEntity.ok(rServ.selectByMember(memberId));// 200
 	}
 
@@ -128,10 +129,11 @@ public class RepairsController {
 		return ResponseEntity.ok(rServ.submitQuote(id, technicianId));// 200
 	}
 
-	// 客戶回應報價（同意／拒絕），memberId 由 AuthInterceptor 從登入的 token 解析出來，不是前端傳的
+	// 客戶回應報價（同意／拒絕），memberId 從SecurityContextHolder的Authentication解析出來，不是前端傳的
 	@PatchMapping("/{id}/approval")
 	public ResponseEntity<RepairsResponse> respondToQuote(@PathVariable Long id,
-			@RequestAttribute("memberId") Long memberId, @RequestParam boolean approve) {
+			Authentication authentication, @RequestParam boolean approve) {
+		Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
 		return ResponseEntity.ok(rServ.respondToQuote(id, memberId, approve));// 200
 	}
 
