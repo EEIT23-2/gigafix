@@ -1,10 +1,10 @@
 package com.gigafix.member.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Pattern;
 
 public record DeleteMemberReq(
 		@NotBlank(message = "password不可為空")
-		@Size(min = 8, message = "密碼長度不可低於8個字元")
+		@Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)\\S{8,}$", message = "密碼需至少8碼，並包含大小寫英文字母及數字，且不可包含空格")
 		String password
 		) {}

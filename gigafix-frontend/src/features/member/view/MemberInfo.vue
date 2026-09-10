@@ -146,16 +146,16 @@ const submitPassword = async () => {
   }
 }
 
-//每次欄位變動就重新檢查一次，兩個密碼都至少要8個字元(跟後端Bean Validation的規則對齊)
+//每次欄位變動就重新檢查一次(跟後端Bean Validation的規則對齊)：新密碼需至少8碼且包含大小寫英文字母及數字
 const checkPasswordError = () => {
   if (!oldPassword.value) {
     passwordErrorMsg.value = '請輸入原密碼'
-  } else if (oldPassword.value.length < 8) {
-    passwordErrorMsg.value = '原密碼長度不可低於8個字元'
+  } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(oldPassword.value)) {
+    passwordErrorMsg.value = '原密碼需至少8碼，並包含大小寫英文字母及數字'
   } else if (!newPassword.value) {
     passwordErrorMsg.value = '請輸入新密碼'
-  } else if (newPassword.value.length < 8) {
-    passwordErrorMsg.value = '新密碼長度不可低於8個字元'
+  } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(newPassword.value)) {
+    passwordErrorMsg.value = '新密碼需至少8碼，並包含大小寫英文字母及數字'
   } else {
     passwordErrorMsg.value = ''
   }
@@ -196,8 +196,8 @@ const submitDelete = async () => {
 const checkDeleteError = () => {
   if (!deletePassword.value) {
     deleteErrorMsg.value = '請輸入密碼'
-  } else if (deletePassword.value.length < 8) {
-    deleteErrorMsg.value = '密碼長度不可低於8個字元'
+  } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(deletePassword.value)) {
+    deleteErrorMsg.value = '密碼需至少8碼，並包含大小寫英文字母及數字'
   } else if (!deleteConfirmPassword.value) {
     deleteErrorMsg.value = '請輸入確認密碼'
   } else if (deletePassword.value !== deleteConfirmPassword.value) {
@@ -308,7 +308,7 @@ const checkDeleteError = () => {
 
       <label class="form-label">新密碼</label>
       <input type="password" class="form-control" v-model="newPassword" :disabled="passwordSubmitting" @input="checkPasswordError()">
-      <p class="form-hint">密碼長度至少需 8 個字元</p>
+      <p class="form-hint">新密碼至少需 8 個字元，並包含大小寫英文字母及數字</p>
 
       <template #footer>
         <p v-if="passwordErrorMsg" class="text-danger small mb-3">{{ passwordErrorMsg }}</p>

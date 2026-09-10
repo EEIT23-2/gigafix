@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch, onBeforeUnmount } from 'vue'
+import { ref, watch, onBeforeUnmount } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
@@ -59,10 +59,11 @@ const editor = useEditor({
   ],
   onUpdate: ({ editor: instance }) => {
     emit('update:modelValue', instance.getHTML())
-    syncFontSize()
+    syncEditorState()
   },
-  // 游標移到別段時，字級輸入框要跟著顯示該處的實際字級
-  onSelectionUpdate: syncFontSize,
+  // 游標移到別段時，字級輸入框要跟著顯示該處的實際字級；有沒有選取文字也要跟著更新，
+  // 「複製格式」「套用格式」按鈕能不能按取決於此
+  onSelectionUpdate: syncEditorState,
 })
 
 // 外部值變動時才回寫（例如編輯模式載入既有文章）。
@@ -121,10 +122,10 @@ function setLink() {
   editor.value.chain().focus().extendMarkRange('link').setLink({ href }).run()
 }
 
-const currentColor = computed(() => editor.value?.getAttributes('textStyle')?.color ?? '')
-const currentBackground = computed(
-  () => editor.value?.getAttributes('textStyle')?.backgroundColor ?? '',
-)
+// 「目前顏色」指示只認使用者上一次實際點選的顏色，不跟著游標位置的既有樣式走——
+// 用本地 ref 而不是讀 ProseMirror 狀態的 computed，否則點到哪段文字，指示就會變成那段的顏色
+const currentColor = ref('')
+const currentBackground = ref('')
 
 // 字級用「本地 ref + 明確同步」而不是 computed：
 // computed 讀的是 ProseMirror 的內部狀態，Vue 追蹤不到它的變化，不會可靠地重算，
@@ -134,6 +135,34 @@ const fontSize = ref(BASE_FONT_SIZE)
 function syncFontSize() {
   const raw = editor.value?.getAttributes('textStyle')?.fontSize
   fontSize.value = raw ? Number.parseInt(raw, 10) : BASE_FONT_SIZE
+}
+
+// 目前有沒有選取文字，決定「複製格式」「套用格式」能不能按
+const hasSelection = ref(false)
+
+// 顏色／背景色是「筆刷」概念：選過一次之後，游標移到別處（沒有選取文字）繼續打字，
+// 也該沿用這個顏色，而不是被 ProseMirror 的預設行為蓋掉——游標移動到新位置時，
+// 會重新從當地文字推導接下來要打的字用什麼樣式，等於選過的顏色只是好看，打字時完全沒用到。
+// 只在游標收合（沒有選取範圍）時介入；有選取文字時套色是靠點色票，不需要這裡處理
+function syncStickyColor() {
+  if (!editor.value) return
+  const { from, to } = editor.value.state.selection
+  if (from !== to) return
+
+  const attrs = editor.value.getAttributes('textStyle')
+  if (currentColor.value && attrs.color !== currentColor.value) {
+    editor.value.commands.setColor(currentColor.value)
+  }
+  if (currentBackground.value && attrs.backgroundColor !== currentBackground.value) {
+    editor.value.commands.setBackgroundColor(currentBackground.value)
+  }
+}
+
+function syncEditorState() {
+  syncFontSize()
+  const { from, to } = editor.value?.state.selection ?? { from: 0, to: 0 }
+  hasSelection.value = from !== to
+  syncStickyColor()
 }
 
 function applyFontSize(size) {
@@ -155,20 +184,39 @@ function resetFontSize() {
   editor.value.chain().focus().unsetFontSize().run()
 }
 
+// 自訂顏色（<input type="color">）點下去會跳出瀏覽器原生色盤，那是跟網頁脫勾的原生 UI，
+// 關閉後編輯器的選取常常會跑掉（實測會跳到之前編輯過的別行），導致套色套錯地方、或要點回原位置重選一次才生效。
+// 對策：面板一打開就先記下當時的選取，套色時強制還原成記下來的範圍，不管當下的選取實際上是什麼
+let savedColorSelection = null
+
+function captureColorSelection() {
+  if (!editor.value) return
+  const { from, to } = editor.value.state.selection
+  savedColorSelection = { from, to }
+}
+
+function restoreColorSelection(chain) {
+  return savedColorSelection ? chain.setTextSelection(savedColorSelection) : chain
+}
+
 function applyColor(value) {
-  editor.value.chain().focus().setColor(value).run()
+  restoreColorSelection(editor.value.chain().focus()).setColor(value).run()
+  currentColor.value = value
 }
 
 function clearColor() {
-  editor.value.chain().focus().unsetColor().run()
+  restoreColorSelection(editor.value.chain().focus()).unsetColor().run()
+  currentColor.value = ''
 }
 
 function applyBackground(value) {
-  editor.value.chain().focus().setBackgroundColor(value).run()
+  restoreColorSelection(editor.value.chain().focus()).setBackgroundColor(value).run()
+  currentBackground.value = value
 }
 
 function clearBackground() {
-  editor.value.chain().focus().unsetBackgroundColor().run()
+  restoreColorSelection(editor.value.chain().focus()).unsetBackgroundColor().run()
+  currentBackground.value = ''
 }
 
 function addImage() {
@@ -176,6 +224,49 @@ function addImage() {
   const url = window.prompt('圖片網址')
   if (!url) return
   editor.value.chain().focus().setImage({ src: url }).run()
+}
+
+// 複製/套用格式：只認字元級的行內樣式，不含標題/清單/引言等區塊層級樣式——
+// 那些本來就是選字後直接點工具列切換，不需要透過格式刷複製
+const FORMAT_MARKS = {
+  bold: { set: 'setBold', unset: 'unsetBold' },
+  italic: { set: 'setItalic', unset: 'unsetItalic' },
+  strike: { set: 'setStrike', unset: 'unsetStrike' },
+}
+
+const copiedFormat = ref(null)
+
+function copyFormat() {
+  if (!editor.value || !hasSelection.value) return
+  const attrs = editor.value.getAttributes('textStyle')
+  copiedFormat.value = {
+    color: attrs.color ?? null,
+    backgroundColor: attrs.backgroundColor ?? null,
+    fontSize: attrs.fontSize ?? null,
+    marks: Object.fromEntries(
+      Object.keys(FORMAT_MARKS).map((key) => [key, editor.value.isActive(key)]),
+    ),
+  }
+}
+
+function applyFormat() {
+  if (!editor.value || !copiedFormat.value || !hasSelection.value) return
+  const format = copiedFormat.value
+  const chain = editor.value.chain().focus()
+
+  // 來源有值就套用，沒有值（複製當下就是「未設定」）就清掉，
+  // 讓套用後兩段文字的樣式完全一致，而不是只疊加、殘留目標段落原本的舊樣式
+  format.color ? chain.setColor(format.color) : chain.unsetColor()
+  format.backgroundColor ? chain.setBackgroundColor(format.backgroundColor) : chain.unsetBackgroundColor()
+  format.fontSize ? chain.setFontSize(format.fontSize) : chain.unsetFontSize()
+
+  // 粗體/斜體/刪除線是布林開關，直接依來源狀態明確 set/unset，
+  // 不用 toggle——選取範圍內狀態不一致時，toggle 的結果會跟預期相反
+  Object.entries(FORMAT_MARKS).forEach(([key, commands]) => {
+    chain[format.marks[key] ? commands.set : commands.unset]()
+  })
+
+  chain.run()
 }
 </script>
 
@@ -291,6 +382,7 @@ function addImage() {
         title="文字顏色"
         @select="applyColor"
         @clear="clearColor"
+        @panel-open="captureColorSelection"
       >
         <template #icon><i class="bi bi-fonts"></i></template>
       </ColorPopover>
@@ -301,9 +393,32 @@ function addImage() {
         title="文字背景"
         @select="applyBackground"
         @clear="clearBackground"
+        @panel-open="captureColorSelection"
       >
         <template #icon><i class="bi bi-highlighter"></i></template>
       </ColorPopover>
+
+      <span class="divider"></span>
+
+      <button
+        type="button"
+        class="tool"
+        title="複製格式"
+        :disabled="!hasSelection"
+        @click="copyFormat"
+      >
+        <i class="bi bi-eyedropper"></i>
+      </button>
+      <button
+        type="button"
+        class="tool"
+        :class="{ active: !!copiedFormat }"
+        title="套用格式"
+        :disabled="!copiedFormat || !hasSelection"
+        @click="applyFormat"
+      >
+        <i class="bi bi-brush"></i>
+      </button>
 
       <span class="divider"></span>
 

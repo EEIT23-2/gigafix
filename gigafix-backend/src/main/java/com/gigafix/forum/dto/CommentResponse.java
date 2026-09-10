@@ -21,6 +21,7 @@ public class CommentResponse {
 	private String content; // 留言內容
 	private Integer likeCount; // 按讚數
 	private Boolean likedByCurrentMember; // 呼叫查詢時帶的 memberId 是否已對這則留言按讚（沒帶 memberId 時固定為 false）
+	private Boolean isAuthor; // 目前登入的會員是否為這則留言的作者本人（沒帶 memberId 時固定為 false）
 	private String status; // 留言狀態
 	private LocalDateTime commentCreatedTime; // 留言建立時間
 }

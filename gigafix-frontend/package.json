@@ -24,7 +24,8 @@
     "topojson-client": "^3.1.0",
     "vue": "^3.5.40",
     "vue-echarts": "^7.0.0",
-    "vue-router": "^5.2.0"
+    "vue-router": "^5.2.0",
+    "vue3-google-login": "^2.1.4"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.8",

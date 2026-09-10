@@ -59,14 +59,3 @@ export const deliverOrder = (orderId) => {
 export const cancelOrder = (orderId) => {
     return axios.post(`${ADMIN_ORDER_API}/${orderId}/cancel`)
 }
-
-// ==================== Demo 付款 ====================
-
-// 模擬會員付款
-// 注意：這是會員端 API，目前後台僅用於 Demo
-export const payOrder = (memberId, orderId, data) => {
-    return axios.post(
-        `/api/members/${memberId}/orders/${orderId}/payment`,
-        data
-    )
-}

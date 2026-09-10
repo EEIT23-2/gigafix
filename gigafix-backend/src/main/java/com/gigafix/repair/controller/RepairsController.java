@@ -6,18 +6,19 @@ import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.gigafix.common.util.SecurityUtils;
 import com.gigafix.repair.dto.AppointmentRequest;
 import com.gigafix.repair.dto.CompleteRepairRequest;
 import com.gigafix.repair.dto.InspectionResultRequest;
@@ -37,10 +38,11 @@ public class RepairsController {
 
 	private final RepairsService rServ;
 
-	// 新增（客戶預約，需登入，memberId 由 AuthInterceptor 從登入的 token 解析出來，不是前端傳的）
+	// 新增（客戶預約，需登入，memberId 從SecurityContextHolder的Authentication解析出來，不是前端傳的）
 	@PostMapping("/appointment")
 	public ResponseEntity<RepairsResponse> insert(@Valid @RequestBody AppointmentRequest req,
-			@RequestAttribute("memberId") Long memberId) {
+			Authentication authentication) {
+		Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
 		RepairsResponse res = rServ.insert(req, memberId);
 		return ResponseEntity.status(HttpStatus.CREATED).body(res);// 201
 	}

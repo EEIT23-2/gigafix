@@ -21,6 +21,10 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
 
 	List<Article> findByAuthor_IdOrderByArticleCreatedTimeDesc(Long authorId);
 
+	// 最近瀏覽的批次讀取：一次帶回指定的幾篇。順序不在這裡決定——
+	// 「最近」的先後只有前端的 localStorage 知道，後端不需要也不應該知道
+	List<Article> findByArticleIdIn(Collection<Long> articleIds);
+
 	// 該分類是否還有文章在使用（刪除分類前檢查用）
 	boolean existsByCategory_CategoryId(Integer categoryId);
 
