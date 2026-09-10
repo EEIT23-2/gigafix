@@ -19,14 +19,8 @@ public interface RepairsRepository extends JpaRepository<Repairs, Long> {
 	Optional<Repairs> findByStore_IdAndBookingDateAndTimeSlot(Byte storeId, LocalDate bookingDate,
 			LocalTime timeSlot);
 
-	// 查某分店、某一天所有的維修單，讓前端知道當天哪些時段已經被訂走
-	List<Repairs> findByStore_IdAndBookingDate(Byte storeId, LocalDate bookingDate);
-
 	// 技師查詢:某分店、指定狀態、且尚未指派技師的維修單（技師可認領的清單）
 	List<Repairs> findByStore_IdAndRepairStatusAndRepairTechniciansIsNull(Byte storeId, RepairStatus repairStatus);
-
-	// 會員中心「維修進度」用：查該會員自己的所有維修單，新到舊排序
-	List<Repairs> findByMember_IdOrderByRepairCreatedTimeDesc(Long memberId);
 
 	// 某技師名下的所有維修單
 	List<Repairs> findByRepairTechnicians_Id(Integer technicianId);

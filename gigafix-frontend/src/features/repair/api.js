@@ -12,14 +12,6 @@ export const createAppointment = async (appointmentRequest) => {
   return response.data;
 };
 
-// 查某分店、某一天已經被預約的時段，讓預約頁面把這些時段設為不可選
-export const getBookedSlots = async (storeId, date) => {
-  const response = await axios.get(`${REPAIRS_URL}/booked-slots`, {
-    params: { storeId, date },
-  });
-  return response.data;
-};
-
 // 查詢維修單，params 可以是 { id, memberId, memberName, technicianId, technicianName, status }
 // 每個欄位都可以不填，不填就是查全部
 export const searchRepairs = async (params = {}) => {
@@ -30,22 +22,6 @@ export const searchRepairs = async (params = {}) => {
 // 依 id 查單一維修單
 export const getRepair = async (repairId) => {
   const response = await axios.get(`${REPAIRS_URL}/${repairId}`);
-  return response.data;
-};
-
-// 會員中心「維修進度」用：查登入會員自己的所有維修單（不用傳memberId，後端從登入資訊拿）
-export const getMyRepairs = async () => {
-  const response = await axios.get(`${REPAIRS_URL}/me`);
-  return response.data;
-};
-
-// 客戶回應報價（同意／拒絕），不用傳memberId，後端從登入資訊拿
-export const respondToQuote = async (repairId, approve) => {
-  const response = await axios.patch(
-    `${REPAIRS_URL}/${repairId}/approval`,
-    null,
-    { params: { approve } },
-  );
   return response.data;
 };
 

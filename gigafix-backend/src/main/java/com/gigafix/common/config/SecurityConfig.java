@@ -98,8 +98,7 @@ public class SecurityConfig {
 
 		return httpSecurity
 				.securityMatcher("/api/gigafix/**", "/api/articles/**", "/api/members/**", "/api/categories",
-						"/api/categories/**", "/api/repairs/appointment", "/api/repairs/me",
-						"/api/repairs/*/approval")
+						"/api/categories/**")
 				.csrf(csrf -> csrf.disable())
 				.authorizeHttpRequests(requests -> requests
 						.requestMatchers(MemberPublicApiPaths.PATHS)
