@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
 import { RouterLink } from 'vue-router';
 import { useRouter } from 'vue-router';
 import LoginRegisterModal from './LoginRegisterModal.vue';
@@ -28,8 +28,14 @@ const regAddressDistrict = ref("");
 const regAddressDetail = ref("");
 const regGender = ref("");
 const regOtp = ref("");
+//OTP拆成6個獨立輸入格顯示用，otpDigitRefs存對應的input DOM元素，方便切換焦點
+const otpDigits = ref(["", "", "", "", "", ""]);
+const otpDigitRefs = ref([]);
 const registerErrorMsg = ref("");
 const showRegisterModal = ref(false);
+//註冊時使用reCAPTCHA檢查是否為機器人，其會回傳一個token給前端，因此設定一個變數來接
+let registerRecaptchaWidgetId = null;
+const captchaCompleted = ref(false); //使用者是否已經勾選完驗證框，用來擋住「寄送驗證碼」按鈕跟提示文字
 
 //跟OTP驗證碼寄送有關的變數宣告
 const otpSending = ref(false);
@@ -161,12 +167,35 @@ const openRegisterModal = () => {
   regAddressDetail.value = "";
   regGender.value = "";
   regOtp.value = "";
+  otpDigits.value = ["", "", "", "", "", ""]; //重開視窗時把6格獨立輸入框也一併清空
   registerErrorMsg.value = "請輸入Email";
   clearInterval(otpCooldownTimer); //重開視窗時，把上一次殘留的倒數計時清掉
   otpCooldown.value = 0;
   showloginModal.value = false; //關閉登入視窗，改開註冊視窗
   showRegisterModal.value = true;
 };
+
+//==OTP拆格輸入相關==
+//每一格輸入時觸發：過濾成只留最後一碼數字(防止中文輸入法/一次貼上多字元)，同步組回regOtp字串，成功打一碼就自動跳下一格
+const onOtpDigitInput = (index, event) => {
+  const digit = event.target.value.replace(/\D/g, "").slice(-1);
+  otpDigits.value[index] = digit;
+  event.target.value = digit; //把畫面顯示的值同步成過濾後的結果，避免殘留使用者打的非數字字元
+  regOtp.value = otpDigits.value.join("");
+  checkRegisterError();
+  if (digit && index < 5) {
+    otpDigitRefs.value[index + 1]?.focus();
+  }
+};
+//按Backspace時，如果目前這格已經是空的，跳回上一格並清空它，模擬連續刪除的手感
+const onOtpDigitKeydown = (index, event) => {
+  if (event.key === "Backspace" && !otpDigits.value[index] && index > 0) {
+    otpDigits.value[index - 1] = "";
+    regOtp.value = otpDigits.value.join("");
+    otpDigitRefs.value[index - 1]?.focus();
+  }
+};
+
 //依序檢查各欄位有沒有填、格式對不對，任一不通過就把對應訊息放進registerErrorMsg，讓送出鈕保持disabled防呆
 const checkRegisterError = () => {
   if (!regEmail.value) {
@@ -202,6 +231,7 @@ watch([regAddressCity, regAddressDistrict, regAddressDetail], () =>
   checkRegisterError(),
 );
 
+// ====註冊相關====
 const register = async () => {
   try {
     const resp = await axios.post("/api/gigafix/members/register", {
@@ -228,6 +258,20 @@ const register = async () => {
   }
 };
 
+//註冊彈窗打開時才渲染reCAPTCHA標籤
+watch(showRegisterModal, async (isOpen) => {
+  if (!isOpen) return;
+  await nextTick(); //等Vue把畫面弄出來，容器才存在
+  captchaCompleted.value = false; //每次重新打開視窗都要重新驗證一次，不能沿用上次的狀態
+  if (window.grecaptcha) {
+    registerRecaptchaWidgetId = window.grecaptcha.render("register-recaptcha", {
+      sitekey: "6Lfxk7MtAAAAAG2cjQ4TIrSIAFHz9_Bco4G0iYrr",
+      callback: () => { captchaCompleted.value = true; }, //使用者勾選成功時觸發
+      "expired-callback": () => { captchaCompleted.value = false; }, //驗證逾時(通常2分鐘)要重設，不然畫面顯示還過關但其實token已經失效
+    })
+  }
+});
+
 //==OTP驗證碼相關==
 //按下註冊視窗裡的按鈕，請後端寄送OTP驗證碼到使用者填的Email，成功後進入60秒冷卻，避免使用者連續點擊狂寄信
 const sendRegisterOtp = async () => {
@@ -235,10 +279,16 @@ const sendRegisterOtp = async () => {
     alert("請先輸入Email，才能寄送驗證碼");
     return;
   }
+  const captchaToken = window.grecaptcha?.getResponse(registerRecaptchaWidgetId);
+  if (!captchaToken) {
+    alert("請先完成人機驗證");
+    return;
+  }
   otpSending.value = true;
   try {
     await axios.post("/api/gigafix/members/register/otp", {
       email: regEmail.value,
+      captchaToken,
     });
     alert("驗證碼已寄出，請至信箱查收(5分鐘內有效)");
     otpCooldown.value = 60;
@@ -414,13 +464,13 @@ const goToRepairAppointment = () => {
 
         <!-- 導覽區 -->
         <nav class="main-nav">
-          <div class="logo-container">
+          <RouterLink to="/" class="logo-container">
             <div class="logo-mark">G</div>
             <div class="logo-text">
               <div class="logo-title">Gigafix<span>機不可失</span></div>
               <div class="logo-sub">物美價廉您最好的選擇</div>
             </div>
-          </div>
+          </RouterLink>
 
           <!-- 選單項目置中 -->
           <ul class="nav-list">
@@ -490,7 +540,7 @@ const goToRepairAppointment = () => {
         >請輸入正確資訊</span
       >
       <button v-else class="btn btn-primary" @click="login()">送出</button>
-
+      
       <div class="w-100 d-flex align-items-center gap-2 my-2">
         <hr class="flex-grow-1 m-0">
         <span class="text-muted small">或</span>
@@ -516,31 +566,52 @@ const goToRepairAppointment = () => {
       placeholder="請輸入Email"
       @input="regEmail = $event.target.value.replace(/\s/g, ''); checkRegisterError()"
     />
-    <label class="form-label">OTP驗證碼</label>
-    <div class="otp-row mb-2">
-      <input
-        type="text"
-        class="form-control"
-        v-model="regOtp"
-        maxlength="6"
-        placeholder="請輸入6碼驗證碼"
-        @input="checkRegisterError()"
-      />
+    <!-- 左邊(驗證框+提示文字)疊起來一欄，右邊按鈕撐滿這一整欄的高度，通過驗證後直接在旁邊按下去寄送 -->
+    <div class="recaptcha-row mb-2">
+      <div class="recaptcha-col">
+        <div id="register-recaptcha"></div>
+        <span v-if="!captchaCompleted" class="text-muted small">請先完成上方的安全驗證，才能寄送OTP驗證碼</span>
+      </div>
       <button
         type="button"
         class="btn btn-outline-primary otp-btn"
         @click="sendRegisterOtp()"
-        :disabled="otpSending || otpCooldown > 0"
+        :disabled="otpSending || otpCooldown > 0 || !regEmail || !captchaCompleted"
       >
         {{
           otpCooldown > 0
             ? `${otpCooldown}秒後重寄`
             : otpSending
               ? "寄送中..."
-              : "寄送驗證碼"
+              : "寄送OTP\n驗證信"
         }}
       </button>
     </div>
+    <label class="form-label">OTP驗證碼</label>
+    <!-- 拆成6個獨立輸入格，每格只能打1碼數字，且用@paste.prevent擋掉貼上，逼使用者一碼一碼手動輸入 -->
+    <div class="otp-digit-row mb-2">
+      <input
+        v-for="(digit, index) in otpDigits"
+        :key="index"
+        :ref="(el) => (otpDigitRefs[index] = el)"
+        type="text"
+        inputmode="numeric"
+        maxlength="1"
+        class="form-control otp-digit"
+        :value="digit"
+        @input="onOtpDigitInput(index, $event)"
+        @keydown="onOtpDigitKeydown(index, $event)"
+        @paste.prevent
+      />
+    </div>
+
+    <!-- 分隔線，區隔「信箱驗證」跟「填寫基本資料」兩個步驟，做法比照登入視窗的「或」分隔線 -->
+    <div class="w-100 d-flex align-items-center gap-2 my-2">
+      <hr class="flex-grow-1 m-0">
+      <span class="text-muted small">填寫基本資料</span>
+      <hr class="flex-grow-1 m-0">
+    </div>
+
     <label class="form-label">密碼</label>
     <input
       type="password"
@@ -705,6 +776,51 @@ const goToRepairAppointment = () => {
 :deep(.address-select .form-control) {
   font-size: 1.05rem;
   padding: 0.55rem 0.75rem;
+}
+
+/* reCAPTCHA驗證框跟「寄送驗證碼」按鈕排同一列；reCAPTCHA是Google的iframe內部尺寸固定沒辦法用CSS拉寬，
+   這裡不特別加框線/背景，因為Google的widget本身已經自帶邊框，疊加框線看起來會是多餘的雙層邊框 */
+.recaptcha-row {
+  display: flex;
+  align-items: stretch; /* 讓按鈕跟左邊那一整欄(驗證框+提示文字)一樣高，而不是只對齊reCAPTCHA本身 */
+  gap: 0.75rem;
+  flex-wrap: wrap; /* 視窗太窄放不下時，讓按鈕自動換到下一行，不會把reCAPTCHA擠壓變形 */
+}
+
+/* 左邊驗證框+提示文字疊成一欄，按鈕的高度才有辦法跟著這一整欄(而不只是reCAPTCHA本身)撐滿 */
+.recaptcha-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+/* 讓按鈕的高度跟著左邊那一整欄(reCAPTCHA+提示文字)一起撐滿，不會看起來矮一截 */
+.recaptcha-row .otp-btn {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.3;
+  white-space: pre-line; /* 讓文字裡的\n真的換行，變成兩行顯示 */
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+/* OTP拆成6個獨立輸入格，每格只能打1碼，置中對齊、字放大方便閱讀 */
+.otp-digit-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.otp-digit {
+  flex: 1; /* 撐滿整列寬度，6格平分，不再是各自固定3rem留白 */
+  min-width: 0; /* flex子項預設min-width:auto會擋住縮小，加這行讓flex:1真的按比例分配 */
+  aspect-ratio: 3 / 2; /* 高度跟著寬度走，寬度是高度的1.5倍，比2/1稍微不那麼扁 */
+  padding: 0; /* 蓋掉.form-control預設的左右內距，避免內距把正方形擠成長方形 */
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 600;
 }
 
 /* OTP輸入框跟寄送按鈕排在同一列，按鈕寬度固定不隨輸入框被擠壓 */
@@ -896,13 +1012,15 @@ const goToRepairAppointment = () => {
   position: relative;
 }
 
-/* Logo 靠左 */
+/* Logo 靠左，改用RouterLink做成可以點擊導回首頁的按鈕，這裡把<a>標籤預設的底線去掉 */
 .logo-container {
   display: flex;
   align-items: center;
   gap: 14px;
   margin: 0;
   flex-shrink: 0;
+  text-decoration: none;
+  cursor: pointer;
 }
 
 .logo-mark {
