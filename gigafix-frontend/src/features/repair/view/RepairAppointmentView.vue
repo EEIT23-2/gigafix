@@ -339,16 +339,32 @@ onMounted(async () => {
           </div>
           <div class="col-md-6">
             <label class="form-label">送修方式<span class="text-danger">*</span></label>
-            <select
-              v-model="form.dropoffType"
-              class="form-select"
-              :class="{ 'is-invalid': fieldErrors.dropoffType }"
-              :disabled="submitting"
-            >
-              <option value="">請選擇送修方式</option>
-              <option value="IN_STORE">親臨門市</option>
-              <option value="SHIPPING">寄送門市</option>
-            </select>
+            <div class="d-flex gap-4">
+              <div class="form-check">
+                <input
+                  id="dropoffTypeInStore"
+                  v-model="form.dropoffType"
+                  class="form-check-input"
+                  :class="{ 'is-invalid': fieldErrors.dropoffType }"
+                  type="radio"
+                  value="IN_STORE"
+                  :disabled="submitting"
+                />
+                <label class="form-check-label" for="dropoffTypeInStore">親臨門市</label>
+              </div>
+              <div class="form-check">
+                <input
+                  id="dropoffTypeShipping"
+                  v-model="form.dropoffType"
+                  class="form-check-input"
+                  :class="{ 'is-invalid': fieldErrors.dropoffType }"
+                  type="radio"
+                  value="SHIPPING"
+                  :disabled="submitting"
+                />
+                <label class="form-check-label" for="dropoffTypeShipping">寄送門市</label>
+              </div>
+            </div>
             <p v-if="fieldErrors.dropoffType" class="text-danger small mb-0 mt-1">
               {{ fieldErrors.dropoffType }}
             </p>
