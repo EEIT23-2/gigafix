@@ -18,11 +18,15 @@ public final class MemberPublicApiPaths {
 			"/api/gigafix/members/forgot-password",
 			"/api/gigafix/members/forgot-password/otp",
 
-			//jack的商城路由加入機不可失路由監管
+			// jack的商城路由加入機不可失路由監管
 			"/api/gigafix/products",
 			"/api/gigafix/products/**",
-			
-			//ECPay 超商選店回傳
+
+			// ECPay 超商選店回傳
 			"/api/gigafix/ecpay/logistics/store-callback",
+			// ECPay 金流付款結果 Server 回傳
+			"/api/gigafix/ecpay/payment/return",
+			// ECPay 金流 Browser Result
+			"/api/gigafix/ecpay/payment/result",
 	};
 }
