@@ -108,8 +108,26 @@ public class BookmarkServiceImpl implements BookmarkService {
 				.build();
 	}
 
-	// 將 Article Entity 轉成 ArticleResponse DTO
+	// 將 Article Entity 轉成 ArticleResponse DTO。
+	// 收藏當下雖然通過了 FULLY_PUBLIC_STATUSES，但之後作者可能隱藏、管理員可能強制隱藏或下架，
+	// 所以可見性必須在讀取時重新判斷，否則收藏清單會變成繞過遮蔽的後門
 	private ArticleResponse toArticleResponse(Article article) {
+
+		Article.ArticleStatus status = article.getStatus();
+		boolean visible = FULLY_PUBLIC_STATUSES.contains(status);
+		// 說明文字與 ArticleServiceImpl.resolveVisibility 的遮蔽版一字不差，兩邊要一起改
+		String visibilityMessage = null;
+		if (!visible) {
+			if (status == Article.ArticleStatus.HIDDEN) {
+				visibilityMessage = "此文章已被作者隱藏";
+			} else if (status == Article.ArticleStatus.FORCE_HIDDEN) {
+				visibilityMessage = "此文章已被管理員隱藏";
+			} else if (status == Article.ArticleStatus.TAKEN_DOWN) {
+				visibilityMessage = "此文章已下架";
+			} else {
+				visibilityMessage = "此文章目前無法瀏覽";
+			}
+		}
 
 		return ArticleResponse.builder()
 				.articleId(article.getArticleId())
@@ -117,21 +135,20 @@ public class BookmarkServiceImpl implements BookmarkService {
 				.categoryName(article.getCategory().getName())
 				.authorId(article.getAuthor().getId())
 				.authorNickName(article.getAuthor().getNickName())
-				.title(article.getTitle())
-				.content(article.getContent())
+				.title(visible ? article.getTitle() : null)
+				.content(visible ? article.getContent() : null)
 				.viewCount(article.getViewCount())
 				.likeCount(article.getLikeCount())
 				.commentCount(article.getCommentCount())
-				.coverImage(article.getCoverImage())
+				.coverImage(visible ? article.getCoverImage() : null)
 				.status(article.getStatus().name())
 				.isPinned(article.getIsPinned())
 				.parentArticleId(article.getParentArticle() != null ? article.getParentArticle().getArticleId() : null)
 				.articleCreatedTime(article.getArticleCreatedTime())
 				.articleUpdatedTime(article.getArticleUpdatedTime())
 				.articleEditedTime(article.getArticleEditedTime())
-				// 能被收藏的文章一定通過了上面的 FULLY_PUBLIC_STATUSES 過濾，這裡固定完整可見
-				.visible(true)
-				.visibilityMessage(null)
+				.visible(visible)
+				.visibilityMessage(visibilityMessage)
 				.build();
 	}
 }

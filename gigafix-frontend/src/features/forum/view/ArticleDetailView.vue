@@ -1,6 +1,8 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
+import { storeToRefs } from 'pinia'
+import { useFetchMemberInfoStore } from '@/stores/member'
 import {
   getArticle,
   deleteArticle,
@@ -12,15 +14,20 @@ import {
   createFloor,
   updateFloor,
   reportArticle,
-  TEST_MEMBER_ID,
 } from '../api'
 import CommentSection from '../components/CommentSection.vue'
 import MoreActionsMenu from '../components/MoreActionsMenu.vue'
 import { sanitizeHtml, isHtmlEmpty } from '../htmlContent'
 import RichTextEditor from '../components/RichTextEditor.vue'
+import ForumLoginModal from '../components/ForumLoginModal.vue'
+import { useForumLoginModalStore } from '../store/loginModal'
+import { pushRecentViewed } from '../utils/recentViewed'
+import { TAB_LABELS, normalizeTab, backToMemberForum, fromMemberForum } from '../utils/memberForumNav'
 
 const route = useRoute()
 const router = useRouter()
+const loginModalStore = useForumLoginModalStore()
+const { memberInfo } = storeToRefs(useFetchMemberInfoStore())
 
 // 對齊後端 CreateReportRequest 的 @Size(max = 250)，欄位是 NVARCHAR(250)，250 是字元數
 const REPORT_MAX_LENGTH = 250
@@ -40,8 +47,13 @@ const floorErrorMessage = ref('')
 // （與 CategoryAdminPanel 的 editingCategoryId 同一種模式）
 const editingFloorId = ref(null)
 const editingFloorContent = ref('')
+// 進入編輯時的原始內容，用來判斷有沒有真的改過——沒有自動存檔，離開前要靠這個決定要不要提示
+const editingFloorOriginalContent = ref('')
 const floorSaving = ref(false)
 const floorEditError = ref('')
+const isFloorEditDirty = computed(
+  () => editingFloorId.value !== null && editingFloorContent.value !== editingFloorOriginalContent.value,
+)
 
 // 首篇留言區預設展開；樓層的留言區預設收合，點該層的「留言 N」才展開
 const commentsOpen = ref(true)
@@ -58,7 +70,16 @@ const reportSuccessMessage = ref('')
 const reportSuccessTargetId = ref(null)
 
 const articleId = computed(() => route.params.articleId)
-const isAuthor = computed(() => article.value?.authorId === TEST_MEMBER_ID)
+
+// 這一頁也會從會員中心（我的收藏、活動、管理頁的「查看公開頁面」）進來。
+// 帶了 from=member-forum 就要走得回原本那個分頁，而不是把人丟到前台論壇列表
+const backTarget = computed(() =>
+  fromMemberForum(route) ? backToMemberForum(route.query.tab) : { name: 'forumList' },
+)
+const backLabel = computed(() =>
+  fromMemberForum(route) ? `返回${TAB_LABELS[normalizeTab(route.query.tab)]}` : '返回討論區',
+)
+const isAuthor = computed(() => article.value?.isAuthor === true)
 // 跟後端 EDIT_BLOCKED_STATUSES 一致：只有討論串關閉（凍結）或下架才不能編輯，隱藏／強制隱藏都還能編輯
 const EDIT_BLOCKED_STATUSES = ['CLOSED', 'FORCE_CLOSED', 'TAKEN_DOWN']
 const canEditArticle = computed(() => !!article.value && !EDIT_BLOCKED_STATUSES.includes(article.value.status))
@@ -102,6 +123,10 @@ async function load() {
     // 讚/收藏狀態已經跟著文章一起回來（likedByCurrentMember / bookmarkedByCurrentMember），
     // 不用再另外打 hasLikedArticle / hasBookmarked
     article.value = await getArticle(articleId.value)
+    // 只記根文章：樓層本身就是 Article，但「最近瀏覽」列的是討論串不是某一層
+    if (article.value.parentArticleId == null) {
+      pushRecentViewed(article.value.articleId)
+    }
   } catch {
     errorMessage.value = '文章不存在、已被下架，或載入失敗'
   } finally {
@@ -117,9 +142,29 @@ async function loadFloors() {
   }
 }
 
+// 蓋樓編輯沒有自動存檔，展開編輯框後有改動就要靠原生離開提示攔住（分頁被關掉／重新整理的情況）
+function handleBeforeUnload(event) {
+  if (isFloorEditDirty.value) {
+    event.preventDefault()
+    event.returnValue = ''
+  }
+}
+
+// 站內換頁（router）：同樣有改動才問，取消可以留在頁面上
+onBeforeRouteLeave(() => {
+  if (isFloorEditDirty.value && !confirm('離開將會捨棄本次編輯，確定要離開嗎？')) {
+    return false
+  }
+})
+
 onMounted(() => {
   load()
   loadFloors()
+  window.addEventListener('beforeunload', handleBeforeUnload)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', handleBeforeUnload)
 })
 
 function toggleFloorComments(floorId) {
@@ -137,6 +182,10 @@ function isStateDesyncError(error) {
 
 // 樓層本身就是一篇 article，讚/收藏走的是同一組 API，只是帶該層自己的 articleId
 async function toggleLikeOn(target) {
+  if (!memberInfo.value) {
+    loginModalStore.open(route.fullPath)
+    return
+  }
   interactionError.value = ''
   const wasLiked = target.likedByCurrentMember
   try {
@@ -163,6 +212,10 @@ async function toggleLikeOn(target) {
 }
 
 async function toggleBookmarkOn(target) {
+  if (!memberInfo.value) {
+    loginModalStore.open(route.fullPath)
+    return
+  }
   interactionError.value = ''
   const wasBookmarked = target.bookmarkedByCurrentMember
   try {
@@ -187,6 +240,10 @@ async function toggleBookmarkOn(target) {
 async function handleCreateFloor() {
   // 蓋樓內容也是 HTML 了，空編輯器輸出是 <p></p>，不能用 trim 判斷
   if (isHtmlEmpty(floorContent.value)) return
+  if (!memberInfo.value) {
+    loginModalStore.open(route.fullPath)
+    return
+  }
   floorSubmitting.value = true
   floorErrorMessage.value = ''
   try {
@@ -206,7 +263,7 @@ async function handleCreateFloor() {
 // 用它當條件等於任何狀態都能編輯，繞過了 EDIT_BLOCKED_STATUSES 這道實際的限制
 function canEditFloor(floor) {
   return (
-    floor.authorId === TEST_MEMBER_ID &&
+    floor.isAuthor === true &&
     !EDIT_BLOCKED_STATUSES.includes(floor.status) &&
     !EDIT_BLOCKED_STATUSES.includes(article.value?.status)
   )
@@ -216,6 +273,7 @@ function startEditFloor(floor) {
   floorEditError.value = ''
   // 舊資料早於消毒層，載進編輯器前先洗一次
   editingFloorContent.value = sanitizeHtml(floor.content)
+  editingFloorOriginalContent.value = editingFloorContent.value
   editingFloorId.value = floor.articleId
   // 不讓同一頁同時展開檢舉表單與編輯器
   reportingArticleId.value = null
@@ -224,6 +282,7 @@ function startEditFloor(floor) {
 function cancelEditFloor() {
   editingFloorId.value = null
   editingFloorContent.value = ''
+  editingFloorOriginalContent.value = ''
   floorEditError.value = ''
 }
 
@@ -259,6 +318,10 @@ function toggleReportForm(targetId) {
 
 async function handleReportSubmit(targetId) {
   if (!reportReason.value.trim()) return
+  if (!memberInfo.value) {
+    loginModalStore.open(route.fullPath)
+    return
+  }
   reportSubmitting.value = true
   reportErrorMessage.value = ''
   try {
@@ -298,6 +361,7 @@ async function handleDeleteFloor(floorId) {
 
 <template>
   <main class="article-detail-page">
+    <ForumLoginModal />
     <div class="page-shell mx-auto">
       <p v-if="loading" class="state-message">載入中...</p>
 
@@ -306,14 +370,14 @@ async function handleDeleteFloor(floorId) {
         <section v-if="!article.visible" class="card masked-card">
           <i class="bi bi-eye-slash masked-icon"></i>
           <p class="masked-text">{{ article.visibilityMessage }}</p>
-          <RouterLink :to="{ name: 'forumList' }" class="btn btn-outline-secondary btn-sm">
-            返回討論區
+          <RouterLink :to="backTarget" class="btn btn-outline-secondary btn-sm">
+            {{ backLabel }}
           </RouterLink>
         </section>
 
         <template v-else>
-          <RouterLink :to="{ name: 'forumList' }" class="back-link">
-            <i class="bi bi-chevron-left"></i>返回討論區
+          <RouterLink :to="backTarget" class="back-link">
+            <i class="bi bi-chevron-left"></i>{{ backLabel }}
           </RouterLink>
 
           <!-- 讚/收藏操作失敗的提示。不能併進 errorMessage，那個會把整頁換成錯誤畫面 -->
@@ -482,7 +546,7 @@ async function handleDeleteFloor(floorId) {
                   <div v-if="floor.visible" class="ms-auto">
                     <MoreActionsMenu>
                       <template #default="{ close }">
-                        <template v-if="floor.authorId === TEST_MEMBER_ID">
+                        <template v-if="floor.isAuthor === true">
                           <!-- 樓層的編輯是原地展開，不導向文章編輯頁：樓層沒有標題、分類、封面圖 -->
                           <button
                             v-if="canEditFloor(floor)"
@@ -853,10 +917,15 @@ async function handleDeleteFloor(floorId) {
   gap: 5px;
 }
 
+/* 顯示原圖：不裁切，只在超過上限時等比縮小。
+   手機直向截圖在這個欄寬下自然高度約 1300px，不設限會把內文推到很下面 */
 .cover {
-  width: 100%;
-  max-height: 300px;
-  object-fit: cover;
+  display: block;
+  max-width: 100%;
+  max-height: 600px;
+  width: auto;
+  height: auto;
+  margin: 0 auto;
   border-radius: 0.5rem;
 }
 

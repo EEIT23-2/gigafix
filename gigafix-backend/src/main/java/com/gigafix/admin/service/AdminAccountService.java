@@ -78,6 +78,13 @@ public class AdminAccountService {
 				.createDateTime(adminCreated.getCreateTime()).build();
 	}
 	
+	// 登入失敗時用帳號名稱查id；查不到帳號也用同一句訊息，避免透露帳號是否存在
+    public Integer getIdByNameForFailedLogin(String name) {
+        return adminRepository.findByName(name)
+                .orElseThrow(() -> new AdminBusinessRuleCheckException("帳號或密碼錯誤"))
+                .getId();
+    }
+
 	//查全部
     public List<AdminInfoDto> getAllAccounts() {
         return adminRepository.findAll().stream()

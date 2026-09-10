@@ -18,6 +18,8 @@ public final class MemberPublicApiPaths {
 			"/api/gigafix/members/forgot-password",
 			"/api/gigafix/members/forgot-password/otp",
 
+			"/api/gigafix/login/google",
+			"/api/gigafix/members/registerOrLoginAFakeMember",
 			// jack的商城路由加入機不可失路由監管
 			"/api/gigafix/products",
 			"/api/gigafix/products/**",
@@ -28,5 +30,10 @@ public final class MemberPublicApiPaths {
 			"/api/gigafix/ecpay/payment/return",
 			// ECPay 金流 Browser Result
 			"/api/gigafix/ecpay/payment/result",
+			// forum 的公開瀏覽端點（文章列表/詳情、樓層列表、留言列表、分類列表），皆為 GET，不需要登入
+			"/api/articles",
+			"/api/articles/**",
+			"/api/categories",
+			"/api/categories/**"
 	};
 }

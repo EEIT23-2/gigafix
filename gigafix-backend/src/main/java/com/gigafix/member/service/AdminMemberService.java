@@ -62,7 +62,8 @@ public class AdminMemberService {
 						.phone(member.getPhone())
 						.address(member.getAddress())
 						.gender(member.getGender())
-						.createTime(member.getCreateTime()).build());
+						.createTime(member.getCreateTime())
+						.profileImageUrl(member.getProfileImageUrl()).build());
 	}
 
 	// 後台：管理員修改指定會員的整包資料(密碼除外)

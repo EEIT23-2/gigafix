@@ -1,12 +1,14 @@
 <script setup>
-import { ref, computed, watch } from "vue";
-import { RouterLink } from "vue-router";
-import { useRouter } from "vue-router";
-import LoginRegisterModal from "./LoginRegisterModal.vue";
-import AddressSelect from "./AddressSelect.vue";
-import axios from "axios";
-import { useFetchMemberInfoStore } from "@/stores/member";
-import { storeToRefs } from "pinia";
+import { ref, computed, watch } from 'vue';
+import { RouterLink } from 'vue-router';
+import { useRouter } from 'vue-router';
+import LoginRegisterModal from './LoginRegisterModal.vue';
+import AddressSelect from './AddressSelect.vue';
+import axios from 'axios';
+import { useFetchMemberInfoStore } from '@/stores/member';
+import { storeToRefs } from 'pinia'
+import client from '@/features/cart/router/client.js';
+
 
 //跟登入有關的變數宣告
 const mail = ref("");
@@ -104,6 +106,48 @@ const login = async () => {
     password.value = "";
   }
 };
+
+//==Google登入相關==
+//<GoogleLogin>元件登入成功後會呼叫這個callback，response.credential就是Google發的id_token
+//TODO: 在這裡實作拿到id_token之後的邏輯，細節請看對話裡的說明
+const handleGoogleCredential =async (response) => {
+  // response就是使用者的id_token，直接給後端去驗證跟使用
+  try {
+      const resp = await axios.post('/api/gigafix/login/google',{
+          idToken: response.credential
+          //response.credential才是真正的id_token字串
+      })
+      await fetchMemberInfoStore.fetchMember(true) //登入成功後強制重抓一次會員資料
+      showloginModal.value = false
+      alert(`${resp.data.nickName}您好~登入成功！`)
+      //如果是從需要登入的功能(例如維修手機)跳出來登入的，登入成功後直接導去該頁面，不用使用者自己再點一次
+      if (afterLoginRedirect.value) {
+        router.push(afterLoginRedirect.value)
+        afterLoginRedirect.value = null
+      }
+  } catch (err) { //回傳4xx,5xx
+      const message = err.response?.data?.message || '請稍後再試'
+      alert(`登入失敗，原因: ${message}`)
+  }
+
+}
+
+//==一鍵註冊登入相關(demo用，不需要填任何資訊，按下去後端會直接生一個假會員讓你登入)==
+const registerOrLoginAFakeMember = async () => {
+  try {
+    const resp = await axios.post('/api/gigafix/members/registerOrLoginAFakeMember')
+    await fetchMemberInfoStore.fetchMember(true) //登入成功後強制重抓一次會員資料
+    showloginModal.value = false
+    alert(`${resp.data.nickName}您好~登入成功！`)
+    if (afterLoginRedirect.value) {
+      router.push(afterLoginRedirect.value)
+      afterLoginRedirect.value = null
+    }
+  } catch (err) { //回傳4xx,5xx
+    const message = err.response?.data?.message || '請稍後再試'
+    alert(`登入失敗，原因: ${message}`)
+  }
+}
 
 //==註冊相關==
 const openRegisterModal = () => {
@@ -317,7 +361,7 @@ const goToCart = () => {
 <template>
   <header class="site-header-wrapper">
     <div class="top-announcement-bar">
-      <span>加入會員就送可愛正彥寶寶一組</span>
+      <span>加入會員就送可愛政諺寶寶一組</span>
       <!-- 這個應該在layout或是抽成元件????? -->
     </div>
 
@@ -346,6 +390,19 @@ const goToCart = () => {
             <span class="icon-box">
               <i class="bi bi-cart icon"></i>
             </span>
+          </button>
+
+          <!-- demo用的一鍵註冊登入，不用填任何資訊，已登入就不用顯示 -->
+          <button
+            v-if="!memberInfo"
+            type="button"
+            class="action-item fake-login-btn"
+            @click="registerOrLoginAFakeMember()"
+          >
+            <span class="icon-box"
+              ><i class="bi bi-lightning-charge icon"></i
+            ></span>
+            <span class="action-text">一鍵註冊登入</span>
           </button>
         </nav>
 
@@ -384,11 +441,31 @@ const goToCart = () => {
   <LoginRegisterModal v-model="showloginModal" :showBackdrop="false">
     <template #title>會員登入</template>
     <label class="form-label">Email</label>
+<<<<<<< HEAD
     <input type="email" class="form-control mb-3" v-model="mail" :disabled="loginLoading" placeholder="請輸入Email"
       @input="checkLoginError()" />
     <label class="form-label">密碼</label>
     <input type="password" class="form-control" v-model="password" :disabled="loginLoading" placeholder="請輸入密碼"
       @input="checkLoginError()" />
+=======
+    <input
+      type="email"
+      class="form-control mb-3"
+      :value="mail"
+      :disabled="loginLoading"
+      placeholder="請輸入Email"
+      @input="mail = $event.target.value.replace(/\s/g, ''); checkLoginError()"
+    />
+    <label class="form-label">密碼</label>
+    <input
+      type="password"
+      class="form-control"
+      :value="password"
+      :disabled="loginLoading"
+      placeholder="請輸入密碼"
+      @input="password = $event.target.value.replace(/\s/g, ''); checkLoginError()"
+    />
+>>>>>>> main
     <p v-if="loginErrorMsg" class="text-danger form-error-msg">
       {{ loginErrorMsg }}
     </p>
@@ -402,6 +479,18 @@ const goToCart = () => {
       </button>
       <span v-if="loginErrorMsg" class="btn btn-primary disabled">請輸入正確資訊</span>
       <button v-else class="btn btn-primary" @click="login()">送出</button>
+
+      <div class="w-100 d-flex align-items-center gap-2 my-2">
+        <hr class="flex-grow-1 m-0">
+        <span class="text-muted small">或</span>
+        <hr class="flex-grow-1 m-0">
+      </div>
+      <!-- 使用第三方登入的按鈕 -->
+      <div class="w-100 d-flex justify-content-center">
+        <!-- 按下這個google登入的按鈕標籤，會讓使用者去選擇帳號
+        之後:callback會帶著這個回應去呼叫我自訂義函數 -->
+        <GoogleLogin :callback="handleGoogleCredential" />
+      </div>
     </template>
   </LoginRegisterModal>
 
@@ -409,8 +498,18 @@ const goToCart = () => {
   <LoginRegisterModal v-model="showRegisterModal" :showBackdrop="false">
     <template #title>會員註冊</template>
     <label class="form-label">Email</label>
+<<<<<<< HEAD
     <input type="email" class="form-control mb-2" v-model="regEmail" placeholder="請輸入Email"
       @input="checkRegisterError()" />
+=======
+    <input
+      type="email"
+      class="form-control mb-2"
+      :value="regEmail"
+      placeholder="請輸入Email"
+      @input="regEmail = $event.target.value.replace(/\s/g, ''); checkRegisterError()"
+    />
+>>>>>>> main
     <label class="form-label">OTP驗證碼</label>
     <div class="otp-row mb-2">
       <input type="text" class="form-control" v-model="regOtp" maxlength="6" placeholder="請輸入6碼驗證碼"
@@ -427,8 +526,18 @@ const goToCart = () => {
       </button>
     </div>
     <label class="form-label">密碼</label>
+<<<<<<< HEAD
     <input type="password" class="form-control mb-2" v-model="regPassword" placeholder="至少8碼，需含大小寫英文字母及數字"
       @input="checkRegisterError()" />
+=======
+    <input
+      type="password"
+      class="form-control mb-2"
+      :value="regPassword"
+      placeholder="至少8碼，需含大小寫英文字母及數字"
+      @input="regPassword = $event.target.value.replace(/\s/g, ''); checkRegisterError()"
+    />
+>>>>>>> main
     <!-- 真實姓名+暱稱併成一排，縮短表單高度，密碼/手機號碼維持獨立一排避免看起來擁擠 -->
     <div class="row g-2 mb-2">
       <div class="col-6">
@@ -558,6 +667,7 @@ const goToCart = () => {
   text-decoration: underline;
 }
 
+
 /* footer裡的錯誤提示文字，字級跟旁邊的按鈕(1.05rem)對齊，並去掉<p>預設的margin，
    避免在flex排列的footer裡被撐開高度，導致跟按鈕、其他文字沒有對齊在同一條基準線上 */
 /* 錯誤訊息放在modal-body最底部，但故意讓它「貼著下面的分隔線」而不是貼著上面的輸入框：
@@ -678,6 +788,23 @@ const goToCart = () => {
   border: none;
   box-shadow: none;
   color: #2b77c5;
+}
+
+/* 一鍵註冊登入的框，深藍色但比上面公告列的#1e3557淺一階，避免跟公告列同色太搶戲 */
+.fake-login-btn {
+  border: 2px solid #6d7c92;
+  border-radius: 0.6rem;
+  padding: 4px 12px;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.1s ease;
+}
+
+.fake-login-btn:hover {
+  background-color: #6d7c92;
+  color: #ffffff;
+}
+
+.fake-login-btn:active {
+  transform: scale(0.95);
 }
 
 /* 統一每個 icon 的視覺框大小，讓不同圖示對齊在同一個尺寸內 */

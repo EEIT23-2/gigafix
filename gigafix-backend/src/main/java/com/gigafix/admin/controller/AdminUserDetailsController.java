@@ -22,8 +22,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.gigafix.admin.dto.AdminLoginReq;
 import com.gigafix.admin.dto.AdminLoginResp;
 import com.gigafix.admin.exception.AdminBusinessRuleCheckException;
-import com.gigafix.admin.repository.AdminAccountRepository;
 import com.gigafix.admin.security.AdminUserDetails;
+import com.gigafix.admin.service.AdminAccountService;
 import com.gigafix.admin.service.LoginLockService;
 import com.gigafix.common.util.SecurityUtils;
 import com.gigafix.admin.security.AdminLoginAttemptInfo;
@@ -42,7 +42,7 @@ public class AdminUserDetailsController {
 	private final AuthenticationManager authenticationManager;
 	private final SecurityContextRepository securityContextRepository;
 	private final LoginLockService loginLockService;
-	private final AdminAccountRepository adminAccountRepository;
+	private final AdminAccountService adminAccountService;
 	private final SessionRegistry sessionRegistry;
 
 	@PostMapping("/adminlogin") // 因為是前後端分離專案，前端回傳Json，spring
@@ -67,8 +67,7 @@ public class AdminUserDetailsController {
 			}
 			throw e; // 不是預期情況（例如真的內部錯誤），照原本丟出去，走 AuthenticationException 的 fallback handler
 		} catch (BadCredentialsException e) {// 如果登入失敗authenticate()會拋出這個例外
-			Integer adminId = adminAccountRepository.findByName(adminLoginReq.adminName())
-					.orElseThrow(() -> new AdminBusinessRuleCheckException("帳號或密碼錯誤")).getId();
+			Integer adminId = adminAccountService.getIdByNameForFailedLogin(adminLoginReq.adminName());
 			AdminLoginAttemptInfo AdminLoginAttemptInfo = loginLockService.recordFailedAttempt(adminId);// 登入失敗就在
 			throw new AdminBusinessRuleCheckException("帳號或密碼錯誤" + AdminLoginAttemptInfo.getFailCount() + "次");
 		}

@@ -13,7 +13,7 @@ import jakarta.validation.constraints.Size;
 
 public record RegisterReq(
 		@NotBlank(message = "password不可為空")
-		@Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}$", message = "密碼需至少8碼，並包含大小寫英文字母及數字")
+		@Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)\\S{8,}$", message = "密碼需至少8碼，並包含大小寫英文字母及數字，且不可包含空格")
 		String password,
 		@NotBlank(message = "真實姓名不可為空")
 		@Size(max = 40, message = "真實姓名字數上限為40")
@@ -23,6 +23,7 @@ public record RegisterReq(
 		String nickName, 
 		@NotBlank(message = "Email不可為空")
 	    @Email(message = "Email格式錯誤")
+	    @Pattern(regexp = "^\\S+$", message = "Email不可包含空格")
 		String email,
 		@NotBlank(message = "手機號碼不可為空")
 		@Pattern(regexp = "^09\\d{8}$", message = "手機號碼格式錯誤，需為09開頭的10碼數字")
