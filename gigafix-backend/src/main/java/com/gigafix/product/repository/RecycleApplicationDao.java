@@ -10,6 +10,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Optional;
+
 public interface RecycleApplicationDao extends JpaRepository<RecycleApplication,Long> {
     //用JPQL實作條件查詢
 
@@ -26,5 +28,9 @@ public interface RecycleApplicationDao extends JpaRepository<RecycleApplication,
                                                 @Param("category") ProductCategory category,
                                                 @Param("recycleStatus") RecycleStatus recycleStatus,
                                                 Pageable page);
-
+    //前台以會員id查詢回收單id需要的dao
+    Optional<RecycleApplication> findByApplyIdAndMember_Id(
+            Long applyId,
+            Long memberId
+    );
 }

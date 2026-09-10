@@ -17,10 +17,16 @@ public interface RecycleApplicationService {
     //以id查詢單筆回收單
     RecycleResponse getApplyFormById(Long applyId);
 
-    //前台會員指查自己的回收單
+    //前台會員只查自己的回收單列表
     Page<RecycleResponse> getMemberApplyForms(
             Long memberId,
             RecycleQueryParams recycleQueryParams
+    );
+
+    //前台會員查詢自己的單筆回收單
+    RecycleResponse getMemberApplyFormById(
+            Long memberId,
+            Long applyId
     );
 
     //新增回收單

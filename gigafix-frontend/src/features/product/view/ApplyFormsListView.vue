@@ -24,6 +24,7 @@ const {
 } = storeToRefs(recycleApplicationStore);
 
 const applications = ref([]);
+const searchMemberId = ref("");
 const totalElements = ref(0);
 const totalPages = ref(0);
 const loading = ref(false);
@@ -121,6 +122,7 @@ function buildQueryParams(targetPage) {
     offset: targetPage * size.value,
     orderBy,
     sort,
+    ...(searchMemberId.value && { memberId: searchMemberId.value }),
     ...(searchProductName.value && { productName: searchProductName.value }),
     ...(searchAppearance.value && { appearance: searchAppearance.value }),
     ...(searchCategory.value && { productCategory: searchCategory.value }),
@@ -150,10 +152,15 @@ async function fetchApplications(targetPage = page.value) {
 }
 
 function search() {
+  if (searchMemberId.value && !/^[1-9]\d*$/.test(searchMemberId.value)) {
+    errorMessage.value = "會員 ID 必須是正整數";
+    return;
+  }
   fetchApplications(0);
 }
 
 function resetSearch() {
+  searchMemberId.value = "";
   recycleApplicationStore.resetListState();
   fetchApplications(0);
 }
@@ -317,6 +324,15 @@ onMounted(() => fetchApplications(page.value));
 
       <section class="card border-0 shadow-sm mb-4">
         <div class="card-body d-flex flex-column flex-lg-row flex-wrap gap-3">
+          <input
+            v-model.trim="searchMemberId"
+            type="text"
+            inputmode="numeric"
+            class="form-control member-id-input"
+            placeholder="搜尋會員 ID"
+            aria-label="搜尋會員 ID"
+            @keyup.enter="search"
+          />
           <input
             v-model.trim="searchProductName"
             type="search"
@@ -567,6 +583,9 @@ main {
 }
 .search-input {
   flex: 1 1 210px;
+}
+.member-id-input {
+  flex: 0 1 180px;
 }
 .filter-select {
   max-width: 180px;

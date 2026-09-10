@@ -186,6 +186,28 @@ export const getRecycleApplication = async (applyId) => {
 };
 
 /**
+ * 前台登入會員查詢自己的回收申請列表
+ *
+ * GET /api/gigafix/members/me/recycle-applications
+ */
+export const getMemberRecycleApplications = async (params = {}) => {
+  const response = await axios.get(RECYCLE_APPLICATION_URL, { params });
+
+  return response.data;
+};
+
+/**
+ * 前台登入會員查詢自己的單筆回收申請
+ *
+ * GET /api/gigafix/members/me/recycle-applications/{applyId}
+ */
+export const getMemberRecycleApplication = async (applyId) => {
+  const response = await axios.get(`${RECYCLE_APPLICATION_URL}/${applyId}`);
+
+  return response.data;
+};
+
+/**
  * 使用者新增回收申請
  *
  * POST /api/recycle-applications

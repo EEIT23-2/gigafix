@@ -1,23 +1,23 @@
 <script setup>
-import { onMounted } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
-import { useFetchMemberInfoStore } from '@/stores/member'
+import { onMounted } from "vue";
+import { RouterLink, useRouter } from "vue-router";
+import { useFetchMemberInfoStore } from "@/stores/member";
 
-const router = useRouter()
-const fetchMemberInfoStore = useFetchMemberInfoStore()
+const router = useRouter();
+const fetchMemberInfoStore = useFetchMemberInfoStore();
 
 //進入會員中心時檢查是否已登入，沒登入就踢回首頁
 onMounted(() => {
   if (!fetchMemberInfoStore.memberInfo) {
-    router.push('/')
+    router.push("/");
   }
-})
+});
 
 //登出的非同步請求
 const logout = async () => {
-  await fetchMemberInfoStore.logoutMember()
-  router.push('/')
-}
+  await fetchMemberInfoStore.logoutMember();
+  router.push("/");
+};
 </script>
 
 <template>
@@ -30,36 +30,60 @@ const logout = async () => {
     </div>
 
     <nav class="nav flex-column sidebar-nav">
-        <RouterLink to="/member-center/memberInfo" class="nav-link sidebar-link" exact-active-class="active">
-            <i class="bi bi-house-door"></i>
-            <span>會員資料</span>
-        </RouterLink>
+      <RouterLink
+        to="/member-center/memberInfo"
+        class="nav-link sidebar-link"
+        exact-active-class="active"
+      >
+        <i class="bi bi-house-door"></i>
+        <span>會員資料</span>
+      </RouterLink>
 
-        <RouterLink to="/member-center/profile" class="nav-link sidebar-link" active-class="active">
-            <i class="bi bi-recycle"></i>
-            <span>回收手機紀錄</span>
-        </RouterLink>
+      <RouterLink
+        to="/member-center/recycle"
+        class="nav-link sidebar-link"
+        active-class="active"
+      >
+        <i class="bi bi-recycle"></i>
+        <span>回收手機紀錄</span>
+      </RouterLink>
 
-        <RouterLink to="/member-center/orders" class="nav-link sidebar-link" active-class="active">
-            <i class="bi bi-box-seam"></i>
-            <span>訂單查詢</span>
-        </RouterLink>
+      <RouterLink
+        to="/member-center/orders"
+        class="nav-link sidebar-link"
+        active-class="active"
+      >
+        <i class="bi bi-box-seam"></i>
+        <span>訂單查詢</span>
+      </RouterLink>
 
-        <RouterLink to="/member-center/forum" class="nav-link sidebar-link" active-class="active">
-            <i class="bi bi-chat-left-text"></i>
-            <span>我的討論</span>
-        </RouterLink>
+      <RouterLink
+        to="/member-center/forum"
+        class="nav-link sidebar-link"
+        active-class="active"
+      >
+        <i class="bi bi-chat-left-text"></i>
+        <span>我的討論</span>
+      </RouterLink>
 
-        <RouterLink to="/member-center/repair" class="nav-link sidebar-link" active-class="active">
-            <i class="bi bi-tools"></i>
-            <span>維修進度</span>
-        </RouterLink>
+      <RouterLink
+        to="/member-center/repair"
+        class="nav-link sidebar-link"
+        active-class="active"
+      >
+        <i class="bi bi-tools"></i>
+        <span>維修進度</span>
+      </RouterLink>
 
-        <hr class="sidebar-divider" />
-        <button class="nav-link sidebar-link logout-link" type="button" @click="logout()">
-            <i class="bi bi-box-arrow-left"></i>
-            <span>登出</span>
-        </button>
+      <hr class="sidebar-divider" />
+      <button
+        class="nav-link sidebar-link logout-link"
+        type="button"
+        @click="logout()"
+      >
+        <i class="bi bi-box-arrow-left"></i>
+        <span>登出</span>
+      </button>
     </nav>
   </aside>
 </template>
@@ -124,7 +148,9 @@ const logout = async () => {
   text-align: left;
   width: 100%;
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .sidebar-link i {
