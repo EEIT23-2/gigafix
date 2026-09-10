@@ -97,7 +97,8 @@ public class SecurityConfig {
 				memberUserDetailsService);
 
 		return httpSecurity
-				.securityMatcher("/api/gigafix/**")
+				.securityMatcher("/api/gigafix/**", "/api/articles/**", "/api/members/**", "/api/categories",
+						"/api/categories/**")
 				.csrf(csrf -> csrf.disable())
 				.authorizeHttpRequests(requests -> requests
 						.requestMatchers(MemberPublicApiPaths.PATHS)

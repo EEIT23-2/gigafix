@@ -198,6 +198,7 @@ public class CommentServiceImpl implements CommentService {
 
 		boolean likedByCurrentMember = memberId != null
 				&& likeRepository.findByMember_IdAndComment_CommentId(memberId, comment.getCommentId()).isPresent();
+		boolean isAuthor = memberId != null && comment.getAuthor().getId().equals(memberId);
 
 		return CommentResponse.builder()
 				.commentId(comment.getCommentId())
@@ -207,6 +208,7 @@ public class CommentServiceImpl implements CommentService {
 				.content(comment.getContent())
 				.likeCount(comment.getLikeCount())
 				.likedByCurrentMember(likedByCurrentMember)
+				.isAuthor(isAuthor)
 				.status(comment.getStatus().name())
 				.commentCreatedTime(comment.getCommentCreatedTime())
 				.build();
