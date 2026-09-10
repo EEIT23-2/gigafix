@@ -1,6 +1,7 @@
 package com.gigafix.product.service;
 
 import com.gigafix.member.entity.Member;
+import com.gigafix.member.exception.MemberNotFoundException;
 import com.gigafix.member.repository.MemberRepository;
 import com.gigafix.product.Utils;
 import com.gigafix.product.constant.ProductCategory;
@@ -117,7 +118,7 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
     }
     //實作新增回收單
     @Override
-    public RecycleResponse createApplyForm(RecycleRequest recycleRequest) {
+    public RecycleResponse createApplyForm(Long memberId, RecycleRequest recycleRequest) {
         RecycleApplication applyForm = new RecycleApplication();
 
         applyForm.setProductName(recycleRequest.getProductName());
@@ -131,11 +132,10 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
         applyForm.setCreatedTime(LocalDateTime.now());
         applyForm.setLastModifiedTime(LocalDateTime.now());
 
-        Member member = memberRepository.findById(recycleRequest.getMemberId()).orElse(null);
+        Member member = memberRepository
+                .findById(memberId)
+                .orElseThrow(MemberNotFoundException::new);
 
-        if(member == null){
-            return null;
-        }
         applyForm.setMember(member);
 
         if(recycleRequest.getStoreId()!=null){
