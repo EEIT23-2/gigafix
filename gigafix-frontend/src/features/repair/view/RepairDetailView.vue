@@ -463,6 +463,12 @@ onMounted(() => {
             >{{ repair.memberName }}（id:{{ repair.memberId }}）
           </div>
           <div class="col-md-6">
+            <span class="text-secondary">聯絡姓名：</span>{{ repair.contactName }}
+          </div>
+          <div class="col-md-6">
+            <span class="text-secondary">聯絡電話：</span>{{ repair.contactPhone }}
+          </div>
+          <div class="col-md-6">
             <span class="text-secondary">品牌：</span>{{ repair.repairBrand }}
           </div>
           <div class="col-md-6">
