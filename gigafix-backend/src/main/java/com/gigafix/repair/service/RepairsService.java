@@ -212,6 +212,16 @@ public class RepairsService {
 		return result;
 	}
 
+//	會員中心「維修進度」用：查登入會員自己的所有維修單
+	public List<RepairsResponse> selectByMember(Long memberId) {
+		List<Repairs> list = rRepos.findByMember_IdOrderByRepairCreatedTimeDesc(memberId);
+		List<RepairsResponse> result = new ArrayList<>();
+		for (Repairs r : list) {
+			result.add(toResponse(r));
+		}
+		return result;
+	}
+
 //	查某分店、某一天已經被預約的時段，讓客戶預約時知道哪些時段不能選
 	public List<LocalTime> getBookedSlots(Byte storeId, LocalDate bookingDate) {
 		List<Repairs> list = rRepos.findByStore_IdAndBookingDate(storeId, bookingDate);

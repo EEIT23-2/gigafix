@@ -77,6 +77,12 @@ public class RepairsController {
 		return ResponseEntity.ok(rServ.search(id, memberId, memberName, technicianId, technicianName, status));// 200
 	}
 
+	// 會員中心「維修進度」用：查登入會員自己的所有維修單，memberId 由 AuthInterceptor 從登入的 token 解析出來
+	@GetMapping("/me")
+	public ResponseEntity<List<RepairsResponse>> selectByMember(@RequestAttribute("memberId") Long memberId) {
+		return ResponseEntity.ok(rServ.selectByMember(memberId));// 200
+	}
+
 	// 客戶預約時用：查某分店、某一天已經被預約的時段，前端把這些時段設為不可選
 	@GetMapping("/booked-slots")
 	public ResponseEntity<List<LocalTime>> getBookedSlots(
@@ -120,10 +126,10 @@ public class RepairsController {
 		return ResponseEntity.ok(rServ.submitQuote(id, technicianId));// 200
 	}
 
-	// 客戶回應報價（同意／拒絕）
+	// 客戶回應報價（同意／拒絕），memberId 由 AuthInterceptor 從登入的 token 解析出來，不是前端傳的
 	@PatchMapping("/{id}/approval")
 	public ResponseEntity<RepairsResponse> respondToQuote(@PathVariable Long id,
-			@RequestParam Long memberId, @RequestParam boolean approve) {
+			@RequestAttribute("memberId") Long memberId, @RequestParam boolean approve) {
 		return ResponseEntity.ok(rServ.respondToQuote(id, memberId, approve));// 200
 	}
 
