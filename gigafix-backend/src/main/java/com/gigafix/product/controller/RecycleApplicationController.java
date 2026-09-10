@@ -14,6 +14,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.gigafix.common.util.SecurityUtils;
+import org.springframework.security.core.Authentication;
 
 import java.util.List;
 
@@ -42,9 +44,11 @@ public class RecycleApplicationController {
     }
 
     //id新增回收單的路由
-    @PostMapping("/api/recycle-applications")      //@Valid 是為了讓@NotNull生效
-    public ResponseEntity<RecycleResponse> createApplyForm(@RequestBody @Valid RecycleRequest recycleRequest) {
-        RecycleResponse response = recycleApplicationService.createApplyForm(recycleRequest);
+    @PostMapping("/api/gigafix/members/me/recycle-applications")      //@Valid 是為了讓@NotNull生效
+    public ResponseEntity<RecycleResponse> createApplyForm(Authentication authentication, @RequestBody @Valid RecycleRequest recycleRequest) {
+
+        Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
+        RecycleResponse response = recycleApplicationService.createApplyForm(memberId,recycleRequest);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }

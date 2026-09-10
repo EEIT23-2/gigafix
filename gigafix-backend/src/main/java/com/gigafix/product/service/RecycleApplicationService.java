@@ -18,7 +18,7 @@ public interface RecycleApplicationService {
     RecycleResponse getApplyFormById(Long applyId);
 
     //新增回收單
-    RecycleResponse createApplyForm(RecycleRequest recycleRequest);
+    RecycleResponse createApplyForm( Long memberId, RecycleRequest recycleRequest);
 
     //修改回收單
     void updateApplyForm(Long applyId,RecycleRequest recycleRequest);

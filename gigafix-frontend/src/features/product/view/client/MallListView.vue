@@ -8,13 +8,16 @@ import {
   watch,
 } from "vue";
 import { storeToRefs } from "pinia";
+import { useRouter } from "vue-router";
 import { addCartItem } from "@/features/cart/api/cartApi.js";
 import { useFetchMemberInfoStore } from "@/stores/member";
 import { getProducts } from "../../api.js";
 import MallTable from "../../components/client/MallTable.vue";
+import ProductCartDrawer from "../../components/client/ProductCartDrawer.vue";
 
 const fetchMemberInfoStore = useFetchMemberInfoStore();
 const { memberInfo } = storeToRefs(fetchMemberInfoStore);
+const router = useRouter();
 
 const openLoginModal = () => {
   const loginButton = document.querySelector(
@@ -48,6 +51,8 @@ const loading = ref(false);
 const errorMessage = ref("");
 const cartMessage = ref("");
 const cartMessageType = ref("success");
+const cartDrawerOpen = ref(false);
+const cartRefreshKey = ref(0);
 let requestSequence = 0;
 let debounceTimer;
 let cartMessageTimer;
@@ -131,8 +136,10 @@ function changePage(page) {
 }
 
 function handleSelectProduct(product) {
-  // 可在此串接商品詳細頁，例如：router.push({ name: 'mall-product-detail', params: { id: product.productId } })
-  console.log("選擇商品：", product);
+  router.push({
+    name: "mall-detail",
+    params: { productId: product.productId },
+  });
 }
 
 const addToCart = async (product) => {
@@ -147,6 +154,7 @@ const addToCart = async (product) => {
     await addCartItem(product.productId);
     cartMessageType.value = "success";
     cartMessage.value = `${name} 已加入購物車`;
+    cartRefreshKey.value += 1;
   } catch (error) {
     cartMessageType.value = "danger";
     cartMessage.value =
@@ -155,6 +163,11 @@ const addToCart = async (product) => {
   cartMessageTimer = setTimeout(() => {
     cartMessage.value = "";
   }, 3000);
+};
+
+const openCartDrawer = () => {
+  cartRefreshKey.value += 1;
+  cartDrawerOpen.value = true;
 };
 
 watch([selectedCategory, sort, pageSize], () => {
@@ -180,6 +193,14 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <ProductCartDrawer
+    :open="cartDrawerOpen"
+    :refresh-key="cartRefreshKey"
+    :show-trigger="Boolean(memberInfo)"
+    @open="openCartDrawer"
+    @close="cartDrawerOpen = false"
+  />
+
   <main class="container-xxl shop-layout">
     <div class="row g-4">
       <aside class="col-lg-3 d-none d-lg-block">
