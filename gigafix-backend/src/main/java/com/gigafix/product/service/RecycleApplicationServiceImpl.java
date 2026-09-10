@@ -20,8 +20,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Transactional
@@ -33,6 +36,8 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
     private MemberRepository memberRepository;
     @Autowired
     private StoresRepository storesRepository;
+    @Autowired
+    private ObjectMapper objectMapper;
 
     //實作查詢回收單列表
 
@@ -214,5 +219,18 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
     @Override
     public void deleteAllApplyForms() {
         recycleApplicationDao.deleteAll();
+    }
+
+    //將全部回收單轉為 DTO 後匯出，避免直接序列化 Member、Stores 的關聯資料
+    @Override
+    public byte[] exportApplyForms() throws IOException {
+        List<RecycleResponse> applyForms = recycleApplicationDao
+                .findAll(Sort.by("createdTime").descending())
+                .stream()
+                .map(this::toResponse)
+                .toList();
+
+        return objectMapper.writerWithDefaultPrettyPrinter()
+                .writeValueAsBytes(applyForms);
     }
 }

@@ -249,3 +249,17 @@ export const deleteRecycleApplication = async (applyId) => {
 export const deleteAllRecycleApplications = async () => {
   await axios.delete(ADMIN_RECYCLE_APPLICATION_URL);
 };
+
+/**
+ * 後台將全部回收申請匯出為 JSON 檔
+ *
+ * GET /api/admin/recycle-applications/export
+ */
+export const exportRecycleApplications = async () => {
+  const response = await axios.get(
+    `${ADMIN_RECYCLE_APPLICATION_URL}/export`,
+    { responseType: "blob" },
+  );
+
+  return response.data;
+};

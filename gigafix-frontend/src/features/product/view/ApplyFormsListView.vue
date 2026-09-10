@@ -5,6 +5,7 @@ import { useRouter } from "vue-router";
 import {
   deleteAllRecycleApplications,
   deleteRecycleApplication,
+  exportRecycleApplications,
   getRecycleApplications,
 } from "../api";
 import ApplyFormTable from "../components/ApplyFormTable.vue";
@@ -30,6 +31,7 @@ const totalPages = ref(0);
 const loading = ref(false);
 const deletingId = ref(null);
 const deletingAll = ref(false);
+const exporting = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
 const showDeleteConfirm = ref(false);
@@ -285,6 +287,38 @@ async function confirmDeleteAll() {
   }
 }
 
+async function handleExport() {
+  exporting.value = true;
+  errorMessage.value = "";
+  successMessage.value = "";
+
+  try {
+    const blobData = await exportRecycleApplications();
+    const blob =
+      blobData instanceof Blob
+        ? blobData
+        : new Blob([blobData], { type: "application/json" });
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = downloadUrl;
+    link.download = `recycle-applications-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(downloadUrl);
+
+    successMessage.value = "回收申請 JSON 已成功匯出";
+  } catch (error) {
+    console.error(error);
+    errorMessage.value = error.response
+      ? `匯出失敗（HTTP ${error.response.status}）`
+      : "無法連線至伺服器";
+  } finally {
+    exporting.value = false;
+  }
+}
+
 // 使用 Pinia 中保留的頁碼及篩選條件重新查詢。
 onMounted(() => fetchApplications(page.value));
 </script>
@@ -307,19 +341,36 @@ onMounted(() => fetchApplications(page.value));
           </p>
         </div>
 
-        <button
-          type="button"
-          class="btn btn-outline-danger"
-          :disabled="deletingAll || totalElements === 0"
-          @click="openDeleteAllConfirm"
-        >
-          <span
-            v-if="deletingAll"
-            class="spinner-border spinner-border-sm me-1"
-          ></span>
-          <i v-else class="bi bi-trash3 me-1"></i>
-          {{ deletingAll ? "刪除中..." : "刪除全部" }}
-        </button>
+        <div class="d-flex flex-wrap gap-2">
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            :disabled="exporting || deletingAll"
+            @click="handleExport"
+          >
+            <span
+              v-if="exporting"
+              class="spinner-border spinner-border-sm me-1"
+              aria-hidden="true"
+            ></span>
+            <i v-else class="bi bi-download me-1" aria-hidden="true"></i>
+            {{ exporting ? "匯出中..." : "匯出 JSON" }}
+          </button>
+
+          <button
+            type="button"
+            class="btn btn-outline-danger"
+            :disabled="deletingAll || exporting || totalElements === 0"
+            @click="openDeleteAllConfirm"
+          >
+            <span
+              v-if="deletingAll"
+              class="spinner-border spinner-border-sm me-1"
+            ></span>
+            <i v-else class="bi bi-trash3 me-1"></i>
+            {{ deletingAll ? "刪除中..." : "刪除全部" }}
+          </button>
+        </div>
       </header>
 
       <section class="card border-0 shadow-sm mb-4">
