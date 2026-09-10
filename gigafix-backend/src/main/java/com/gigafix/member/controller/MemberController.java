@@ -23,6 +23,7 @@ import com.gigafix.member.dto.MemberInfoResp;
 import com.gigafix.member.dto.RegisterReq;
 import com.gigafix.member.dto.RegisterAndLoginResult;
 import com.gigafix.member.dto.SendOtpReq;
+import com.gigafix.member.dto.UpdateAvatarReq;
 import com.gigafix.member.dto.UpdateMemberInfoReq;
 import com.gigafix.member.security.MemberUserDetails;
 import com.gigafix.member.service.MailSenderService;
@@ -92,13 +93,21 @@ public class MemberController {
 	}
 
 	@PatchMapping("/me/password") // 登入後想修改密碼
-	public ResponseEntity<String> updatePassword(@Valid @RequestBody UpdatePasswordReq updatePasswordReq,
+	public ResponseEntity<Void> updatePassword(@Valid @RequestBody UpdatePasswordReq updatePasswordReq,
 			Authentication authentication) {
 		MemberUserDetails memberDetails = SecurityUtils.getCurrentMember(authentication);
 		// 雖然ChangePasswordReq只有接收前端一個屬性值，但包裝成DTO就可以享有spring
 		// 的jackson和validation的支援，而且統一資料的流程控制
 		memberService.updatePassword(updatePasswordReq, memberDetails.getId()); // 變更密碼不需要傳密碼到前端，也沒有其他更新後的資料要傳送
 		return ResponseEntity.noContent().build(); // 204
+	}
+
+	@PatchMapping("/me/profileImage")
+	public ResponseEntity<MemberInfoResp> updateProfileImage(@Valid @RequestBody UpdateAvatarReq updateAvatarReq,
+			Authentication authentication) {
+		MemberUserDetails memberDetails = SecurityUtils.getCurrentMember(authentication);
+		MemberInfoResp memberInfo = memberService.updateAvatar(updateAvatarReq, memberDetails.getId());
+		return ResponseEntity.ok(memberInfo); // 200
 	}
 
 	@DeleteMapping("/me") // 刪除使用者

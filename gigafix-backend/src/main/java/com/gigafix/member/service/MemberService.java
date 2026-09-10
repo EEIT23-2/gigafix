@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 
 import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
@@ -14,6 +15,7 @@ import com.gigafix.member.dto.ForgotPasswordReq;
 import com.gigafix.member.dto.LoginResp;
 import com.gigafix.member.dto.MemberInfoResp;
 import com.gigafix.member.dto.RegisterReq;
+import com.gigafix.member.dto.UpdateAvatarReq;
 import com.gigafix.member.dto.RegisterAndLoginResult;
 import com.gigafix.member.dto.UpdateMemberInfoReq;
 import com.gigafix.member.dto.DeleteMemberReq;
@@ -95,6 +97,13 @@ public class MemberService {
 		Member member = memberRepository.findById(id).orElseThrow(() -> new MemberNotFoundException());
 		objectMapper.updateValue(member, updateMemberInfoReq);// dto有用spring validation檢查過
 		// 因為是永續狀態所以不需要用repository save
+		return toMemberInfoResp(member);
+	}
+
+	// 更新使用者頭像
+	public MemberInfoResp updateAvatar(UpdateAvatarReq req, Long id) {
+		Member member = memberRepository.findById(id).orElseThrow(() -> new MemberNotFoundException());
+		member.setProfileImageUrl(req.profileImageUrl());
 		return toMemberInfoResp(member);
 	}
 
