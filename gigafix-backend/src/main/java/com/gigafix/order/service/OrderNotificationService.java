@@ -72,6 +72,7 @@ public class OrderNotificationService {
                             + e.getMessage());
         }
     }
+
     // 訂單出貨通知
     public void sendShippingEmail(Order order) {
 
@@ -119,6 +120,7 @@ public class OrderNotificationService {
                             + e.getMessage());
         }
     }
+
     // 建立付款成功 Email 內容
     private String buildPaymentSuccessContent(
             Order order) {
@@ -260,12 +262,16 @@ public class OrderNotificationService {
                 order.getTransactionId(),
                 order.getPaidAt());
     }
+
     // 建立出貨通知 Email 內容
     private String buildShippingContent(Order order) {
 
         String shippingMethod = "STORE".equals(order.getShippingMethod())
                 ? "超商取貨"
                 : "宅配";
+        String addressLabel = "STORE".equals(order.getShippingMethod())
+                ? "取貨門市"
+                : "配送地址";
 
         return """
                 <div style="
@@ -329,7 +335,33 @@ public class OrderNotificationService {
 
                             <tr>
                                 <td style="padding:10px 0;">
+                                    收件人
+                                </td>
+
+                                <td style="
+                                    padding:10px 0;
+                                    text-align:right;
+                                ">
+                                    %s
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td style="padding:10px 0;">
                                     配送方式
+                                </td>
+
+                                <td style="
+                                    padding:10px 0;
+                                    text-align:right;
+                                ">
+                                    %s
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td style="padding:10px 0;">
+                                    %s
                                 </td>
 
                                 <td style="
@@ -349,6 +381,19 @@ public class OrderNotificationService {
                                     padding:10px 0;
                                     text-align:right;
                                     font-weight:700;
+                                ">
+                                    %s
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td style="padding:10px 0;">
+                                    出貨時間
+                                </td>
+
+                                <td style="
+                                    padding:10px 0;
+                                    text-align:right;
                                 ">
                                     %s
                                 </td>
@@ -374,63 +419,60 @@ public class OrderNotificationService {
                 </div>
                 """.formatted(
                 order.getOrderId(),
+                order.getReceiverName(),
                 shippingMethod,
-                order.getTrackingNumber());
+                addressLabel,
+                order.getReceiverAddress(),
+                order.getTrackingNumber(),
+                order.getShippedAt());
     }
-public void sendDeliveredEmail(Order order) {
 
-    try {
+    public void sendDeliveredEmail(Order order) {
 
-        String email = order.getMember().getEmail();
+        try {
 
-        if (email == null || email.isBlank()) {
+            String email = order.getMember().getEmail();
 
+            if (email == null || email.isBlank()) {
+
+                System.err.println(
+                        "送達通知 Email 寄送失敗：會員 Email 為空");
+
+                return;
+            }
+
+            MimeMessage message = mailSender.createMimeMessage();
+
+            MimeMessageHelper helper = new MimeMessageHelper(
+                    message,
+                    false,
+                    "UTF-8");
+
+            helper.setTo(email);
+
+            helper.setSubject(
+                    "【Gigafix機不可失】訂單已送達通知");
+
+            helper.setText(
+                    buildDeliveredContent(order),
+                    true);
+
+            mailSender.send(message);
+
+            System.out.println(
+                    "送達通知 Email 已寄送，orderId = "
+                            + order.getOrderId());
+
+        } catch (Exception e) {
+
+            // Email 寄送失敗不能影響已完成的送達狀態
             System.err.println(
-                    "送達通知 Email 寄送失敗：會員 Email 為空"
-            );
-
-            return;
+                    "送達通知 Email 寄送失敗，orderId = "
+                            + order.getOrderId()
+                            + "，原因："
+                            + e.getMessage());
         }
-
-        MimeMessage message =
-                mailSender.createMimeMessage();
-
-        MimeMessageHelper helper =
-                new MimeMessageHelper(
-                        message,
-                        false,
-                        "UTF-8"
-                );
-
-        helper.setTo(email);
-
-        helper.setSubject(
-                "【Gigafix機不可失】訂單已送達通知"
-        );
-
-        helper.setText(
-                buildDeliveredContent(order),
-                true
-        );
-
-        mailSender.send(message);
-
-        System.out.println(
-                "送達通知 Email 已寄送，orderId = "
-                        + order.getOrderId()
-        );
-
-    } catch (Exception e) {
-
-        // Email 寄送失敗不能影響已完成的送達狀態
-        System.err.println(
-                "送達通知 Email 寄送失敗，orderId = "
-                        + order.getOrderId()
-                        + "，原因："
-                        + e.getMessage()
-        );
     }
-}
 
     // 建立送達通知 Email 內容
     private String buildDeliveredContent(Order order) {

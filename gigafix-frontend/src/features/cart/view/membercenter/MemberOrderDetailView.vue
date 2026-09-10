@@ -15,6 +15,7 @@ const loading = ref(false)
 const errorMessage = ref('')
 const cancelling = ref(false)
 const redirectingToPayment = ref(false)
+const paymentMessage = ref('')
 // 載入訂單詳情
 const loadOrder = async () => {
     loading.value = true

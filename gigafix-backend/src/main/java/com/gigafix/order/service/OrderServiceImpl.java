@@ -593,7 +593,22 @@ public class OrderServiceImpl implements OrderService {
         public OrderResponse shipOrder(
                         Long orderId,
                         ShipOrderRequest request) {
+                // 整理並驗證物流追蹤編號
+                String trackingNumber = request.getTrackingNumber();
 
+                if (trackingNumber == null || trackingNumber.isBlank()) {
+                        throw new IllegalArgumentException(
+                                        "物流追蹤編號不可空白");
+                }
+
+                trackingNumber = trackingNumber.trim();
+
+                if (trackingNumber.length() < 3
+                                || trackingNumber.length() > 100) {
+
+                        throw new IllegalArgumentException(
+                                        "物流追蹤編號長度必須為 3 到 100 個字元");
+                }
                 // 查詢訂單
                 Order order = orderRepository.findById(orderId)
                                 .orElseThrow(() -> new IllegalArgumentException(
@@ -614,7 +629,7 @@ public class OrderServiceImpl implements OrderService {
 
                 // 更新物流資料
                 order.setShippingStatus(ShippingStatus.SHIPPED.name());
-                order.setTrackingNumber(request.getTrackingNumber());
+                order.setTrackingNumber(trackingNumber);
                 order.setShippedAt(LocalDateTime.now());
 
                 // 儲存並回傳
@@ -652,12 +667,12 @@ public class OrderServiceImpl implements OrderService {
                 // 記錄送達時間
                 order.setDeliveredAt(LocalDateTime.now());
 
+                // 儲存狀態
+                Order savedOrder = orderRepository.save(order);
+
                 // 送達狀態更新成功後寄送通知
                 orderNotificationService
-                                .sendDeliveredEmail(order);
-
-                // 儲存並回傳
-                Order savedOrder = orderRepository.save(order);
+                                .sendDeliveredEmail(savedOrder);
 
                 return toOrderResponse(savedOrder);
         }

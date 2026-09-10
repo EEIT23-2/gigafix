@@ -14,7 +14,7 @@ const router = useRouter()
 const form = ref({
     memberId: '',
     productIds: [],
-    paymentMethod: '',
+    paymentMethod: 'CREDIT_CARD',
     receiverName: '',
     receiverPhone: '',
     receiverAddress: '',
@@ -208,16 +208,8 @@ const applyMemberInfo = () => {
                             </label>
 
                             <select v-model="form.paymentMethod" class="form-select">
-                                <option value="">
-                                    請選擇付款方式
-                                </option>
-
                                 <option value="CREDIT_CARD">
                                     信用卡
-                                </option>
-
-                                <option value="CASH_ON_DELIVERY">
-                                    貨到付款
                                 </option>
                             </select>
                         </div>

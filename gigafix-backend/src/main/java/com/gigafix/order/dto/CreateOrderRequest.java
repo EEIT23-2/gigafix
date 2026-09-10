@@ -1,5 +1,6 @@
 package com.gigafix.order.dto;
 
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import java.util.List;
@@ -14,6 +15,7 @@ public class CreateOrderRequest {
     private List<Long> cartItemIds;
     private String couponCode; // 使用的優惠券代碼
     @NotBlank(message = "付款方式不能為空")
+    @Pattern(regexp = "CREDIT_CARD", message = "目前僅支援信用卡付款")
     private String paymentMethod;
     @NotBlank(message = "收件人姓名不能為空")
     private String receiverName;

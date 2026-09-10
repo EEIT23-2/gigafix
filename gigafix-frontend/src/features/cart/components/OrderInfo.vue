@@ -1,5 +1,6 @@
 <script setup>
 import OrderStatusBadge from './OrderStatusBadge.vue'
+import { shippingMethodText } from '../status'
 
 defineProps({
     order: {
@@ -58,7 +59,8 @@ const formatDateTime = (value) => {
 
         <p>收件人：{{ order.receiverName }}</p>
         <p>電話：{{ order.receiverPhone }}</p>
-        <p>地址：{{ order.receiverAddress }}</p>
-        <p>配送方式：{{ order.shippingMethod }}</p>
+        <p>配送方式：{{ shippingMethodText(order.shippingMethod) }}</p>
+        <p>{{ order.shippingMethod === 'STORE' ? '取貨門市' : '配送地址' }}：{{ order.receiverAddress }}</p>
+        <p v-if="order.trackingNumber">物流追蹤編號：{{ order.trackingNumber }}</p>
     </div>
 </template>

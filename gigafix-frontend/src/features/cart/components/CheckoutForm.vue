@@ -33,10 +33,6 @@ defineEmits([
                 <option value="CREDIT_CARD">
                     信用卡
                 </option>
-
-                <option value="CASH_ON_DELIVERY">
-                    貨到付款
-                </option>
             </select>
         </div>
 
