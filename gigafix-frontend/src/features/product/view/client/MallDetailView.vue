@@ -157,9 +157,6 @@ onBeforeUnmount(() => clearTimeout(cartMessageTimer));
         <section class="product-info">
           <p class="eyebrow">{{ categoryLabel(product.category) }}</p>
           <h1>{{ productName }}</h1>
-          <p class="product-summary">
-            {{ product.description || "專業檢測的嚴選二手裝置。" }}
-          </p>
 
           <dl class="product-specs">
             <div>
@@ -171,8 +168,8 @@ onBeforeUnmount(() => clearTimeout(cartMessageTimer));
               <dd>{{ product.appearance || "未標示" }}</dd>
             </div>
             <div>
-              <dt>商品編號</dt>
-              <dd>#{{ product.productId }}</dd>
+              <dt>其他描述</dt>
+              <dd>{{ product.description || "未標示" }}</dd>
             </div>
           </dl>
 
@@ -304,13 +301,6 @@ onBeforeUnmount(() => clearTimeout(cartMessageTimer));
   line-height: 1.08;
   font-weight: 700;
   letter-spacing: -0.03em;
-}
-
-.product-summary {
-  margin: 0 0 36px;
-  color: var(--muted);
-  font-size: 18px;
-  line-height: 1.75;
 }
 
 .product-specs {
@@ -481,8 +471,5 @@ onBeforeUnmount(() => clearTimeout(cartMessageTimer));
     font-size: 38px;
   }
 
-  .product-summary {
-    font-size: 16px;
-  }
 }
 </style>

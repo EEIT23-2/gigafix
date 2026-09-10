@@ -34,10 +34,24 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
     @Autowired
     private StoresRepository storesRepository;
 
-
     //實作查詢回收單列表
+
     @Override
-        public Page<RecycleResponse> getApplyForms(RecycleQueryParams recycleQueryParams) {
+    public Page<RecycleResponse> getApplyForms(RecycleQueryParams recycleQueryParams) {
+        // 後台可以使用查詢參數中的 memberId
+        return queryApplyForms(
+                recycleQueryParams.getMemberId(),
+                recycleQueryParams
+        );
+    }
+    //實作以會員id查詢回收單列表
+    @Override
+    public Page<RecycleResponse> getMemberApplyForms(Long memberId, RecycleQueryParams recycleQueryParams) {
+        //前台強制使用登入會員的Id
+        return queryApplyForms(memberId, recycleQueryParams);
+    }
+
+    private Page<RecycleResponse> queryApplyForms(Long memberId, RecycleQueryParams recycleQueryParams) {
         String productName = Utils.blankToNull(recycleQueryParams.getProductName());
         String appeareance = Utils.blankToNull(recycleQueryParams.getAppearance());
         String orderBy = Utils.blankToNull(recycleQueryParams.getOrderBy());
@@ -69,7 +83,7 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
         int page = offset / limit;
         //結合為Pageable物件  參數為 頁數 ,pagesize, 排序
         Pageable pageable = PageRequest.of(page,limit,sort);
-        Page<RecycleApplication> applyFormPage  = recycleApplicationDao.findByConditions(productName, appeareance, category, recycleStatus, pageable);
+        Page<RecycleApplication> applyFormPage  = recycleApplicationDao.findByConditions(memberId, productName, appeareance, category, recycleStatus, pageable);
         //利用 .map() 把裡面的每一筆 Entity 轉成 DTO，這時型態會自動變成 Page<RecycleResponse>
         Page<RecycleResponse> applyFormList = applyFormPage.map(this::toResponse);
 
@@ -116,6 +130,22 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
 
         return response;
     }
+
+    //實作前台以會員id查詢回收單列表
+
+    @Override
+    public RecycleResponse getMemberApplyFormById(Long memberId, Long applyId) {
+        RecycleApplication applyForm =
+                recycleApplicationDao
+                        .findByApplyIdAndMember_Id(applyId, memberId)
+                        .orElse(null);
+
+        if (applyForm == null) {
+            return null;
+        }
+        return toResponse(applyForm);
+    }
+
     //實作新增回收單
     @Override
     public RecycleResponse createApplyForm(Long memberId, RecycleRequest recycleRequest) {

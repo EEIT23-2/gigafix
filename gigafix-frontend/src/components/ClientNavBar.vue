@@ -813,7 +813,8 @@ const goToRepairAppointment = () => {
 }
 
 .header-inner {
-  max-width: 1200px;
+  width: 100%;
+  max-width: 1760px;
   margin: 0 auto;
   padding: 14px 20px 16px;
 }
@@ -957,7 +958,7 @@ const goToRepairAppointment = () => {
   gap: 26px;
   padding: 0;
   margin: 0 auto;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .nav-item {

@@ -43,6 +43,46 @@ public class RecycleApplicationController {
         }
     }
 
+    // 前台登入會員查詢自己的回收單列表
+    @GetMapping("/api/gigafix/members/me/recycle-applications")
+    public ResponseEntity<Page<RecycleResponse>> getMyApplyForms(
+            Authentication authentication,
+            @Valid RecycleQueryParams recycleQueryParams
+    ) {
+        Long memberId =
+                SecurityUtils.getCurrentMember(authentication).getId();
+
+        Page<RecycleResponse> result =
+                recycleApplicationService.getMemberApplyForms(
+                        memberId,
+                        recycleQueryParams
+                );
+
+        return ResponseEntity.ok(result);
+    }
+
+    //前台登入會員查詢自己id下的單筆回收單
+    @GetMapping("/api/gigafix/members/me/recycle-applications/{applyId}")
+    public ResponseEntity<RecycleResponse> getMyApplyFormById(
+            Authentication authentication,
+            @PathVariable Long applyId
+    ) {
+        Long memberId =
+                SecurityUtils.getCurrentMember(authentication).getId();
+
+        RecycleResponse response =
+                recycleApplicationService.getMemberApplyFormById(
+                        memberId,
+                        applyId
+                );
+
+        if (response == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok(response);
+    }
+
     //id新增回收單的路由
     @PostMapping("/api/gigafix/members/me/recycle-applications")      //@Valid 是為了讓@NotNull生效
     public ResponseEntity<RecycleResponse> createApplyForm(Authentication authentication, @RequestBody @Valid RecycleRequest recycleRequest) {
