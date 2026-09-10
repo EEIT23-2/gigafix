@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 
 import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
@@ -11,12 +12,12 @@ import com.gigafix.common.util.JwtUtils;
 import com.gigafix.member.dto.UpdatePasswordReq;
 import com.gigafix.member.dto.CreateJwtDto;
 import com.gigafix.member.dto.ForgotPasswordReq;
-import com.gigafix.member.dto.GetMemberInfoResp;
 import com.gigafix.member.dto.LoginResp;
+import com.gigafix.member.dto.MemberInfoResp;
 import com.gigafix.member.dto.RegisterReq;
+import com.gigafix.member.dto.UpdateAvatarReq;
 import com.gigafix.member.dto.RegisterAndLoginResult;
 import com.gigafix.member.dto.UpdateMemberInfoReq;
-import com.gigafix.member.dto.UpdatedMemberInfoResp;
 import com.gigafix.member.dto.DeleteMemberReq;
 import com.gigafix.member.entity.Member;
 import com.gigafix.member.entity.Member.Gender;
@@ -75,16 +76,9 @@ public class MemberService {
 	}
 
 	// 獲取某位的資訊
-	public GetMemberInfoResp getMemberInfo(Long id) {
+	public MemberInfoResp getMemberInfo(Long id) {
 		Member member = memberRepository.findById(id).orElseThrow(() -> new MemberNotFoundException());
-		GetMemberInfoResp getMemberInfoResp = GetMemberInfoResp.builder()
-				.realName(member.getRealName())
-				.nickName(member.getNickName())
-				.email(member.getEmail())
-				.phone(member.getPhone())
-				.address(member.getAddress())
-				.gender(member.getGender()).build();
-		return getMemberInfoResp;
+		return toMemberInfoResp(member);
 	}
 
 	// 登出
@@ -99,17 +93,31 @@ public class MemberService {
 	}
 
 	// 更新使用者資訊
-	public UpdatedMemberInfoResp updateMemberInfo(UpdateMemberInfoReq updateMemberInfoReq, Long id) {
+	public MemberInfoResp updateMemberInfo(UpdateMemberInfoReq updateMemberInfoReq, Long id) {
 		Member member = memberRepository.findById(id).orElseThrow(() -> new MemberNotFoundException());
 		objectMapper.updateValue(member, updateMemberInfoReq);// dto有用spring validation檢查過
 		// 因為是永續狀態所以不需要用repository save
-		return UpdatedMemberInfoResp.builder()
+		return toMemberInfoResp(member);
+	}
+
+	// 更新使用者頭像
+	public MemberInfoResp updateAvatar(UpdateAvatarReq req, Long id) {
+		Member member = memberRepository.findById(id).orElseThrow(() -> new MemberNotFoundException());
+		member.setProfileImageUrl(req.profileImageUrl());
+		return toMemberInfoResp(member);
+	}
+
+	// 把Member組裝成對外回傳的個人資訊DTO，查詢/修改個人資訊/修改頭像都共用這個方法，避免每個方法都重複寫一次builder
+	private MemberInfoResp toMemberInfoResp(Member member) {
+		return MemberInfoResp.builder()
 				.realName(member.getRealName())
 				.nickName(member.getNickName())
 				.email(member.getEmail())
 				.phone(member.getPhone())
 				.address(member.getAddress())
-				.gender(member.getGender()).build();
+				.gender(member.getGender())
+				.profileImageUrl(member.getProfileImageUrl())
+				.build();
 	}
 
 	// 忘記密碼(登入前使用)：mail、新密碼、OTP三者都驗證通過才會真的改密碼
@@ -149,7 +157,10 @@ public class MemberService {
 					.phone("0900000000")
 					.address("臺北市信義區安康里松勇路66號")
 					.gender(Gender.FEMALE)
-					.createTime(LocalDateTime.now()).build();
+					.createTime(LocalDateTime.now())
+					.profileImageUrl(
+							"https://images.unsplash.com/photo-1678105627738-fa7e5ae584f5?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8N3x8amFwYW5lc2UlMjBwb3J0cmFpdHxlbnwwfHwwfHx8MA%3D%3D")
+					.build();
 			memberRepository.save(member);// 使用hibernate會讓物件變成永續狀態，不需要另外賦值
 		} else {
 			// 如果資料庫裡面已經有假的member就直接找member

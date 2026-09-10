@@ -18,13 +18,13 @@ import com.gigafix.common.util.SecurityUtils;
 import com.gigafix.member.dto.DeleteMemberReq;
 import com.gigafix.member.dto.ForgotPasswordReq;
 import com.gigafix.member.dto.ForgotPasswordResp;
-import com.gigafix.member.dto.GetMemberInfoResp;
 import com.gigafix.member.dto.LoginResp;
+import com.gigafix.member.dto.MemberInfoResp;
 import com.gigafix.member.dto.RegisterReq;
 import com.gigafix.member.dto.RegisterAndLoginResult;
 import com.gigafix.member.dto.SendOtpReq;
+import com.gigafix.member.dto.UpdateAvatarReq;
 import com.gigafix.member.dto.UpdateMemberInfoReq;
-import com.gigafix.member.dto.UpdatedMemberInfoResp;
 import com.gigafix.member.security.MemberUserDetails;
 import com.gigafix.member.service.MailSenderService;
 import com.gigafix.member.service.MemberService;
@@ -64,18 +64,17 @@ public class MemberController {
 	}
 
 	@GetMapping("/me") // 取得個人資料的請求
-	public ResponseEntity<GetMemberInfoResp> getMemberInfo(Authentication authentication) {
+	public ResponseEntity<MemberInfoResp> getMemberInfo(Authentication authentication) {
 		MemberUserDetails memberDetails = SecurityUtils.getCurrentMember(authentication);
-		GetMemberInfoResp memberInfo = memberService.getMemberInfo(memberDetails.getId());
+		MemberInfoResp memberInfo = memberService.getMemberInfo(memberDetails.getId());
 		return ResponseEntity.ok(memberInfo);
 	}
 
 	@PatchMapping("/me") // 修改個人資料(可能一個到多個欄位,但前端要把可以修改的欄位資訊傳過來)
-	public ResponseEntity<UpdatedMemberInfoResp> updateMemberInfo(
+	public ResponseEntity<MemberInfoResp> updateMemberInfo(
 			@Valid @RequestBody UpdateMemberInfoReq updateMemberInfoReq, Authentication authentication) {
 		MemberUserDetails memberDetails = SecurityUtils.getCurrentMember(authentication);
-		// 要回傳dto上面的泛型要改下面的return要改
-		UpdatedMemberInfoResp updatedMemberInfo = memberService.updateMemberInfo(updateMemberInfoReq,
+		MemberInfoResp updatedMemberInfo = memberService.updateMemberInfo(updateMemberInfoReq,
 				memberDetails.getId());
 		return ResponseEntity.ok(updatedMemberInfo);
 	}
@@ -94,7 +93,7 @@ public class MemberController {
 	}
 
 	@PatchMapping("/me/password") // 登入後想修改密碼
-	public ResponseEntity<String> updatePassword(@Valid @RequestBody UpdatePasswordReq updatePasswordReq,
+	public ResponseEntity<Void> updatePassword(@Valid @RequestBody UpdatePasswordReq updatePasswordReq,
 			Authentication authentication) {
 		MemberUserDetails memberDetails = SecurityUtils.getCurrentMember(authentication);
 		// 雖然ChangePasswordReq只有接收前端一個屬性值，但包裝成DTO就可以享有spring
@@ -103,8 +102,16 @@ public class MemberController {
 		return ResponseEntity.noContent().build(); // 204
 	}
 
+	@PatchMapping("/me/profileImage")
+	public ResponseEntity<MemberInfoResp> updateProfileImage(@Valid @RequestBody UpdateAvatarReq updateAvatarReq,
+			Authentication authentication) {
+		MemberUserDetails memberDetails = SecurityUtils.getCurrentMember(authentication);
+		MemberInfoResp memberInfo = memberService.updateAvatar(updateAvatarReq, memberDetails.getId());
+		return ResponseEntity.ok(memberInfo); // 200
+	}
+
 	@DeleteMapping("/me") // 刪除使用者
-	public ResponseEntity<Object> deleteMember(@Valid @RequestBody DeleteMemberReq deleteMemberReq,
+	public ResponseEntity<Void> deleteMember(@Valid @RequestBody DeleteMemberReq deleteMemberReq,
 			Authentication authentication) {
 		MemberUserDetails memberDetails = SecurityUtils.getCurrentMember(authentication);
 		memberService.deleteMember(deleteMemberReq, memberDetails.getId()); // 變更密碼不需要傳密碼到前端，也沒有其他更新後的資料要傳送
