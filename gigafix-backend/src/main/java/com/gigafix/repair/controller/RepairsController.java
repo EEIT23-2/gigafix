@@ -1,7 +1,5 @@
 package com.gigafix.repair.controller;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -79,21 +77,6 @@ public class RepairsController {
 		return ResponseEntity.ok(rServ.search(id, memberId, memberName, technicianId, technicianName, status));// 200
 	}
 
-	// 會員中心「維修進度」用：查登入會員自己的所有維修單，memberId 從SecurityContextHolder的Authentication解析出來
-	@GetMapping("/me")
-	public ResponseEntity<List<RepairsResponse>> selectByMember(Authentication authentication) {
-		Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
-		return ResponseEntity.ok(rServ.selectByMember(memberId));// 200
-	}
-
-	// 客戶預約時用：查某分店、某一天已經被預約的時段，前端把這些時段設為不可選
-	@GetMapping("/booked-slots")
-	public ResponseEntity<List<LocalTime>> getBookedSlots(
-			@RequestParam Byte storeId,
-			@RequestParam LocalDate date) {
-		return ResponseEntity.ok(rServ.getBookedSlots(storeId, date));// 200
-	}
-
 	// 技師查詢：某分店「待估價」且尚未被認領的維修單清單
 	@GetMapping("/unassigned")
 	public ResponseEntity<List<RepairsResponse>> selectUnassigned(@RequestParam Byte storeId) {
@@ -129,11 +112,10 @@ public class RepairsController {
 		return ResponseEntity.ok(rServ.submitQuote(id, technicianId));// 200
 	}
 
-	// 客戶回應報價（同意／拒絕），memberId 從SecurityContextHolder的Authentication解析出來，不是前端傳的
+	// 客戶回應報價（同意／拒絕）
 	@PatchMapping("/{id}/approval")
 	public ResponseEntity<RepairsResponse> respondToQuote(@PathVariable Long id,
-			Authentication authentication, @RequestParam boolean approve) {
-		Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
+			@RequestParam Long memberId, @RequestParam boolean approve) {
 		return ResponseEntity.ok(rServ.respondToQuote(id, memberId, approve));// 200
 	}
 
