@@ -337,8 +337,8 @@ const goToRepairAppointment = () => {
           <ul class="nav-list">
             <router-link class="nav-item" >最新活動 ▾</router-link>
             <router-link class="nav-item" >二手手機 ▾</router-link>
-            <div class="nav-item dropdown">
-              <a class="dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">維修手機</a>
+            <div class="dropdown">
+              <a class="nav-item dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">維修手機</a>
               <ul class="dropdown-menu">
                 <li><a class="dropdown-item" role="button" @click="goToRepairAppointment">預約維修</a></li>
                 <li><router-link class="dropdown-item" to="/repair-price-reference">報價參考</router-link></li>
