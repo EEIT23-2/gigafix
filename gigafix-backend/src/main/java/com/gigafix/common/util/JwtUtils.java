@@ -11,15 +11,11 @@ import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
-import org.springframework.validation.annotation.Validated;
 
-import com.gigafix.member.dto.CreateJwtDto;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
-import jakarta.validation.Valid;
 
-@Validated
 @Component
 public class JwtUtils {
 	private final int expireTime; // 單位是秒，值來自application.properties的jwt.expire_time
@@ -35,15 +31,10 @@ public class JwtUtils {
 		this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
 	}
 
-	// 創建JWT
-	public String createToken(@Valid CreateJwtDto createJwtDto) { // 在給前端時id要是String避免前端的number把long搞爛
-		return Jwts.builder().claim("memberId", createJwtDto.subject()).issuedAt(Date.from(Instant.now()))
+	// 統一在這裡發JWT並組成cookie，login/register/JWT filter滑動過期都共用同一份設定，避免各處各自寫一份對不起來
+	public ResponseCookie createTokenCookie(Long memberId) { // 在給前端時id要是String避免前端的number把long搞爛
+		String jwt = Jwts.builder().claim("memberId", String.valueOf(memberId)).issuedAt(Date.from(Instant.now()))
 				.expiration(Date.from(Instant.now().plus(expireTime, ChronoUnit.SECONDS))).signWith(key).compact();
-	}
-
-	// 統一在這裡組出放JWT的cookie，login/register/JWT filter滑動過期都共用同一份設定，避免各處各自寫一份對不起來
-	public ResponseCookie createTokenCookie(Long memberId) {
-		String jwt = createToken(CreateJwtDto.builder().subject(String.valueOf(memberId)).build());
 		return ResponseCookie.from("token", jwt)
 				.httpOnly(true)
 				.secure(true)
