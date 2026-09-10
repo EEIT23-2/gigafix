@@ -359,11 +359,13 @@ onMounted(() => {
                 <thead>
                     <tr class="text-muted">
                         <th>編號</th>
+                        <th>頭像</th>
                         <th>真實姓名</th>
                         <th>暱稱</th>
                         <th>Email</th>
                         <th>手機號碼</th>
                         <th>地址</th>
+                        <th>圖片網址</th>
                         <th>性別</th>
                         <th>加入時間</th>
                         <th class="text-center">操作</th>
@@ -371,15 +373,22 @@ onMounted(() => {
                 </thead>
                 <tbody>
                     <tr v-if="allMembers.length === 0">
-                        <td colspan="9" class="text-center text-secondary fs-5 py-5">目前沒有會員資料</td>
+                        <td colspan="11" class="text-center text-secondary fs-5 py-5">目前沒有會員資料</td>
                     </tr>
                     <tr v-for="member in allMembers" :key="member.id">
                         <td>{{ member.id }}</td>
+                        <td>
+                            <div class="avatar-thumb">
+                                <img v-if="member.profileImageUrl" :src="member.profileImageUrl" alt="會員頭像" class="avatar-thumb-img">
+                                <i v-else class="bi bi-person-fill"></i>
+                            </div>
+                        </td>
                         <td class="cell-truncate">{{ member.realName }}</td>
                         <td class="cell-truncate">{{ member.nickName }}</td>
                         <td class="cell-truncate">{{ member.email }}</td>
                         <td>{{ member.phone }}</td>
                         <td class="cell-truncate">{{ member.address }}</td>
+                        <td class="cell-truncate">{{ member.profileImageUrl || '未設定' }}</td>
                         <td>{{ genderLabel(member.gender) }}</td>
                         <td>{{ formatDateTime(member.createTime) }}</td>
                         <td>
@@ -480,6 +489,26 @@ onMounted(() => {
 .member-filter-bar .btn {
     font-size: 1.15rem;
     padding: 0.55rem 0.9rem;
+}
+
+.avatar-thumb {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background-color: #eef4fb;
+    color: #2b77c5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.avatar-thumb-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .cell-truncate {

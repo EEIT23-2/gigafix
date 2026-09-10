@@ -15,4 +15,5 @@ public record AdminMemberInfoResp( //後台查詢會員列表用，跟MemberInfo
 		String phone,
 		String address,
 		Gender gender,
-		LocalDateTime createTime) {}
+		LocalDateTime createTime,
+		String profileImageUrl) {}

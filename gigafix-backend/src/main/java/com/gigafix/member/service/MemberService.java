@@ -157,7 +157,10 @@ public class MemberService {
 					.phone("0900000000")
 					.address("臺北市信義區安康里松勇路66號")
 					.gender(Gender.FEMALE)
-					.createTime(LocalDateTime.now()).build();
+					.createTime(LocalDateTime.now())
+					.profileImageUrl(
+							"https://images.unsplash.com/photo-1678105627738-fa7e5ae584f5?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8N3x8amFwYW5lc2UlMjBwb3J0cmFpdHxlbnwwfHwwfHx8MA%3D%3D")
+					.build();
 			memberRepository.save(member);// 使用hibernate會讓物件變成永續狀態，不需要另外賦值
 		} else {
 			// 如果資料庫裡面已經有假的member就直接找member
