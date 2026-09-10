@@ -21,6 +21,15 @@ const genderLabelMap = {
   FEMALE: '女',
 }
 
+//頭像圖片是否載入失敗(網址失效/非圖片)，失敗就退回顯示預設圖示，而不是顯示一張破圖
+const avatarLoadError = ref(false)
+
+//修改頭像彈窗的狀態
+const showAvatarModal = ref(false)
+const editAvatarUrl = ref('')
+const avatarSubmitting = ref(false)
+const avatarErrorMsg = ref('')
+
 //修改個人資料彈窗的狀態
 const showEditModal = ref(false)
 const editNickName = ref('')
@@ -56,6 +65,52 @@ onMounted(() => {
 
 //把性別代碼(MALE/FEMALE)轉成中文顯示
 const genderLabel = (gender) => genderLabelMap[gender] ?? '未提供'
+
+//==頭像相關函式==
+//網址換了就重置失敗狀態，讓新網址有機會重新嘗試載入，而不是一直卡在上一張圖失敗的狀態
+watch(() => memberInfo.value?.profileImageUrl, () => {
+  avatarLoadError.value = false
+})
+//圖片網址失效或內容不是圖片時觸發，退回顯示預設圖示，而不是顯示一張破圖
+const onAvatarError = () => {
+  avatarLoadError.value = true
+}
+
+//開啟彈窗前，把表單值同步成目前的頭像網址，避免帶著上次殘留的輸入值
+const openAvatarModal = () => {
+  editAvatarUrl.value = memberInfo.value.profileImageUrl ?? ''
+  checkAvatarError()
+  showAvatarModal.value = true
+}
+
+//送出修改頭像表單
+const submitAvatar = async () => {
+  avatarSubmitting.value = true
+  try {
+    await axios.patch('/api/gigafix/members/me/profileImage', {
+      profileImageUrl: editAvatarUrl.value
+    })
+    await fetchMemberInfoStore.fetchMember(true) //強制重抓最新資料，讓這頁跟上方導覽列同步更新
+    showAvatarModal.value = false
+    alert('頭像修改成功！')
+  } catch (err) { //回傳4xx,5xx，後端Bean Validation的錯誤訊息會放在message
+    const message = err.response?.data?.message || '請稍後再試'
+    alert(`修改失敗，原因: ${message}`)
+  } finally {
+    avatarSubmitting.value = false
+  }
+}
+
+//每次欄位變動就重新檢查一次，跟後端Bean Validation的規則對齊(需為http(s)開頭的網址)，不符合就不讓使用者送出
+const checkAvatarError = () => {
+  if (!editAvatarUrl.value.trim()) {
+    avatarErrorMsg.value = '頭像網址不可為空'
+  } else if (!/^https?:\/\/.+/.test(editAvatarUrl.value)) {
+    avatarErrorMsg.value = '頭像格式錯誤，需為http(s)開頭的網址'
+  } else {
+    avatarErrorMsg.value = ''
+  }
+}
 
 //==修改個人資料相關函式==
 //開啟彈窗前，把表單值同步成目前store裡的會員資料，避免帶著上次殘留的輸入值
@@ -219,15 +274,28 @@ const checkDeleteError = () => {
       <div class="info-card-header">
         <div class="header-left">
           <div class="avatar-circle">
-            <i class="bi bi-person-fill"></i>
+            <img
+              v-if="memberInfo.profileImageUrl && !avatarLoadError"
+              :src="memberInfo.profileImageUrl"
+              alt="會員頭像"
+              class="avatar-img"
+              @error="onAvatarError"
+            >
+            <i v-else class="bi bi-person-fill"></i>
           </div>
           <p class="info-nickname">{{ memberInfo.nickName }}</p>
         </div>
 
-        <button type="button" class="action-btn edit-btn" @click="openEditModal()">
-          <i class="bi bi-pencil-square"></i>
-          修改個人資料
-        </button>
+        <div class="header-actions">
+          <button type="button" class="action-btn edit-btn" @click="openEditModal()">
+            <i class="bi bi-pencil-square"></i>
+            修改個人資料
+          </button>
+          <button type="button" class="avatar-edit-link" @click="openAvatarModal()">
+            <i class="bi bi-camera"></i>
+            更改頭像
+          </button>
+        </div>
       </div>
 
       <dl class="info-list">
@@ -264,6 +332,28 @@ const checkDeleteError = () => {
         </button>
       </div>
     </div>
+
+    <!-- 修改頭像的彈窗 -->
+    <BaseModal v-model="showAvatarModal">
+      <template #title>更改頭像</template>
+
+      <label class="form-label">頭像網址</label>
+      <input type="text" class="form-control mb-2" v-model="editAvatarUrl" placeholder="https://..." :disabled="avatarSubmitting" @input="checkAvatarError()">
+      <p class="form-hint">貼上圖片的網址，需為http(s)開頭</p>
+
+      <div v-if="editAvatarUrl && avatarErrorMsg === ''" class="avatar-preview">
+        <img :src="editAvatarUrl" alt="頭像預覽">
+      </div>
+
+      <template #footer>
+        <p v-if="avatarErrorMsg" class="text-danger small mb-3">{{ avatarErrorMsg }}</p>
+        <button class="btn btn-secondary" @click="showAvatarModal = false" :disabled="avatarSubmitting">取消</button>
+        <button v-if="avatarErrorMsg" type="button" class="btn btn-primary" disabled>請輸入正確網址</button>
+        <button v-if="avatarErrorMsg == ''" class="btn btn-primary" @click="submitAvatar()" :disabled="avatarSubmitting">
+          {{ avatarSubmitting ? '送出中...' : '送出' }}
+        </button>
+      </template>
+    </BaseModal>
 
     <!-- 修改個人資料的彈窗，用共用的BaseModal殼，內容寫在這裡 -->
     <BaseModal v-model="showEditModal">
@@ -385,17 +475,31 @@ const checkDeleteError = () => {
   gap: 20px;
 }
 
+.header-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch; /* 讓兩個按鈕寬度都撐滿容器，跟著較寬的那個對齊 */
+  gap: 10px;
+}
+
 .avatar-circle {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
+  width: 96px;
+  height: 96px;
+  border-radius: 14px; /* 方形頭像，保留一點圓角跟其他卡片的視覺風格一致 */
   background-color: #eef4fb;
   color: #2b77c5;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32px;
+  font-size: 48px;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .info-nickname {
@@ -405,9 +509,44 @@ const checkDeleteError = () => {
   margin: 0;
 }
 
+.avatar-edit-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid #2b77c5;
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #2b77c5;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.avatar-edit-link:hover {
+  background-color: #eef4fb;
+}
+
+.avatar-preview {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  overflow: hidden;
+  margin: 0.5rem 0 1rem;
+}
+
+.avatar-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .action-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   padding: 11px 20px;
   border-radius: 8px;

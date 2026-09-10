@@ -47,6 +47,8 @@ public class GoogleAuthService {
         }
         // Google帳號的名稱，用來填realName/nickName
         String name = (String) payload.get("name");
+        // Google帳號的大頭貼網址，第一次註冊時直接帶入當預設頭像，不用讓使用者自己再貼一次
+        String picture = (String) payload.get("picture");
 
         Member member = memberRepository.findByEmail(email)// 查不到就幫該使用者建立資料庫
                 .orElseGet(() -> memberRepository.save(Member.builder()
@@ -58,6 +60,7 @@ public class GoogleAuthService {
                         .gender(Gender.MALE)
                         .password(passwordEncoder.encode(java.util.UUID.randomUUID().toString()))// 如果使用第三方登入的話，替使用者隨機生成一個假密碼佔位，但這個密碼誰也不知道是啥(除非使用者用忘記密碼)
                         .createTime(java.time.LocalDateTime.now())
+                        .profileImageUrl(picture)
                         .build()));
 
         // 第5步：不管是查到的還是剛建立的member，都用同一套發JWT+包cookie的邏輯收尾

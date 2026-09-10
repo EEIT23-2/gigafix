@@ -3,12 +3,13 @@ package com.gigafix.member.dto;
 import com.gigafix.member.entity.Member.Gender;
 
 import lombok.Builder;
+
 @Builder
-public record UpdatedMemberInfoResp( //更改後回傳給使用者的資訊，會跟查詢的資訊一樣
+public record MemberInfoResp( //查詢或修改後回傳給使用者的個人資訊，內容一樣所以合併成同一個DTO，不包含密碼
 		String realName,
 		String nickName,
 		String email,
 		String phone,
 		String address,
-		Gender gender
-		) {}
+		Gender gender,
+		String profileImageUrl) {}
