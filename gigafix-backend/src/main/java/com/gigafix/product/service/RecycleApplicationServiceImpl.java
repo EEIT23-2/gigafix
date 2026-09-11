@@ -38,6 +38,8 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
     private StoresRepository storesRepository;
     @Autowired
     private ObjectMapper objectMapper;
+    @Autowired
+    private RecycleApplicationNotificationService recycleApplicationNotificationService;
 
     //實作查詢回收單列表
 
@@ -57,6 +59,7 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
     }
 
     private Page<RecycleResponse> queryApplyForms(Long memberId, RecycleQueryParams recycleQueryParams) {
+        Long applyId = recycleQueryParams.getApplyId();
         String productName = Utils.blankToNull(recycleQueryParams.getProductName());
         String appeareance = Utils.blankToNull(recycleQueryParams.getAppearance());
         String orderBy = Utils.blankToNull(recycleQueryParams.getOrderBy());
@@ -88,7 +91,7 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
         int page = offset / limit;
         //結合為Pageable物件  參數為 頁數 ,pagesize, 排序
         Pageable pageable = PageRequest.of(page,limit,sort);
-        Page<RecycleApplication> applyFormPage  = recycleApplicationDao.findByConditions(memberId, productName, appeareance, category, recycleStatus, pageable);
+        Page<RecycleApplication> applyFormPage  = recycleApplicationDao.findByConditions(applyId, memberId, productName, appeareance, category, recycleStatus, pageable);
         //利用 .map() 把裡面的每一筆 Entity 轉成 DTO，這時型態會自動變成 Page<RecycleResponse>
         Page<RecycleResponse> applyFormList = applyFormPage.map(this::toResponse);
 
@@ -182,8 +185,28 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
             applyForm.setStores(stores);
         }
 
-        RecycleApplication saveAppyForm = recycleApplicationDao.save(applyForm);
-        return toResponse(saveAppyForm);
+        RecycleApplication savedApplyForm = recycleApplicationDao.save(applyForm);
+        recycleApplicationNotificationService.sendApplicationSuccess(savedApplyForm);
+        return toResponse(savedApplyForm);
+    }
+
+    @Override
+    public RecycleResponse markAsInspecting(Long applyId) {
+        RecycleApplication applyForm = recycleApplicationDao.findById(applyId).orElse(null);
+
+        if (applyForm == null) {
+            return null;
+        }
+
+        if (applyForm.getRecycleStatus() != RecycleStatus.APPLIED) {
+            throw new IllegalStateException("只有已預約交件的回收單可以進入現場檢測評估中");
+        }
+
+        applyForm.setRecycleStatus(RecycleStatus.INSPECTING);
+        applyForm.setLastModifiedTime(LocalDateTime.now());
+
+        RecycleApplication updatedApplyForm = recycleApplicationDao.save(applyForm);
+        return toResponse(updatedApplyForm);
     }
 
     //實作修改回收單

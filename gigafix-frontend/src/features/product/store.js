@@ -57,6 +57,7 @@ export const useRecycleApplicationStore = defineStore(
   () => {
     const page = ref(0);
     const size = ref(10);
+    const applyId = ref("");
     const productName = ref("");
     const appearance = ref("");
     const category = ref("");
@@ -66,6 +67,7 @@ export const useRecycleApplicationStore = defineStore(
     function resetListState() {
       page.value = 0;
       size.value = 10;
+      applyId.value = "";
       productName.value = "";
       appearance.value = "";
       category.value = "";
@@ -76,6 +78,7 @@ export const useRecycleApplicationStore = defineStore(
     return {
       page,
       size,
+      applyId,
       productName,
       appearance,
       category,

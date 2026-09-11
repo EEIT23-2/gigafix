@@ -114,6 +114,21 @@ public class RecycleApplicationController {
     }
 
         //修改維修單的路由
+    @PatchMapping("/api/admin/recycle-applications/{applyId}/status/inspecting")
+    public ResponseEntity<RecycleResponse> markApplyFormAsInspecting(@PathVariable Long applyId) {
+        try {
+            RecycleResponse response = recycleApplicationService.markAsInspecting(applyId);
+
+            if (response == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            return ResponseEntity.ok(response);
+        } catch (IllegalStateException exception) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
+    }
+
         @PutMapping("/api/admin/recycle-applications/{applyId}")
         public ResponseEntity<RecycleResponse> updateApplyForm(@PathVariable Long applyId,
                                                      @RequestBody @Valid RecycleRequest recycleRequest){

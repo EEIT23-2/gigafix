@@ -219,6 +219,19 @@ export const createRecycleApplication = async (recycleRequest) => {
 };
 
 /**
+ * 後台將回收申請改為「現場檢測評估中」。
+ *
+ * PATCH /api/admin/recycle-applications/{applyId}/status/inspecting
+ */
+export const markRecycleApplicationAsInspecting = async (applyId) => {
+  const response = await axios.patch(
+    `${ADMIN_RECYCLE_APPLICATION_URL}/${applyId}/status/inspecting`,
+  );
+
+  return response.data;
+};
+
+/**
  * 後台修改回收申請
  *
  * PUT /api/admin/recycle-applications/{applyId}

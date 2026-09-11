@@ -8,6 +8,7 @@ import lombok.Setter;
 @Setter
 @Getter
 public class RecycleQueryParams {
+    private Long applyId;
     //查詢條件  dao要實作模糊查詢品名
     private Long memberId;
     private String productName;

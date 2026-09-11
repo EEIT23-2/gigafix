@@ -1,7 +1,11 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { deleteRecycleApplication, getRecycleApplication } from "../api";
+import {
+  deleteRecycleApplication,
+  getRecycleApplication,
+  markRecycleApplicationAsInspecting,
+} from "../api";
 
 const route = useRoute();
 const router = useRouter();
@@ -9,8 +13,11 @@ const router = useRouter();
 const application = ref(null);
 const loading = ref(false);
 const deleting = ref(false);
+const updatingStatus = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
+const statusError = ref("");
+const selectedStatus = ref("");
 const showDeleteConfirm = ref(false);
 
 let successTimer = null;
@@ -72,6 +79,7 @@ async function fetchApplication() {
 
   try {
     application.value = await getRecycleApplication(route.params.applyId);
+    selectedStatus.value = application.value.recycleStatus;
   } catch (error) {
     console.error(error);
     errorMessage.value =
@@ -82,6 +90,41 @@ async function fetchApplication() {
           : "無法連線至伺服器";
   } finally {
     loading.value = false;
+  }
+}
+
+async function updateStatus() {
+  if (
+    !application.value ||
+    application.value.recycleStatus !== "APPLIED" ||
+    selectedStatus.value !== "INSPECTING"
+  ) {
+    return;
+  }
+
+  updatingStatus.value = true;
+  statusError.value = "";
+  closeSuccessMessage();
+
+  try {
+    application.value = await markRecycleApplicationAsInspecting(
+      application.value.applyId,
+    );
+    selectedStatus.value = application.value.recycleStatus;
+    successMessage.value = "回收單已進入現場檢測評估中";
+  } catch (error) {
+    console.error(error);
+    selectedStatus.value = application.value.recycleStatus;
+    statusError.value =
+      error.response?.status === 409
+        ? "目前狀態無法改為現場檢測評估中，請重新載入確認。"
+        : error.response?.status === 404
+          ? "找不到這筆回收申請。"
+          : error.response
+            ? `更新檢測狀態失敗（HTTP ${error.response.status}）`
+            : "無法連線至伺服器";
+  } finally {
+    updatingStatus.value = false;
   }
 }
 
@@ -315,6 +358,60 @@ onBeforeUnmount(() => {
             </div>
           </div>
         </div>
+
+        <div class="card-footer bg-light p-4">
+          <div
+            class="d-flex flex-column flex-lg-row align-items-lg-end justify-content-between gap-3"
+          >
+            <div>
+              <label for="recycle-status" class="form-label fw-semibold mb-1">
+                手機檢測狀態
+              </label>
+              <div class="text-secondary small">
+                只有「已預約交件」的回收單可以進入現場檢測評估中。
+              </div>
+            </div>
+            <div class="d-flex flex-column flex-sm-row gap-2 status-controls">
+              <select
+                id="recycle-status"
+                v-model="selectedStatus"
+                class="form-select"
+                :disabled="
+                  updatingStatus || application.recycleStatus !== 'APPLIED'
+                "
+              >
+                <option :value="application.recycleStatus">
+                  {{ statusLabels[application.recycleStatus] }}
+                </option>
+                <option
+                  v-if="application.recycleStatus === 'APPLIED'"
+                  value="INSPECTING"
+                >
+                  現場檢測評估中
+                </option>
+              </select>
+              <button
+                type="button"
+                class="btn btn-warning text-nowrap"
+                :disabled="
+                  updatingStatus ||
+                  application.recycleStatus !== 'APPLIED' ||
+                  selectedStatus !== 'INSPECTING'
+                "
+                @click="updateStatus"
+              >
+                <span
+                  v-if="updatingStatus"
+                  class="spinner-border spinner-border-sm me-1"
+                ></span>
+                {{ updatingStatus ? "更新中..." : "確認更新" }}
+              </button>
+            </div>
+          </div>
+          <div v-if="statusError" class="alert alert-danger mt-3 mb-0">
+            {{ statusError }}
+          </div>
+        </div>
       </section>
     </div>
 
@@ -436,6 +533,10 @@ main {
 
 .detail-list dd {
   margin-bottom: 1.1rem;
+}
+
+.status-controls .form-select {
+  min-width: 220px;
 }
 
 .delete-alert-backdrop {

@@ -17,6 +17,7 @@ const recycleApplicationStore = useRecycleApplicationStore();
 const {
   page,
   size,
+  applyId: searchApplyId,
   productName: searchProductName,
   appearance: searchAppearance,
   category: searchCategory,
@@ -124,6 +125,7 @@ function buildQueryParams(targetPage) {
     offset: targetPage * size.value,
     orderBy,
     sort,
+    ...(searchApplyId.value && { applyId: searchApplyId.value }),
     ...(searchMemberId.value && { memberId: searchMemberId.value }),
     ...(searchProductName.value && { productName: searchProductName.value }),
     ...(searchAppearance.value && { appearance: searchAppearance.value }),
@@ -154,6 +156,10 @@ async function fetchApplications(targetPage = page.value) {
 }
 
 function search() {
+  if (searchApplyId.value && !/^[1-9]\d*$/.test(searchApplyId.value)) {
+    errorMessage.value = "回收單 ID 必須是正整數";
+    return;
+  }
   if (searchMemberId.value && !/^[1-9]\d*$/.test(searchMemberId.value)) {
     errorMessage.value = "會員 ID 必須是正整數";
     return;
@@ -375,6 +381,15 @@ onMounted(() => fetchApplications(page.value));
 
       <section class="card border-0 shadow-sm mb-4">
         <div class="card-body d-flex flex-column flex-lg-row flex-wrap gap-3">
+          <input
+            v-model.trim="searchApplyId"
+            type="text"
+            inputmode="numeric"
+            class="form-control apply-id-input"
+            placeholder="搜尋回收單 ID"
+            aria-label="搜尋回收單 ID"
+            @keyup.enter="search"
+          />
           <input
             v-model.trim="searchMemberId"
             type="text"
@@ -635,6 +650,7 @@ main {
 .search-input {
   flex: 1 1 210px;
 }
+.apply-id-input,
 .member-id-input {
   flex: 0 1 180px;
 }

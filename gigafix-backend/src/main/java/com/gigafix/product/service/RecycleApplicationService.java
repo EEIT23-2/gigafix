@@ -32,6 +32,8 @@ public interface RecycleApplicationService {
 
     //新增回收單
     RecycleResponse createApplyForm( Long memberId, RecycleRequest recycleRequest);
+    //修改狀態api 回收單手機檢測中
+    RecycleResponse markAsInspecting(Long applyId);
 
     //修改回收單
     void updateApplyForm(Long applyId,RecycleRequest recycleRequest);
