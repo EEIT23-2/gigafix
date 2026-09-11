@@ -1,6 +1,7 @@
 package com.gigafix.product.service;
 
 import com.gigafix.member.entity.Member;
+import com.gigafix.member.exception.MemberNotFoundException;
 import com.gigafix.member.repository.MemberRepository;
 import com.gigafix.product.Utils;
 import com.gigafix.product.constant.ProductCategory;
@@ -19,8 +20,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Transactional
@@ -32,11 +36,27 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
     private MemberRepository memberRepository;
     @Autowired
     private StoresRepository storesRepository;
-
+    @Autowired
+    private ObjectMapper objectMapper;
 
     //實作查詢回收單列表
+
     @Override
-        public Page<RecycleResponse> getApplyForms(RecycleQueryParams recycleQueryParams) {
+    public Page<RecycleResponse> getApplyForms(RecycleQueryParams recycleQueryParams) {
+        // 後台可以使用查詢參數中的 memberId
+        return queryApplyForms(
+                recycleQueryParams.getMemberId(),
+                recycleQueryParams
+        );
+    }
+    //實作以會員id查詢回收單列表
+    @Override
+    public Page<RecycleResponse> getMemberApplyForms(Long memberId, RecycleQueryParams recycleQueryParams) {
+        //前台強制使用登入會員的Id
+        return queryApplyForms(memberId, recycleQueryParams);
+    }
+
+    private Page<RecycleResponse> queryApplyForms(Long memberId, RecycleQueryParams recycleQueryParams) {
         String productName = Utils.blankToNull(recycleQueryParams.getProductName());
         String appeareance = Utils.blankToNull(recycleQueryParams.getAppearance());
         String orderBy = Utils.blankToNull(recycleQueryParams.getOrderBy());
@@ -68,7 +88,7 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
         int page = offset / limit;
         //結合為Pageable物件  參數為 頁數 ,pagesize, 排序
         Pageable pageable = PageRequest.of(page,limit,sort);
-        Page<RecycleApplication> applyFormPage  = recycleApplicationDao.findByConditions(productName, appeareance, category, recycleStatus, pageable);
+        Page<RecycleApplication> applyFormPage  = recycleApplicationDao.findByConditions(memberId, productName, appeareance, category, recycleStatus, pageable);
         //利用 .map() 把裡面的每一筆 Entity 轉成 DTO，這時型態會自動變成 Page<RecycleResponse>
         Page<RecycleResponse> applyFormList = applyFormPage.map(this::toResponse);
 
@@ -115,9 +135,25 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
 
         return response;
     }
+
+    //實作前台以會員id查詢回收單列表
+
+    @Override
+    public RecycleResponse getMemberApplyFormById(Long memberId, Long applyId) {
+        RecycleApplication applyForm =
+                recycleApplicationDao
+                        .findByApplyIdAndMember_Id(applyId, memberId)
+                        .orElse(null);
+
+        if (applyForm == null) {
+            return null;
+        }
+        return toResponse(applyForm);
+    }
+
     //實作新增回收單
     @Override
-    public RecycleResponse createApplyForm(RecycleRequest recycleRequest) {
+    public RecycleResponse createApplyForm(Long memberId, RecycleRequest recycleRequest) {
         RecycleApplication applyForm = new RecycleApplication();
 
         applyForm.setProductName(recycleRequest.getProductName());
@@ -131,11 +167,10 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
         applyForm.setCreatedTime(LocalDateTime.now());
         applyForm.setLastModifiedTime(LocalDateTime.now());
 
-        Member member = memberRepository.findById(recycleRequest.getMemberId()).orElse(null);
+        Member member = memberRepository
+                .findById(memberId)
+                .orElseThrow(MemberNotFoundException::new);
 
-        if(member == null){
-            return null;
-        }
         applyForm.setMember(member);
 
         if(recycleRequest.getStoreId()!=null){
@@ -184,5 +219,18 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
     @Override
     public void deleteAllApplyForms() {
         recycleApplicationDao.deleteAll();
+    }
+
+    //將全部回收單轉為 DTO 後匯出，避免直接序列化 Member、Stores 的關聯資料
+    @Override
+    public byte[] exportApplyForms() throws IOException {
+        List<RecycleResponse> applyForms = recycleApplicationDao
+                .findAll(Sort.by("createdTime").descending())
+                .stream()
+                .map(this::toResponse)
+                .toList();
+
+        return objectMapper.writerWithDefaultPrettyPrinter()
+                .writeValueAsBytes(applyForms);
     }
 }
