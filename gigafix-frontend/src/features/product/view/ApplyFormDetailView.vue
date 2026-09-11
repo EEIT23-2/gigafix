@@ -5,7 +5,9 @@ import {
   deleteRecycleApplication,
   getRecycleApplication,
   markRecycleApplicationAsInspecting,
+  updateRecycleApplication,
 } from "../api";
+import { estimateRecyclePrice } from "../recyclePriceEstimator";
 
 const route = useRoute();
 const router = useRouter();
@@ -14,10 +16,14 @@ const application = ref(null);
 const loading = ref(false);
 const deleting = ref(false);
 const updatingStatus = ref(false);
+const estimatingPrice = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
 const statusError = ref("");
 const selectedStatus = ref("");
+// 保存最近一次估價的辨識依據，讓管理者能確認系統使用了哪個型號與規格。
+const estimateError = ref("");
+const estimateResult = ref(null);
 const showDeleteConfirm = ref(false);
 
 let successTimer = null;
@@ -125,6 +131,54 @@ async function updateStatus() {
             : "無法連線至伺服器";
   } finally {
     updatingStatus.value = false;
+  }
+}
+
+// 只有現場檢測階段可執行估價；成功後沿用完整回收單內容，只更新 estimatedPrice。
+async function autoEstimatePrice() {
+  if (!application.value || application.value.recycleStatus !== "INSPECTING") {
+    return;
+  }
+
+  estimateError.value = "";
+  estimateResult.value = null;
+  closeSuccessMessage();
+
+  let result;
+  try {
+    // 純前端規則先完成解析；資料不完整時會在此顯示可修正的欄位提示。
+    result = estimateRecyclePrice(application.value);
+  } catch (error) {
+    estimateError.value = error.message;
+    return;
+  }
+
+  estimatingPrice.value = true;
+
+  try {
+    // PUT API 需要完整 RecycleRequest，因此保留原欄位並替換計算出的價格。
+    application.value = await updateRecycleApplication(
+      application.value.applyId,
+      {
+        productName: application.value.productName,
+        category: application.value.category,
+        appearance: application.value.appearance,
+        imageUrl: application.value.imageUrl,
+        description: application.value.description,
+        estimatedPrice: result.price,
+        storeId: application.value.storeId,
+      },
+    );
+    selectedStatus.value = application.value.recycleStatus;
+    estimateResult.value = result;
+    successMessage.value = `自動估價完成：NT$ ${result.price.toLocaleString("zh-TW")}`;
+  } catch (error) {
+    console.error(error);
+    estimateError.value = error.response
+      ? `儲存估價失敗（HTTP ${error.response.status}）`
+      : "無法連線至伺服器";
+  } finally {
+    estimatingPrice.value = false;
   }
 }
 
@@ -334,11 +388,48 @@ onBeforeUnmount(() => {
 
                 <dt class="col-sm-4">預估價格</dt>
                 <dd class="col-sm-8">
-                  {{
-                    application.estimatedPrice == null
-                      ? "尚未估價"
-                      : `NT$ ${Number(application.estimatedPrice).toLocaleString()}`
-                  }}
+                  <div class="d-flex flex-wrap align-items-center gap-2">
+                    <span class="estimated-price">
+                      {{
+                        application.estimatedPrice == null
+                          ? "尚未估價"
+                          : `NT$ ${Number(application.estimatedPrice).toLocaleString("zh-TW")}`
+                      }}
+                    </span>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-success"
+                      :disabled="
+                        estimatingPrice ||
+                        application.recycleStatus !== 'INSPECTING'
+                      "
+                      @click="autoEstimatePrice"
+                    >
+                      <span
+                        v-if="estimatingPrice"
+                        class="spinner-border spinner-border-sm me-1"
+                      ></span>
+                      <i v-else class="bi bi-calculator me-1"></i>
+                      {{ estimatingPrice ? "估價中..." : "自動估價" }}
+                    </button>
+                  </div>
+                  <div
+                    v-if="application.recycleStatus !== 'INSPECTING'"
+                    class="text-secondary small mt-1"
+                  >
+                    請先將檢測狀態改為「現場檢測評估中」。
+                  </div>
+                  <div v-if="estimateResult" class="estimate-breakdown mt-2">
+                    <div>
+                      {{ estimateResult.modelLabel }}・{{ estimateResult.specificationLabel }}・{{ estimateResult.conditionLabel }}
+                    </div>
+                    <div>
+                      參考區間 NT$ {{ estimateResult.minPrice.toLocaleString("zh-TW") }}～NT$ {{ estimateResult.maxPrice.toLocaleString("zh-TW") }}
+                    </div>
+                  </div>
+                  <div v-if="estimateError" class="text-danger small mt-2">
+                    {{ estimateError }}
+                  </div>
                 </dd>
 
                 <dt class="col-sm-4">回收門市</dt>
@@ -533,6 +624,21 @@ main {
 
 .detail-list dd {
   margin-bottom: 1.1rem;
+}
+
+.estimated-price {
+  color: #198754;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.estimate-breakdown {
+  padding: 0.65rem 0.75rem;
+  border-left: 3px solid #198754;
+  border-radius: 0.25rem;
+  color: #386641;
+  font-size: 0.82rem;
+  background: #eef8f1;
 }
 
 .status-controls .form-select {

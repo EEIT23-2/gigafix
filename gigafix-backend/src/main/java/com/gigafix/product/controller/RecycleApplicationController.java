@@ -114,6 +114,7 @@ public class RecycleApplicationController {
     }
 
         //修改維修單的路由
+    // 後台確認手機已到店後，將單一回收單推進到現場檢測評估階段。
     @PatchMapping("/api/admin/recycle-applications/{applyId}/status/inspecting")
     public ResponseEntity<RecycleResponse> markApplyFormAsInspecting(@PathVariable Long applyId) {
         try {
@@ -125,6 +126,7 @@ public class RecycleApplicationController {
 
             return ResponseEntity.ok(response);
         } catch (IllegalStateException exception) {
+            // 回收單若已取消或進入後續階段，以 409 表示與目前狀態衝突。
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
         }
     }

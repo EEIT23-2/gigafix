@@ -33,6 +33,10 @@ public interface RecycleApplicationService {
     //新增回收單
     RecycleResponse createApplyForm( Long memberId, RecycleRequest recycleRequest);
     //修改狀態api 回收單手機檢測中
+    /**
+     * 將已預約交件的回收單推進到現場檢測階段。
+     * 找不到資料時回傳 null，狀態不允許轉換時拋出 IllegalStateException。
+     */
     RecycleResponse markAsInspecting(Long applyId);
 
     //修改回收單

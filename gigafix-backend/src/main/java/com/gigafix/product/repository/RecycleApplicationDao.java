@@ -15,6 +15,7 @@ import java.util.Optional;
 public interface RecycleApplicationDao extends JpaRepository<RecycleApplication,Long> {
     //用JPQL實作條件查詢
 
+    // 每個查詢參數都是選填；applyId 使用精確比對，其餘文字欄位使用模糊比對。
     @Query("SELECT r FROM RecycleApplication r WHERE " +
             "(:applyId IS NULL OR r.applyId = :applyId) AND " +
             "(:memberId IS NULL OR r.member.id = :memberId) AND " +

@@ -120,6 +120,7 @@ const deleteDialogLoading = computed(() =>
 function buildQueryParams(targetPage) {
   const [orderBy, sort] = sortOption.value.split(":");
 
+  // 空白條件不送到後端，讓同一支列表 API 可以任意組合多種篩選條件。
   return {
     limit: size.value,
     offset: targetPage * size.value,
@@ -156,6 +157,7 @@ async function fetchApplications(targetPage = page.value) {
 }
 
 function search() {
+  // 回收單 ID 與會員 ID 都是資料庫正整數主鍵，送出前先阻擋無效格式。
   if (searchApplyId.value && !/^[1-9]\d*$/.test(searchApplyId.value)) {
     errorMessage.value = "回收單 ID 必須是正整數";
     return;

@@ -10,6 +10,7 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.HtmlUtils;
 
+/** 負責寄送 product 模組的回收申請通知，不與訂單模組的郵件流程共用。 */
 @Service
 @RequiredArgsConstructor
 public class RecycleApplicationNotificationService {
@@ -29,11 +30,13 @@ public class RecycleApplicationNotificationService {
             throw new IllegalStateException("無法建立回收預約成功通知", exception);
         }
 
+        // 寄信例外不在此吞掉，讓建立回收單的交易可以回滾並由 API 回報失敗。
         mailSender.send(message);
     }
 
     private String buildApplicationSuccessContent(RecycleApplication application) {
         Member member = application.getMember();
+        // 會員輸入會放入 HTML 信件，因此先跳脫，避免內容被當成 HTML 執行。
         String memberName = HtmlUtils.htmlEscape(member.getRealName());
         String productName = HtmlUtils.htmlEscape(application.getProductName());
         String appearance = HtmlUtils.htmlEscape(application.getAppearance());

@@ -57,6 +57,7 @@ export const useRecycleApplicationStore = defineStore(
   () => {
     const page = ref(0);
     const size = ref(10);
+    // 保留後台回收單 ID 搜尋條件，從詳情頁返回列表時仍可維持篩選結果。
     const applyId = ref("");
     const productName = ref("");
     const appearance = ref("");

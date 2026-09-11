@@ -59,6 +59,7 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
     }
 
     private Page<RecycleResponse> queryApplyForms(Long memberId, RecycleQueryParams recycleQueryParams) {
+        // applyId 由後台搜尋欄位傳入；會員列表通常為 null，仍會由 memberId 限制資料範圍。
         Long applyId = recycleQueryParams.getApplyId();
         String productName = Utils.blankToNull(recycleQueryParams.getProductName());
         String appeareance = Utils.blankToNull(recycleQueryParams.getAppearance());
@@ -186,6 +187,7 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
         }
 
         RecycleApplication savedApplyForm = recycleApplicationDao.save(applyForm);
+        // 必須先儲存取得申請單號，成功信才能帶入完整的回收單資訊。
         recycleApplicationNotificationService.sendApplicationSuccess(savedApplyForm);
         return toResponse(savedApplyForm);
     }
@@ -198,11 +200,13 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
             return null;
         }
 
+        // 流程只能向前推進，避免重複操作或從其他階段跳回檢測中。
         if (applyForm.getRecycleStatus() != RecycleStatus.APPLIED) {
             throw new IllegalStateException("只有已預約交件的回收單可以進入現場檢測評估中");
         }
 
         applyForm.setRecycleStatus(RecycleStatus.INSPECTING);
+        // 讓前端可顯示這次狀態轉換的實際時間。
         applyForm.setLastModifiedTime(LocalDateTime.now());
 
         RecycleApplication updatedApplyForm = recycleApplicationDao.save(applyForm);
