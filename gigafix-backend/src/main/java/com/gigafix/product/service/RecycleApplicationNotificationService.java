@@ -50,6 +50,22 @@ public class RecycleApplicationNotificationService {
         mailSender.send(message);
     }
 
+    /** 回收單結案後通知會員，信件只顯示會員的回收金額，不顯示商品庫存售價。 */
+    public void sendCompletionNotice(RecycleApplication application) {
+        MimeMessage message = mailSender.createMimeMessage();
+
+        try {
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+            helper.setTo(application.getMember().getEmail());
+            helper.setSubject("【Gigafix】您的裝置已完成回收");
+            helper.setText(buildCompletionContent(application), true);
+        } catch (MessagingException exception) {
+            throw new IllegalStateException("無法建立回收完成通知", exception);
+        }
+
+        mailSender.send(message);
+    }
+
     private String buildApplicationSuccessContent(RecycleApplication application) {
         Member member = application.getMember();
         // 會員輸入會放入 HTML 信件，因此先跳脫，避免內容被當成 HTML 執行。
@@ -116,5 +132,36 @@ public class RecycleApplicationNotificationService {
                 productName,
                 estimatedPrice,
                 otp);
+    }
+
+    private String buildCompletionContent(RecycleApplication application) {
+        String memberName = HtmlUtils.htmlEscape(application.getMember().getRealName());
+        String productName = HtmlUtils.htmlEscape(application.getProductName());
+        String recyclePrice = application.getEstimatedPrice() == null
+                ? "尚未提供"
+                : "NT$ " + String.format("%,d", application.getEstimatedPrice());
+
+        return """
+                <div style="max-width:560px;margin:0 auto;font-family:'Microsoft JhengHei',Arial,sans-serif;border:1px solid #eaeaea;border-radius:12px;overflow:hidden;">
+                    <div style="background-color:#1e3557;padding:24px 32px;color:#ffffff;font-size:22px;font-weight:700;">
+                        Gigafix 回收服務
+                    </div>
+                    <div style="padding:32px;background-color:#ffffff;color:#333333;">
+                        <h2 style="color:#1d324b;margin-top:0;">回收作業已完成</h2>
+                        <p>%s 您好，您的裝置已完成資料清除與回收結案。</p>
+                        <table style="width:100%%;border-collapse:collapse;margin-top:24px;">
+                            <tr><td style="padding:8px 0;">回收單號</td><td style="padding:8px 0;text-align:right;font-weight:700;">#%s</td></tr>
+                            <tr><td style="padding:8px 0;">產品型號</td><td style="padding:8px 0;text-align:right;">%s</td></tr>
+                            <tr><td style="padding:8px 0;">回收金額</td><td style="padding:8px 0;text-align:right;">%s</td></tr>
+                            <tr><td style="padding:8px 0;">目前狀態</td><td style="padding:8px 0;text-align:right;color:#24704a;font-weight:700;">完成回收</td></tr>
+                        </table>
+                        <p style="margin-top:24px;">感謝您使用 Gigafix 回收服務。</p>
+                    </div>
+                </div>
+                """.formatted(
+                memberName,
+                application.getApplyId(),
+                productName,
+                recyclePrice);
     }
 }

@@ -167,7 +167,8 @@ async function confirmAgreement() {
     );
     agreementOtp.value = "";
     hasSignature.value = false;
-    agreementSuccess.value = "驗證與電子簽名已完成，回收單已進入待簽署同意狀態。";
+    agreementSuccess.value =
+      "驗證與電子簽名已完成，工程師將開始進行原廠重置與隱私資料清除。";
   } catch (error) {
     console.error(error);
     agreementError.value =
@@ -283,6 +284,10 @@ onMounted(fetchApplication);
           <div>
             <dt>最後更新時間</dt>
             <dd>{{ formatDateTime(application.lastModifiedTime) }}</dd>
+          </div>
+          <div v-if="application.agreementSignedTime">
+            <dt>電子簽署時間</dt>
+            <dd>{{ formatDateTime(application.agreementSignedTime) }}</dd>
           </div>
         </dl>
       </div>

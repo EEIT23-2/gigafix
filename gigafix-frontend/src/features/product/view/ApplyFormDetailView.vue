@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
+  completeRecycleApplication,
   deleteRecycleApplication,
   getRecycleApplication,
   markRecycleApplicationAsInspecting,
@@ -105,7 +106,16 @@ async function fetchApplication() {
 async function updateStatus() {
   if (!application.value) return;
 
-  // 第一段轉換直接改為檢測中；第二段只寄 OTP，狀態需等簽名驗證後才更新。
+  // 資料清除確認完成後呼叫結案 API，由後端同步建立商品庫存與寄送會員通知。
+  if (
+    application.value.recycleStatus === "WIPING" &&
+    selectedStatus.value === "COMPLETED"
+  ) {
+    await completeRecycle();
+    return;
+  }
+
+  // 第一段轉換直接改為檢測中；第二段只寄 OTP，狀態需等會員驗證與簽名。
   if (
     application.value.recycleStatus === "INSPECTING" &&
     selectedStatus.value === "WAITING_FOR_AGREEMENT"
@@ -140,6 +150,34 @@ async function updateStatus() {
           : error.response
             ? `更新檢測狀態失敗（HTTP ${error.response.status}）`
             : "無法連線至伺服器";
+  } finally {
+    updatingStatus.value = false;
+  }
+}
+
+async function completeRecycle() {
+  updatingStatus.value = true;
+  statusError.value = "";
+  closeSuccessMessage();
+
+  try {
+    application.value = await completeRecycleApplication(
+      application.value.applyId,
+    );
+    selectedStatus.value = application.value.recycleStatus;
+    successMessage.value =
+      "回收單已結案，商品庫存新增完成，結案通知已寄給會員";
+  } catch (error) {
+    console.error(error);
+    selectedStatus.value = application.value.recycleStatus;
+    statusError.value =
+      error.response?.status === 400
+        ? "回收單的外觀程度或估價無法建立庫存商品，請先確認資料。"
+        : error.response?.status === 409
+          ? "目前狀態無法完成回收，請重新載入確認。"
+          : error.response?.status === 404
+            ? "找不到這筆回收申請。"
+            : "完成回收失敗，請稍後再試。";
   } finally {
     updatingStatus.value = false;
   }
@@ -488,6 +526,13 @@ onBeforeUnmount(() => {
                 <dd class="col-sm-8">
                   {{ application.lastModifiedTime || "—" }}
                 </dd>
+
+                <template v-if="application.agreementSignedTime">
+                  <dt class="col-sm-4">電子簽署時間</dt>
+                  <dd class="col-sm-8">
+                    {{ application.agreementSignedTime }}
+                  </dd>
+                </template>
               </dl>
             </div>
           </div>
@@ -513,7 +558,7 @@ onBeforeUnmount(() => {
                 :disabled="
                   updatingStatus ||
                   requestingAgreementOtp ||
-                  !['APPLIED', 'INSPECTING'].includes(
+                  !['APPLIED', 'INSPECTING', 'WIPING'].includes(
                     application.recycleStatus,
                   )
                 "
@@ -533,6 +578,12 @@ onBeforeUnmount(() => {
                 >
                   待簽署同意
                 </option>
+                <option
+                  v-if="application.recycleStatus === 'WIPING'"
+                  value="COMPLETED"
+                >
+                  完成回收
+                </option>
               </select>
               <button
                 type="button"
@@ -544,7 +595,9 @@ onBeforeUnmount(() => {
                     (application.recycleStatus === 'APPLIED' &&
                       selectedStatus === 'INSPECTING') ||
                     (application.recycleStatus === 'INSPECTING' &&
-                      selectedStatus === 'WAITING_FOR_AGREEMENT')
+                      selectedStatus === 'WAITING_FOR_AGREEMENT') ||
+                    (application.recycleStatus === 'WIPING' &&
+                      selectedStatus === 'COMPLETED')
                   )
                 "
                 @click="updateStatus"

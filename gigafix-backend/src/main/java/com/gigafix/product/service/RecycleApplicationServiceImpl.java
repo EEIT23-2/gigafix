@@ -6,12 +6,15 @@ import com.gigafix.member.exception.MemberNotFoundException;
 import com.gigafix.member.repository.MemberRepository;
 import com.gigafix.product.Utils;
 import com.gigafix.product.constant.ProductCategory;
+import com.gigafix.product.constant.ProductSaleStatus;
 import com.gigafix.product.constant.RecycleStatus;
 import com.gigafix.product.dto.RecycleAgreementRequest;
 import com.gigafix.product.dto.RecycleQueryParams;
 import com.gigafix.product.dto.RecycleRequest;
 import com.gigafix.product.dto.RecycleResponse;
 import com.gigafix.product.entity.RecycleApplication;
+import com.gigafix.product.entity.Product;
+import com.gigafix.product.repository.ProductDao;
 import com.gigafix.product.repository.RecycleApplicationDao;
 import com.gigafix.repair.entity.Stores;
 import com.gigafix.repair.repository.StoresRepository;
@@ -35,6 +38,8 @@ import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Transactional
 @Service
@@ -42,9 +47,13 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
     private static final SecureRandom OTP_RANDOM = new SecureRandom();
     private static final String AGREEMENT_OTP_KEY_PREFIX = "recycle-agreement:";
     private static final String PNG_DATA_URL_PREFIX = "data:image/png;base64,";
+    private static final Pattern CONDITION_PERCENT_PATTERN = Pattern.compile("(\\d+(?:\\.\\d+)?)\\s*%");
+    private static final Pattern CONDITION_CHENG_PATTERN = Pattern.compile("(\\d+(?:\\.\\d+)?)\\s*成新");
 
     @Autowired
     private RecycleApplicationDao recycleApplicationDao;
+    @Autowired
+    private ProductDao productDao;
     @Autowired
     private MemberRepository memberRepository;
     @Autowired
@@ -138,6 +147,7 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
         response.setDescription(applyForm.getDescription());
         response.setEstimatedPrice(applyForm.getEstimatedPrice());
         response.setRecycleStatus(applyForm.getRecycleStatus());
+        response.setAgreementSignedTime(applyForm.getAgreementSignedTime());
         response.setCreatedTime(applyForm.getCreatedTime());
         response.setLastModifiedTime(applyForm.getLastModifiedTime());
 
@@ -272,10 +282,95 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
         validateSignature(request.getSignatureDataUrl());
         verifyAgreementOtp(applyId, request.getOtp());
 
-        // OTP 與電子簽名都驗證通過後，才正式推進到狀態 3。
-        applyForm.setRecycleStatus(RecycleStatus.WAITING_FOR_AGREEMENT);
-        applyForm.setLastModifiedTime(LocalDateTime.now());
+        LocalDateTime signedTime = LocalDateTime.now();
+        // 驗證成功後先保存 Canvas 簽名與時間，讓回收單保有可追溯的簽署紀錄。
+        applyForm.setAgreementSignature(request.getSignatureDataUrl());
+        applyForm.setAgreementSignedTime(signedTime);
+        // 依目前流程，簽名存檔完成即通知後台開始清除資料，因此直接推進到狀態 4。
+        applyForm.setRecycleStatus(RecycleStatus.WIPING);
+        applyForm.setLastModifiedTime(signedTime);
         return toResponse(recycleApplicationDao.save(applyForm));
+    }
+
+    @Override
+    public RecycleResponse completeRecycle(Long applyId) {
+        RecycleApplication applyForm = recycleApplicationDao
+                .findByIdForCompletion(applyId)
+                .orElse(null);
+        if (applyForm == null) {
+            return null;
+        }
+        if (applyForm.getRecycleStatus() != RecycleStatus.WIPING) {
+            throw new IllegalStateException("只有資料清除中的回收單可以完成回收");
+        }
+        if (applyForm.getEstimatedPrice() == null || applyForm.getEstimatedPrice() < 0) {
+            throw new IllegalArgumentException("回收單缺少有效估價，無法建立庫存商品");
+        }
+
+        LocalDateTime completedTime = LocalDateTime.now();
+        Product inventoryProduct = buildInventoryProduct(applyForm, completedTime);
+        productDao.save(inventoryProduct);
+
+        // 庫存新增成功後才更新回收單狀態，兩者由同一個交易一併提交或回滾。
+        applyForm.setRecycleStatus(RecycleStatus.COMPLETED);
+        applyForm.setLastModifiedTime(completedTime);
+        RecycleApplication completedApplication = recycleApplicationDao.save(applyForm);
+
+        // 郵件寄送失敗會向外拋錯，讓結案交易回滾，避免會員未收到結案通知。
+        recycleApplicationNotificationService.sendCompletionNotice(completedApplication);
+        return toResponse(completedApplication);
+    }
+
+    /** 將回收單欄位轉成商品庫存資料，售價為回收估價加上 NT$1,500。 */
+    private Product buildInventoryProduct(RecycleApplication applyForm, LocalDateTime createdTime) {
+        Product product = new Product();
+        product.setProductName(applyForm.getProductName());
+        product.setCategory(applyForm.getCategory());
+        product.setImageUrl(applyForm.getImageUrl());
+        product.setDescription(Optional.ofNullable(applyForm.getDescription()).orElse(""));
+        product.setAppearance(applyForm.getAppearance());
+        product.setGrade(resolveProductGrade(applyForm.getAppearance()));
+        product.setPrice(Math.addExact(applyForm.getEstimatedPrice(), 1_500));
+        product.setSaleStatus(ProductSaleStatus.AVAILABLE);
+        product.setCreatedTime(createdTime);
+        product.setLastModifiedTime(createdTime);
+        return product;
+    }
+
+    /** 將「95成新、9.5成新、9成新、90%」等外觀寫法換算成商品等級。 */
+    private String resolveProductGrade(String appearance) {
+        double conditionPercent = parseConditionPercent(appearance);
+        if (conditionPercent >= 95) return "S級";
+        if (conditionPercent >= 90) return "A級";
+        if (conditionPercent >= 80) return "B級";
+        if (conditionPercent >= 70) return "C級";
+        throw new IllegalArgumentException("外觀須達七成新以上才能新增至商品庫存");
+    }
+
+    private double parseConditionPercent(String appearance) {
+        if (appearance == null || appearance.isBlank()) {
+            throw new IllegalArgumentException("回收單缺少外觀程度，無法判斷商品等級");
+        }
+
+        Matcher percentMatcher = CONDITION_PERCENT_PATTERN.matcher(appearance);
+        if (percentMatcher.find()) {
+            return Double.parseDouble(percentMatcher.group(1));
+        }
+
+        Matcher chengMatcher = CONDITION_CHENG_PATTERN.matcher(appearance);
+        if (chengMatcher.find()) {
+            double value = Double.parseDouble(chengMatcher.group(1));
+            // 「9.5成新」代表 95%，同時依需求接受「95成新」直接表示 95%。
+            return value <= 10 ? value * 10 : value;
+        }
+
+        String normalizedAppearance = appearance.replaceAll("\\s+", "");
+        if (normalizedAppearance.contains("九五成新")) return 95;
+        if (normalizedAppearance.contains("九成新")) return 90;
+        if (normalizedAppearance.contains("八成新")) return 80;
+        if (normalizedAppearance.contains("七成新")) return 70;
+
+        throw new IllegalArgumentException("無法從外觀程度判斷商品等級");
     }
 
     private void verifyAgreementOtp(Long applyId, String submittedOtp) {

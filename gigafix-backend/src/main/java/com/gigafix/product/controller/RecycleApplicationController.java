@@ -145,7 +145,7 @@ public class RecycleApplicationController {
         }
     }
 
-    // 前台會員提交 OTP 與 Canvas 簽名，並且只能簽署屬於自己的回收單。
+    // 前台會員提交 OTP 與 Canvas 簽名；存檔後直接進入資料清除中，並且只能簽署自己的回收單。
     @PostMapping("/api/gigafix/members/me/recycle-applications/{applyId}/agreement")
     public ResponseEntity<RecycleResponse> confirmAgreement(
             Authentication authentication,
@@ -165,6 +165,23 @@ public class RecycleApplicationController {
         } catch (IllegalArgumentException exception) {
             return ResponseEntity.badRequest().build();
         } catch (IllegalStateException exception) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
+    }
+
+    // 工程師確認資料清除完成後結案，同時新增一筆可販售的商品庫存並通知會員。
+    @PatchMapping("/api/admin/recycle-applications/{applyId}/status/completed")
+    public ResponseEntity<RecycleResponse> completeRecycle(@PathVariable Long applyId) {
+        try {
+            RecycleResponse response = recycleApplicationService.completeRecycle(applyId);
+            return response == null
+                    ? ResponseEntity.notFound().build()
+                    : ResponseEntity.ok(response);
+        } catch (IllegalArgumentException exception) {
+            // 外觀或估價資料無法建立商品時，回傳 400 讓後台修正回收單內容。
+            return ResponseEntity.badRequest().build();
+        } catch (IllegalStateException exception) {
+            // 只有 WIPING 狀態能結案，其他狀態以 409 表示流程衝突。
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
         }
     }

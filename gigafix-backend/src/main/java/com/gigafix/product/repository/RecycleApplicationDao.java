@@ -4,8 +4,10 @@ import com.gigafix.product.constant.ProductCategory;
 import com.gigafix.product.constant.RecycleStatus;
 import com.gigafix.product.dto.RecycleResponse;
 import com.gigafix.product.entity.RecycleApplication;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -36,4 +38,9 @@ public interface RecycleApplicationDao extends JpaRepository<RecycleApplication,
             Long applyId,
             Long memberId
     );
+
+    // 結案時鎖定單筆回收單，避免管理員重複點擊而新增兩筆相同庫存商品。
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM RecycleApplication r WHERE r.applyId = :applyId")
+    Optional<RecycleApplication> findByIdForCompletion(@Param("applyId") Long applyId);
 }

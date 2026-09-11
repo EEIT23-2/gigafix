@@ -44,10 +44,13 @@ public interface RecycleApplicationService {
     boolean sendAgreementOtp(Long applyId);
 
     /**
-     * 驗證登入會員自己的回收單 OTP 與電子簽名，成功後將狀態更新為待簽署同意。
+     * 驗證登入會員自己的回收單 OTP 與電子簽名，存檔後將狀態更新為資料清除中。
      * memberId 用來避免會員替其他人的回收單完成簽署。
      */
     RecycleResponse confirmAgreement(Long memberId, Long applyId, RecycleAgreementRequest request);
+
+    /** 完成資料清除後結案，並將回收裝置新增為一筆可販售商品。 */
+    RecycleResponse completeRecycle(Long applyId);
 
     //修改回收單
     void updateApplyForm(Long applyId,RecycleRequest recycleRequest);

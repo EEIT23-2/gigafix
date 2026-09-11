@@ -242,7 +242,7 @@ export const requestRecycleAgreementOtp = async (applyId) => {
 
 /**
  * 前台登入會員提交自己的 6 位 OTP 與 Canvas PNG 簽名。
- * 後端驗證回收單歸屬與簽署資料後，狀態才會更新為 WAITING_FOR_AGREEMENT。
+ * 後端保存簽名並驗證回收單歸屬後，狀態會更新為 WIPING。
  */
 export const confirmMemberRecycleAgreement = async (
   applyId,
@@ -252,6 +252,17 @@ export const confirmMemberRecycleAgreement = async (
   const response = await axios.post(
     `${RECYCLE_APPLICATION_URL}/${applyId}/agreement`,
     { otp, signatureDataUrl },
+  );
+
+  return response.data;
+};
+
+/**
+ * 後台確認資料清除完成並結案；後端會同步新增一筆商品庫存及寄送會員通知。
+ */
+export const completeRecycleApplication = async (applyId) => {
+  const response = await axios.patch(
+    `${ADMIN_RECYCLE_APPLICATION_URL}/${applyId}/status/completed`,
   );
 
   return response.data;
