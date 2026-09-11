@@ -59,8 +59,15 @@ public class OrderServiceImpl implements OrderService {
 
         // 優惠券 Service
         private final CouponService couponService;
+
         // 訂單通知 Service
         private final OrderNotificationService orderNotificationService;
+
+        // 管理員預設的付款方式與配送方式
+        private static final String ADMIN_PAYMENT_METHOD = "CREDIT_CARD";
+
+        // 管理員預設的配送方式
+        private static final String ADMIN_SHIPPING_METHOD = "HOME";
         // ---------------會員前台功能----------------------
 
         // 會員從購物車結帳建立訂單
@@ -437,6 +444,22 @@ public class OrderServiceImpl implements OrderService {
                         // 累加訂單總金額
                         totalAmount += product.getPrice();
                 }
+                // 整理收件資料，避免儲存前後空白
+                String receiverName = request.getReceiverName().trim();
+
+                String receiverPhone = request.getReceiverPhone().trim();
+
+                String receiverAddress = request.getReceiverAddress().trim();
+
+                String customerRemark = request.getCustomerRemark();
+
+                if (customerRemark != null) {
+                        customerRemark = customerRemark.trim();
+
+                        if (customerRemark.isEmpty()) {
+                                customerRemark = null;
+                        }
+                }
                 // 建立訂單主表
                 Order order = new Order();
 
@@ -445,12 +468,12 @@ public class OrderServiceImpl implements OrderService {
                 order.setOrderStatus(OrderStatus.PENDING.name());
                 order.setPaymentMethod(request.getPaymentMethod());
                 order.setPaymentStatus(PaymentStatus.UNPAID.name());
-                order.setReceiverName(request.getReceiverName());
-                order.setReceiverPhone(request.getReceiverPhone());
-                order.setReceiverAddress(request.getReceiverAddress());
+                order.setReceiverName(receiverName);
+                order.setReceiverPhone(receiverPhone);
+                order.setReceiverAddress(receiverAddress);
                 order.setShippingMethod(request.getShippingMethod());
                 order.setShippingStatus(ShippingStatus.PENDING.name());
-                order.setCustomerRemark(request.getCustomerRemark());
+                order.setCustomerRemark(customerRemark);
 
                 // 儲存訂單主表
                 Order savedOrder = orderRepository.save(order);

@@ -18,7 +18,7 @@ const form = ref({
     receiverName: '',
     receiverPhone: '',
     receiverAddress: '',
-    shippingMethod: '',
+    shippingMethod: 'HOME',
     customerRemark: ''
 })
 
@@ -29,6 +29,11 @@ const products = ref([])
 // 使用者目前選到的商品 ID
 const productId = ref('')
 
+// 表單欄位錯誤
+const errors = ref({})
+
+// 避免重複送出
+const submitting = ref(false)
 // 取得新增訂單需要的選項
 const loadCreateOptions = async () => {
     try {
@@ -44,65 +49,107 @@ const loadCreateOptions = async () => {
         console.error('取得新增訂單選項失敗：', error)
     }
 }
-const createOrder = async () => {
+const validateForm = () => {
+    const newErrors = {}
 
-    // 基本防呆
+    // 送出前整理文字格式
+    form.value.receiverName =
+        (form.value.receiverName || '').trim()
+
+    form.value.receiverPhone =
+        (form.value.receiverPhone || '')
+            .replace(/[\s-]/g, '')
+
+    form.value.receiverAddress =
+        (form.value.receiverAddress || '').trim()
+
+    form.value.customerRemark =
+        (form.value.customerRemark || '').trim()
+
+    // 管理員訂單固定使用宅配與信用卡
+    form.value.paymentMethod = 'CREDIT_CARD'
+    form.value.shippingMethod = 'HOME'
+
     if (!form.value.memberId) {
-        alert('請選擇會員')
-        return
+        newErrors.memberId = '請選擇會員'
     }
 
     if (!productId.value) {
-        alert('請選擇商品')
-        return
-    }
-
-    if (!form.value.paymentMethod) {
-        alert('請選擇付款方式')
-        return
+        newErrors.productId = '請選擇商品'
     }
 
     if (!form.value.receiverName) {
-        alert('請輸入收件人')
-        return
+        newErrors.receiverName = '請輸入收件人姓名'
+    } else if (form.value.receiverName.length > 40) {
+        newErrors.receiverName =
+            '收件人姓名最多 40 個字'
     }
 
     if (!form.value.receiverPhone) {
-        alert('請輸入電話')
-        return
+        newErrors.receiverPhone = '請輸入聯絡電話'
+    } else if (
+        !/^09\d{8}$/.test(form.value.receiverPhone)
+    ) {
+        newErrors.receiverPhone =
+            '手機號碼必須為 09 開頭的 10 碼數字'
     }
 
     if (!form.value.receiverAddress) {
-        alert('請輸入地址')
+        newErrors.receiverAddress = '請輸入收件地址'
+    } else if (
+        form.value.receiverAddress.length > 255
+    ) {
+        newErrors.receiverAddress =
+            '收件地址最多 255 個字'
+    }
+
+    if (form.value.customerRemark.length > 255) {
+        newErrors.customerRemark =
+            '訂單備註最多 255 個字'
+    }
+
+    errors.value = newErrors
+
+    return Object.keys(newErrors).length === 0
+}
+const createOrder = async () => {
+    if (submitting.value) {
         return
     }
 
-    if (!form.value.shippingMethod) {
-        alert('請選擇配送方式')
+    if (!validateForm()) {
         return
     }
+
+    submitting.value = true
+    errors.value.submit = ''
 
     try {
-
-        // 後端需要 productIds 陣列
+        // 後端目前接收 productIds 陣列
         form.value.productIds = [
             Number(productId.value)
         ]
 
-        console.log('建立訂單 Request：', form.value)
-
-        await createOrderApi(form.value)
+        await createOrderApi({
+            ...form.value,
+            memberId: Number(form.value.memberId)
+        })
 
         alert('新增訂單成功')
 
         router.push('/admin/orders')
-
     } catch (error) {
         console.error('新增訂單失敗：', error)
 
-        alert('新增訂單失敗')
+        errors.value.submit =
+            error.response?.data?.message
+            || error.response?.data?.error
+            || '新增訂單失敗，請確認資料後再試一次'
+    } finally {
+        submitting.value = false
     }
 }
+
 onMounted(() => {
     loadCreateOptions()
 })
@@ -169,7 +216,8 @@ const applyMemberInfo = () => {
                                 <span class="text-danger">*</span>
                             </label>
 
-                            <select v-model="form.memberId" class="form-select">
+                            <select v-model="form.memberId" class="form-select"
+                                :class="{ 'is-invalid': errors.memberId }">
                                 <option value="">
                                     請選擇會員
                                 </option>
@@ -179,6 +227,9 @@ const applyMemberInfo = () => {
                                     （ID：{{ member.memberId }}）
                                 </option>
                             </select>
+                            <div v-if="errors.memberId" class="invalid-feedback">
+                                {{ errors.memberId }}
+                            </div>
                         </div>
 
                         <!-- 商品 -->
@@ -188,7 +239,7 @@ const applyMemberInfo = () => {
                                 <span class="text-danger">*</span>
                             </label>
 
-                            <select v-model="productId" class="form-select">
+                            <select v-model="productId" class="form-select" :class="{ 'is-invalid': errors.productId }">
                                 <option value="">
                                     請選擇商品
                                 </option>
@@ -198,6 +249,10 @@ const applyMemberInfo = () => {
                                     - NT$ {{ formatPrice(product.price) }}
                                 </option>
                             </select>
+
+                            <div v-if="errors.productId" class="invalid-feedback">
+                                {{ errors.productId }}
+                            </div>
                         </div>
 
                         <!-- 付款方式 -->
@@ -207,11 +262,11 @@ const applyMemberInfo = () => {
                                 <span class="text-danger">*</span>
                             </label>
 
-                            <select v-model="form.paymentMethod" class="form-select">
-                                <option value="CREDIT_CARD">
-                                    信用卡
-                                </option>
-                            </select>
+                            <input type="text" class="form-control bg-light" value="信用卡" readonly>
+
+                            <div class="form-text">
+                                訂單建立後，由會員至自己的訂單頁完成付款。
+                            </div>
                         </div>
 
                         <!-- 配送方式 -->
@@ -221,19 +276,11 @@ const applyMemberInfo = () => {
                                 <span class="text-danger">*</span>
                             </label>
 
-                            <select v-model="form.shippingMethod" class="form-select">
-                                <option value="">
-                                    請選擇配送方式
-                                </option>
+                            <input type="text" class="form-control bg-light" value="宅配" readonly>
 
-                                <option value="HOME">
-                                    宅配
-                                </option>
-
-                                <option value="STORE">
-                                    超商取貨
-                                </option>
-                            </select>
+                            <div class="form-text">
+                                管理員建立的訂單僅支援宅配。
+                            </div>
                         </div>
 
                     </div>
@@ -264,7 +311,12 @@ const applyMemberInfo = () => {
                             </label>
 
                             <input v-model="form.receiverName" type="text" class="form-control"
-                                placeholder="請輸入收件人姓名" />
+                                :class="{ 'is-invalid': errors.receiverName }" maxlength="40" autocomplete="name"
+                                placeholder="請輸入收件人姓名">
+
+                            <div v-if="errors.receiverName" class="invalid-feedback">
+                                {{ errors.receiverName }}
+                            </div>
                         </div>
 
                         <!-- 電話 -->
@@ -275,7 +327,16 @@ const applyMemberInfo = () => {
                             </label>
 
                             <input v-model="form.receiverPhone" type="tel" class="form-control"
-                                placeholder="例如：0912345678" />
+                                :class="{ 'is-invalid': errors.receiverPhone }" inputmode="numeric" maxlength="12"
+                                autocomplete="tel" placeholder="例如：0912345678">
+
+                            <div v-if="errors.receiverPhone" class="invalid-feedback">
+                                {{ errors.receiverPhone }}
+                            </div>
+
+                            <div class="form-text">
+                                可輸入 0912345678 或 0912-345-678。
+                            </div>
                         </div>
 
                         <!-- 地址 -->
@@ -286,7 +347,12 @@ const applyMemberInfo = () => {
                             </label>
 
                             <input v-model="form.receiverAddress" type="text" class="form-control"
-                                placeholder="請輸入完整收件地址" />
+                                :class="{ 'is-invalid': errors.receiverAddress }" maxlength="255"
+                                autocomplete="street-address" placeholder="請輸入完整收件地址">
+
+                            <div v-if="errors.receiverAddress" class="invalid-feedback">
+                                {{ errors.receiverAddress }}
+                            </div>
                         </div>
 
                         <!-- 備註 -->
@@ -295,11 +361,20 @@ const applyMemberInfo = () => {
                                 訂單備註
                             </label>
 
-                            <textarea v-model="form.customerRemark" class="form-control" rows="4"
+                            <textarea v-model="form.customerRemark" class="form-control"
+                                :class="{ 'is-invalid': errors.customerRemark }" rows="4" maxlength="255"
                                 placeholder="可填寫配送或訂單相關備註"></textarea>
 
-                            <div class="form-text">
-                                此欄位可留空。
+                            <div v-if="errors.customerRemark" class="invalid-feedback">
+                                {{ errors.customerRemark }}
+                            </div>
+
+                            <div class="form-text d-flex justify-content-between">
+                                <span>此欄位可留空。</span>
+
+                                <span>
+                                    {{ form.customerRemark.length }} / 255
+                                </span>
                             </div>
                         </div>
 
@@ -307,6 +382,10 @@ const applyMemberInfo = () => {
                 </div>
             </section>
 
+            <div v-if="errors.submit" class="alert alert-danger">
+                {{ errors.submit }}
+            </div>
+            
             <!-- 操作按鈕 -->
             <div class="d-flex flex-column-reverse flex-sm-row justify-content-end gap-2">
                 <button class="btn btn-outline-secondary" type="button" @click="goBack">
