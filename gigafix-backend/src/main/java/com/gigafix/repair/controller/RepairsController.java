@@ -22,7 +22,9 @@ import com.gigafix.common.util.SecurityUtils;
 import com.gigafix.repair.dto.AppointmentRequest;
 import com.gigafix.repair.dto.CompleteRepairRequest;
 import com.gigafix.repair.dto.InspectionResultRequest;
+import com.gigafix.repair.dto.PickupPaymentRequest;
 import com.gigafix.repair.dto.QuotationRequest;
+import com.gigafix.repair.dto.RecipientRequest;
 import com.gigafix.repair.dto.RepairsResponse;
 import com.gigafix.repair.entity.status.RepairPayStatus;
 import com.gigafix.repair.entity.status.RepairStatus;
@@ -191,6 +193,21 @@ public class RepairsController {
 	public ResponseEntity<RepairsResponse> updatePayStatus(@PathVariable Long id,
 			@RequestParam RepairPayStatus payStatus) {
 		return ResponseEntity.ok(rServ.updatePayStatus(id, payStatus));// 200
+	}
+
+	// 客戶選取件方式＋付款方式，只能送出一次，memberId 從SecurityContextHolder的Authentication解析出來
+	@PatchMapping("/{id}/pickup-payment")
+	public ResponseEntity<RepairsResponse> submitPickupPayment(@PathVariable Long id,
+			@Valid @RequestBody PickupPaymentRequest req, Authentication authentication) {
+		Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
+		return ResponseEntity.ok(rServ.submitPickupPayment(id, memberId, req));// 200
+	}
+
+	// 技師編輯收件人資訊：結案前都可以改，僅限客戶選寄件的單
+	@PatchMapping("/{id}/recipient")
+	public ResponseEntity<RepairsResponse> updateRecipient(@PathVariable Long id,
+			@Valid @RequestBody RecipientRequest req) {
+		return ResponseEntity.ok(rServ.updateRecipient(id, req));// 200
 	}
 
 }

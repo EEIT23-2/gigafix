@@ -11,7 +11,9 @@ import {
   notifyRejected,
   submitQuote,
   updateInspectionResult,
+  updatePayStatus,
   updateQuote,
+  updateRecipient,
 } from "../api";
 import {
   SERIES_LIST,
@@ -73,6 +75,7 @@ const PAY_STATUS_LABELS = {
   UNPAID: "未付款",
   PAID: "已付款",
   REFUNDED: "已退款",
+  PENDING: "付款中",
 };
 const PICKUP_LABELS = {
   SELF_PICKUP: "門市自取",
@@ -87,9 +90,6 @@ function formatDateTime(value) {
   if (!value) return "—";
   return value.replace("T", " ").slice(0, 16);
 }
-
-// 取件方式/付款方式/付款狀態：只有走到「尚未取件」或「已結案」才有實際值可看
-const HAS_PICKUP_INFO = ["AWAITING_PICKUP", "CLOSED"];
 
 // ===== 檢測報價區：手機序號／報價項目購物車／估價金額（待估價+已認領時可編輯） =====
 const quoteForm = ref({
@@ -354,11 +354,56 @@ async function handleSubmitRejected() {
   );
 }
 
-// ===== 取件付款：付款狀態下拉選單選「已付款」後，旁邊小按鈕按下才真正結案、鎖住 =====
+// ===== 收件資訊（客戶選寄件時才有）：結案前技師都可以編輯、儲存 =====
+const recipientForm = ref({
+  recipientName: "",
+  recipientPhone: "",
+  recipientAddress: "",
+});
+
+function loadRecipientForm(r) {
+  recipientForm.value = {
+    recipientName: r.recipientName ?? "",
+    recipientPhone: r.recipientPhone ?? "",
+    recipientAddress: r.recipientAddress ?? "",
+  };
+}
+
+async function handleSaveRecipient() {
+  const f = recipientForm.value;
+  if (!f.recipientName || !f.recipientPhone || !f.recipientAddress) {
+    alert("收件人姓名、電話、地址都要填寫");
+    return;
+  }
+  await runAction(() =>
+    updateRecipient(repair.value.id, {
+      technicianId: repair.value.technicianId,
+      recipientName: f.recipientName,
+      recipientPhone: f.recipientPhone,
+      recipientAddress: f.recipientAddress,
+    }),
+  );
+}
+
+// ===== 線上付款：目前尚未串接綠界，先讓技師在確認客戶已經付款後手動標記 =====
+async function handleMarkOnlinePaid() {
+  if (!window.confirm("確定客戶已經完成線上付款了嗎？")) return;
+  await runAction(() => updatePayStatus(repair.value.id, "PAID"));
+}
+
+// ===== 取件付款：門市付款用下拉選單選「已付款」當確認手續；線上付款要repairPayStatus已經是PAID才能結案 =====
 const closePayStatus = ref("UNPAID");
 
+const canFinalClose = computed(() => {
+  if (!repair.value || repair.value.repairStatus !== "AWAITING_PICKUP") return false;
+  if (repair.value.repairPay === "ONLINE") {
+    return repair.value.repairPayStatus === "PAID";
+  }
+  return closePayStatus.value === "PAID";
+});
+
 async function handleFinalClose() {
-  if (closePayStatus.value !== "PAID") return;
+  if (!canFinalClose.value) return;
   if (!window.confirm("確定要結案嗎？")) return;
   await runAction(() =>
     closeRepair(repair.value.id, repair.value.technicianId),
@@ -394,6 +439,7 @@ async function fetchRepair() {
     repair.value = data;
     loadQuoteForm(data);
     loadInspectionResultForm(data);
+    loadRecipientForm(data);
     completeForm.value = {
       finalCost: data.estimatedCost ?? null,
       adjustmentNote: "",
@@ -805,24 +851,20 @@ onMounted(() => {
         <div class="card-body row g-3">
           <div class="col-md-4">
             <span class="text-secondary">取件方式：</span
-            >{{
-              HAS_PICKUP_INFO.includes(repair.repairStatus)
-                ? label(PICKUP_LABELS, repair.pickupType)
-                : "—"
-            }}
+            >{{ label(PICKUP_LABELS, repair.pickupType) }}
           </div>
           <div class="col-md-4">
             <span class="text-secondary">付款方式：</span
-            >{{
-              HAS_PICKUP_INFO.includes(repair.repairStatus)
-                ? label(PAY_LABELS, repair.repairPay)
-                : "—"
-            }}
+            >{{ label(PAY_LABELS, repair.repairPay) }}
           </div>
 
+          <!-- 門市付款：尚未取件時用下拉選單當「確認收到現金」的手續，不會真的送到後端 -->
           <div
             class="col-md-4"
-            v-if="repair.repairStatus === 'AWAITING_PICKUP'"
+            v-if="
+              repair.repairStatus === 'AWAITING_PICKUP' &&
+              repair.repairPay === 'IN_STORE'
+            "
           >
             <span class="text-secondary">付款狀態：</span>
             <select
@@ -833,22 +875,83 @@ onMounted(() => {
               <option value="PAID">已付款</option>
             </select>
           </div>
+          <!-- 線上付款：尚未串接綠界，先讓技師確認後手動標記已付款 -->
+          <div
+            class="col-md-4"
+            v-else-if="
+              repair.repairStatus === 'AWAITING_PICKUP' &&
+              repair.repairPay === 'ONLINE'
+            "
+          >
+            <span class="text-secondary">付款狀態：</span
+            >{{ label(PAY_STATUS_LABELS, repair.repairPayStatus) }}
+            <button
+              v-if="repair.repairPayStatus === 'PENDING'"
+              class="btn btn-outline-primary btn-sm ms-2"
+              :disabled="loading"
+              @click="handleMarkOnlinePaid"
+            >
+              標記已收到付款
+            </button>
+          </div>
           <div class="col-md-4" v-else>
             <span class="text-secondary">付款狀態：</span
-            >{{
-              repair.repairStatus === "CLOSED"
-                ? label(PAY_STATUS_LABELS, repair.repairPayStatus)
-                : "—"
-            }}
+            >{{ label(PAY_STATUS_LABELS, repair.repairPayStatus) }}
           </div>
+
+          <!-- 收件資訊：客戶選寄件才有，結案前技師都可以編輯儲存，結案後唯讀 -->
+          <template v-if="repair.pickupType === 'COURIER'">
+            <div class="col-12" v-if="repair.repairStatus !== 'CLOSED'">
+              <label class="form-label text-secondary d-block">收件資訊（可編輯）</label>
+              <div class="row g-2">
+                <div class="col-md-4">
+                  <input
+                    v-model="recipientForm.recipientName"
+                    type="text"
+                    class="form-control"
+                    placeholder="收件人姓名"
+                  />
+                </div>
+                <div class="col-md-4">
+                  <input
+                    v-model="recipientForm.recipientPhone"
+                    type="text"
+                    class="form-control"
+                    placeholder="收件人電話"
+                  />
+                </div>
+                <div class="col-md-4">
+                  <input
+                    v-model="recipientForm.recipientAddress"
+                    type="text"
+                    class="form-control"
+                    placeholder="收件地址"
+                  />
+                </div>
+              </div>
+              <button
+                class="btn btn-outline-primary btn-sm mt-2"
+                :disabled="loading"
+                @click="handleSaveRecipient"
+              >
+                儲存收件資訊
+              </button>
+            </div>
+            <div class="col-12" v-else>
+              <span class="text-secondary">收件資訊：</span
+              >{{ repair.recipientName }}（{{ repair.recipientPhone }}）　{{
+                repair.recipientAddress
+              }}
+            </div>
+          </template>
         </div>
       </section>
 
-      <!-- 結案按鈕：走到尚未取件狀態才會出現，選「已付款」才能按 -->
+      <!-- 結案按鈕：走到尚未取件狀態才會出現，付款確認完成才能按 -->
       <div v-if="repair.repairStatus === 'AWAITING_PICKUP'" class="mb-3">
         <button
           class="btn btn-primary"
-          :disabled="loading || closePayStatus !== 'PAID'"
+          :disabled="loading || !canFinalClose"
           @click="handleFinalClose"
         >
           結案

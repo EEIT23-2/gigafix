@@ -145,6 +145,24 @@ export const updatePayStatus = async (repairId, payStatus) => {
   return response.data;
 };
 
+// 客戶選取件方式＋付款方式（選寄件要附收件人姓名/電話/地址），只能送出一次，不用傳memberId，後端從登入資訊拿
+export const submitPickupPayment = async (repairId, pickupPaymentRequest) => {
+  const response = await axios.patch(
+    `${REPAIRS_URL}/${repairId}/pickup-payment`,
+    pickupPaymentRequest,
+  );
+  return response.data;
+};
+
+// 技師編輯收件人資訊：結案前都可以改，僅限客戶選寄件的單
+export const updateRecipient = async (repairId, recipientRequest) => {
+  const response = await axios.patch(
+    `${REPAIRS_URL}/${repairId}/recipient`,
+    recipientRequest,
+  );
+  return response.data;
+};
+
 // ========== 技師 ==========
 
 // 查詢技師，storeId 有填就查該分店的技師，不填就查全部

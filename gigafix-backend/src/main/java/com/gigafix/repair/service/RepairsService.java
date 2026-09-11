@@ -13,7 +13,9 @@ import com.gigafix.member.repository.MemberRepository;
 import com.gigafix.repair.dto.AppointmentRequest;
 import com.gigafix.repair.dto.CompleteRepairRequest;
 import com.gigafix.repair.dto.InspectionResultRequest;
+import com.gigafix.repair.dto.PickupPaymentRequest;
 import com.gigafix.repair.dto.QuotationRequest;
+import com.gigafix.repair.dto.RecipientRequest;
 import com.gigafix.repair.dto.RepairsResponse;
 import com.gigafix.repair.entity.RepairTechnicians;
 import com.gigafix.repair.entity.Repairs;
@@ -72,6 +74,9 @@ public class RepairsService {
 				.repairPay(r.getRepairPay())
 				.repairPayStatus(r.getRepairPayStatus())
 				.pickupType(r.getPickupType())
+				.recipientName(r.getRecipientName())
+				.recipientPhone(r.getRecipientPhone())
+				.recipientAddress(r.getRecipientAddress())
 				.repairCreatedTime(r.getRepairCreatedTime())
 				.repairUpdatedTime(r.getRepairUpdatedTime())
 				.build();
@@ -471,12 +476,13 @@ public class RepairsService {
 		return toResponse(rRepos.save(r));
 	}
 	
-//	目前只有門市取貨付款(先寫死)、結案
+//	結案：取件/付款方式尊重客戶先前送出的選擇(見submitPickupPayment)，門市付款在結案當下才算技師收到現金，
+//	線上付款要已經確認付款完成(repairPayStatus=PAID)才能結案
 //	repairStatus 等待取件 -> 已結案
 	public RepairsResponse closeRepair(Long id, Integer technicianId) {
 		Repairs r = rRepos.findById(id)
 				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
-	
+
 		if (r.getRepairTechnicians() == null) {
 			throw new InvalidRepairStatusException("尚未有技師認領此維修單，請先認領");
 		}
@@ -484,16 +490,81 @@ public class RepairsService {
 			throw new InvalidRepairStatusException("此維修單不是你負責的，不能結案");
 		}
 //		不用通知，狀態停留在REPAIR_COMPLETED，例如:技師可能修完當下客戶剛好就在店裡等
-		if (r.getRepairStatus() != RepairStatus.REPAIR_COMPLETED 
+		if (r.getRepairStatus() != RepairStatus.REPAIR_COMPLETED
 				&& r.getRepairStatus() != RepairStatus.AWAITING_PICKUP) {
 			throw new InvalidRepairStatusException("此階段無法結案");
 		}
-	
-		r.setRepairPay(RepairPay.IN_STORE);
-		r.setRepairPayStatus(RepairPayStatus.PAID);
-		r.setPickupType(PickupType.SELF_PICKUP);
+		if (r.getPickupType() == null || r.getRepairPay() == null) {
+			throw new InvalidRepairStatusException("客戶尚未選擇取件/付款方式，無法結案");
+		}
+
+		if (r.getRepairPay() == RepairPay.IN_STORE) {
+			r.setRepairPayStatus(RepairPayStatus.PAID);
+		} else if (r.getRepairPayStatus() != RepairPayStatus.PAID) {
+			throw new InvalidRepairStatusException("線上付款尚未確認完成，無法結案");
+		}
 		r.setRepairStatus(RepairStatus.CLOSED);
-	
+
+		return toResponse(rRepos.save(r));
+	}
+
+//	客戶選取件方式＋付款方式，只能送出一次，送出後如需更動要請技師改(見updateRecipient/技師手動更新付款狀態)
+//	選「寄件」要附收件人姓名/電話/地址；選「線上付款」先標記付款中，等綠界NotifyURL回調確認才會變已付款(目前尚未串接綠界，先由技師手動更新付款狀態代替)
+	public RepairsResponse submitPickupPayment(Long id, Long memberId, PickupPaymentRequest req) {
+		Repairs r = rRepos.findById(id)
+				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
+
+		if (!r.getMember().getId().equals(memberId)) {
+			throw new NotEligibleException("此維修單不是你的，無法設定取件付款方式");
+		}
+		if (r.getRepairStatus() != RepairStatus.REPAIR_COMPLETED
+				&& r.getRepairStatus() != RepairStatus.AWAITING_PICKUP) {
+			throw new InvalidRepairStatusException("此階段無法設定取件付款方式");
+		}
+		if (r.getPickupType() != null) {
+			throw new InvalidRepairStatusException("已經送出過取件付款方式，如需更動請聯繫技師");
+		}
+
+		if (req.getPickupType() == PickupType.COURIER) {
+			if (req.getRecipientName() == null || req.getRecipientPhone() == null
+					|| req.getRecipientAddress() == null) {
+				throw new InvalidRepairStatusException("寄件需要填寫收件人姓名、電話、地址");
+			}
+			r.setRecipientName(req.getRecipientName());
+			r.setRecipientPhone(req.getRecipientPhone());
+			r.setRecipientAddress(req.getRecipientAddress());
+		}
+
+		r.setPickupType(req.getPickupType());
+		r.setRepairPay(req.getRepairPay());
+		r.setRepairPayStatus(
+				req.getRepairPay() == RepairPay.ONLINE ? RepairPayStatus.PENDING : RepairPayStatus.UNPAID);
+
+		return toResponse(rRepos.save(r));
+	}
+
+//	技師編輯收件人資訊：結案前都可以改，僅限客戶選「寄件」的單才能用
+	public RepairsResponse updateRecipient(Long id, RecipientRequest req) {
+		Repairs r = rRepos.findById(id)
+				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
+
+		if (r.getRepairTechnicians() == null) {
+			throw new InvalidRepairStatusException("尚未有技師認領此維修單，請先認領");
+		}
+		if (!r.getRepairTechnicians().getId().equals(req.getTechnicianId())) {
+			throw new InvalidRepairStatusException("此維修單不是你負責的，不能修改");
+		}
+		if (r.getRepairStatus() == RepairStatus.CLOSED) {
+			throw new InvalidRepairStatusException("已結案，收件資訊不能再修改");
+		}
+		if (r.getPickupType() != PickupType.COURIER) {
+			throw new InvalidRepairStatusException("只有客戶選寄件的維修單才能修改收件人資訊");
+		}
+
+		r.setRecipientName(req.getRecipientName());
+		r.setRecipientPhone(req.getRecipientPhone());
+		r.setRecipientAddress(req.getRecipientAddress());
+
 		return toResponse(rRepos.save(r));
 	}
 	
