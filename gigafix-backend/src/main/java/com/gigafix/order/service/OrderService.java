@@ -37,6 +37,11 @@ public interface OrderService {
                         Long orderId,
                         PaymentSuccessRequest request);
 
+        // 金流付款完成後的共用核心
+        OrderResponse completePayment(
+                        Long orderId,
+                        String transactionId);
+
         // 取消自己未付款訂單
         OrderResponse cancelOrder(
                         Long memberId,

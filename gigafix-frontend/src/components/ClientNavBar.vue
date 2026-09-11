@@ -1,13 +1,14 @@
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue';
 import { RouterLink } from 'vue-router';
-import { useRouter } from 'vue-router';
+import { useRouter} from 'vue-router';
 import LoginRegisterModal from './LoginRegisterModal.vue';
 import AddressSelect from './AddressSelect.vue';
 import axios from 'axios';
 import { useFetchMemberInfoStore } from '@/stores/member';
-import { storeToRefs } from 'pinia'
-import client from '@/features/cart/router/client.js';
+import { storeToRefs } from 'pinia';
+
+
 
 
 //跟登入有關的變數宣告
@@ -397,6 +398,15 @@ const goToRepairAppointment = () => {
     openLoginModal();
   }
 };
+//==購物車相關==
+const goToCart = () => {
+  if (memberInfo.value) {
+    router.push("/cart");
+  } else {
+    afterLoginRedirect.value = "/cart";
+    openLoginModal();
+  }
+};
 </script>
 
 <template>
@@ -417,36 +427,21 @@ const goToRepairAppointment = () => {
           </RouterLink>
 
           <!-- 用使用者是否登入決定要顯示某個標籤 -->
-          <button
-            v-if="!memberInfo"
-            type="button"
-            class="action-item"
-            @click="openLoginModal()"
-          >
-            <span class="icon-box"
-              ><i class="bi bi-person icon icon-person"></i
-            ></span>
+          <button v-if="!memberInfo" type="button" class="action-item" @click="openLoginModal()">
+            <span class="icon-box"><i class="bi bi-person icon icon-person"></i></span>
             <span class="action-text">登入</span>
           </button>
           <!-- 小人icon，連結到member center path -->
-          <RouterLink
-            v-if="memberInfo"
-            class="action-item"
-            active-class="active"
-            to="/member-center"
-          >
-            <span class="icon-box"
-              ><i class="bi bi-person-fill icon icon-person"></i
-            ></span>
+          <RouterLink v-if="memberInfo" class="action-item" active-class="active" to="/member-center">
+            <span class="icon-box"><i class="bi bi-person-fill icon icon-person"></i></span>
             <span class="action-text">{{ memberInfo.nickName }}</span>
           </RouterLink>
-
-          <RouterLink to="/cart" class="action-item"
-            ><!-- 購物車icon -->
+          <!-- 購物車按鈕 -->
+          <button type="button" class="action-item" @click="goToCart">
             <span class="icon-box">
               <i class="bi bi-cart icon"></i>
             </span>
-          </RouterLink>
+          </button>
 
           <!-- demo用的一鍵註冊登入，不用填任何資訊，已登入就不用顯示 -->
           <button
@@ -500,11 +495,7 @@ const goToRepairAppointment = () => {
        兩個視窗互切時不會重新觸發，才不會有疊加變深或不夠絲滑的問題 -->
   <Teleport to="body">
     <Transition name="backdrop-fade">
-      <div
-        v-if="anyModalOpen"
-        class="modal-backdrop fade show"
-        @click="closeAllModals()"
-      ></div>
+      <div v-if="anyModalOpen" class="modal-backdrop fade show" @click="closeAllModals()"></div>
     </Transition>
   </Teleport>
 
@@ -534,18 +525,13 @@ const goToRepairAppointment = () => {
     </p>
 
     <template #footer>
-      <button
-        class="btn btn-link forgot-password-link"
-        @click="openForgotPasswordModal()"
-      >
+      <button class="btn btn-link forgot-password-link" @click="openForgotPasswordModal()">
         忘記密碼？
       </button>
       <button class="btn btn-secondary" @click="openRegisterModal()">
         註冊
       </button>
-      <span v-if="loginErrorMsg" class="btn btn-primary disabled"
-        >請輸入正確資訊</span
-      >
+      <span v-if="loginErrorMsg" class="btn btn-primary disabled">請輸入正確資訊</span>
       <button v-else class="btn btn-primary" @click="login()">送出</button>
       
       <div class="w-100 d-flex align-items-center gap-2 my-2">
@@ -631,65 +617,31 @@ const goToRepairAppointment = () => {
     <div class="row g-2 mb-2">
       <div class="col-6">
         <label class="form-label">真實姓名</label>
-        <input
-          type="text"
-          class="form-control"
-          v-model="regRealName"
-          maxlength="40"
-          placeholder="請輸入真實姓名"
-          @input="checkRegisterError()"
-        />
+        <input type="text" class="form-control" v-model="regRealName" maxlength="40" placeholder="請輸入真實姓名"
+          @input="checkRegisterError()" />
       </div>
       <div class="col-6">
         <label class="form-label">暱稱</label>
-        <input
-          type="text"
-          class="form-control"
-          v-model="regNickName"
-          maxlength="40"
-          placeholder="請輸入暱稱"
-          @input="checkRegisterError()"
-        />
+        <input type="text" class="form-control" v-model="regNickName" maxlength="40" placeholder="請輸入暱稱"
+          @input="checkRegisterError()" />
       </div>
     </div>
     <label class="form-label">手機號碼</label>
-    <input
-      type="text"
-      class="form-control mb-2"
-      v-model="regPhone"
-      placeholder="09xxxxxxxx"
-      @input="checkRegisterError()"
-    />
+    <input type="text" class="form-control mb-2" v-model="regPhone" placeholder="09xxxxxxxx"
+      @input="checkRegisterError()" />
     <label class="form-label">地址</label>
     <div class="mb-2">
-      <AddressSelect
-        v-model:city="regAddressCity"
-        v-model:district="regAddressDistrict"
-        v-model:detail="regAddressDetail"
-      />
+      <AddressSelect v-model:city="regAddressCity" v-model:district="regAddressDistrict"
+        v-model:detail="regAddressDetail" />
     </div>
     <label class="form-label d-block">性別</label>
     <div class="gender-group" role="group" aria-label="性別">
-      <input
-        type="radio"
-        class="btn-check"
-        id="regGenderMale"
-        value="MALE"
-        v-model="regGender"
-        autocomplete="off"
-        @change="checkRegisterError()"
-      />
+      <input type="radio" class="btn-check" id="regGenderMale" value="MALE" v-model="regGender" autocomplete="off"
+        @change="checkRegisterError()" />
       <label class="gender-circle" for="regGenderMale">男</label>
 
-      <input
-        type="radio"
-        class="btn-check"
-        id="regGenderFemale"
-        value="FEMALE"
-        v-model="regGender"
-        autocomplete="off"
-        @change="checkRegisterError()"
-      />
+      <input type="radio" class="btn-check" id="regGenderFemale" value="FEMALE" v-model="regGender" autocomplete="off"
+        @change="checkRegisterError()" />
       <label class="gender-circle" for="regGenderFemale">女</label>
     </div>
     <p v-if="registerErrorMsg" class="text-danger form-error-msg">
@@ -697,9 +649,7 @@ const goToRepairAppointment = () => {
     </p>
 
     <template #footer>
-      <span v-if="registerErrorMsg" class="btn btn-primary disabled"
-        >請輸入正確資訊</span
-      >
+      <span v-if="registerErrorMsg" class="btn btn-primary disabled">請輸入正確資訊</span>
       <button v-else class="btn btn-primary" @click="register()">送出</button>
     </template>
   </LoginRegisterModal>
@@ -708,37 +658,17 @@ const goToRepairAppointment = () => {
   <LoginRegisterModal v-model="showForgotPasswordModal" :showBackdrop="false">
     <template #title>忘記密碼</template>
     <label class="form-label">Email</label>
-    <input
-      type="email"
-      class="form-control mb-3"
-      v-model="fpEmail"
-      placeholder="請輸入Email"
-      @input="checkForgotPasswordError()"
-    />
+    <input type="email" class="form-control mb-3" v-model="fpEmail" placeholder="請輸入Email"
+      @input="checkForgotPasswordError()" />
     <label class="form-label">新密碼</label>
-    <input
-      type="password"
-      class="form-control mb-3"
-      v-model="fpNewPassword"
-      placeholder="至少8碼，需含大小寫英文字母及數字"
-      @input="checkForgotPasswordError()"
-    />
+    <input type="password" class="form-control mb-3" v-model="fpNewPassword" placeholder="至少8碼，需含大小寫英文字母及數字"
+      @input="checkForgotPasswordError()" />
     <label class="form-label">OTP驗證碼</label>
     <div class="otp-row mb-3">
-      <input
-        type="text"
-        class="form-control"
-        v-model="fpOtp"
-        maxlength="6"
-        placeholder="請輸入6碼驗證碼"
-        @input="checkForgotPasswordError()"
-      />
-      <button
-        type="button"
-        class="btn btn-outline-primary otp-btn"
-        @click="sendForgotPasswordOtp()"
-        :disabled="fpOtpSending || fpOtpCooldown > 0"
-      >
+      <input type="text" class="form-control" v-model="fpOtp" maxlength="6" placeholder="請輸入6碼驗證碼"
+        @input="checkForgotPasswordError()" />
+      <button type="button" class="btn btn-outline-primary otp-btn" @click="sendForgotPasswordOtp()"
+        :disabled="fpOtpSending || fpOtpCooldown > 0">
         {{
           fpOtpCooldown > 0
             ? `${fpOtpCooldown}秒後重寄`
@@ -751,9 +681,7 @@ const goToRepairAppointment = () => {
     <p v-if="fpErrorMsg" class="text-danger form-error-msg">{{ fpErrorMsg }}</p>
 
     <template #footer>
-      <span v-if="fpErrorMsg" class="btn btn-primary disabled"
-        >請輸入正確資訊</span
-      >
+      <span v-if="fpErrorMsg" class="btn btn-primary disabled">請輸入正確資訊</span>
       <button v-else class="btn btn-primary" @click="forgotPassword()">
         重設密碼
       </button>
@@ -898,8 +826,9 @@ const goToRepairAppointment = () => {
   background-color: #eef4fb;
 }
 
-.btn-check:checked + .gender-circle {
-  background-color: #bcd9f2; /* 選取時的淺藍，比header的深藍(#1e3557)淺很多 */
+.btn-check:checked+.gender-circle {
+  background-color: #bcd9f2;
+  /* 選取時的淺藍，比header的深藍(#1e3557)淺很多 */
   border-color: #2b77c5;
   color: #1e3557;
 }
@@ -948,15 +877,20 @@ const goToRepairAppointment = () => {
 .action-item {
   display: flex;
   align-items: center;
-  gap: 6px; /* icon 跟文字之間的間距 */
+  gap: 6px;
+  /* icon 跟文字之間的間距 */
   cursor: pointer;
   outline: none;
   text-decoration: none;
   color: #666666;
-  background: none; /* 蓋掉 <button> 原生底色 */
-  border: none; /* 蓋掉 <button> 原生框線 */
-  padding: 0; /* 蓋掉 <button> 原生內距 */
-  font: inherit; /* 讓 <button> 文字跟其他 nav 項目字型一致 */
+  background: none;
+  /* 蓋掉 <button> 原生底色 */
+  border: none;
+  /* 蓋掉 <button> 原生框線 */
+  padding: 0;
+  /* 蓋掉 <button> 原生內距 */
+  font: inherit;
+  /* 讓 <button> 文字跟其他 nav 項目字型一致 */
 }
 
 .action-text {
