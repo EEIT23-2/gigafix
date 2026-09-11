@@ -1,8 +1,8 @@
 {
-    "rewites":[ 
+    "rewrites": [
         {
             "source": "/api/:path*",
-            "destination": "https://gigafix.ashyplant-71c38849.eastasia.azurecontainerapps.io/"
+            "destination": "https://gigafix.ashyplant-71c38849.eastasia.azurecontainerapps.io/api/:path*"
         }
     ]
 }
