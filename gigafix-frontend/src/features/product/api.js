@@ -6,7 +6,7 @@ const PRODUCT_URL = "/api/gigafix/products";
 const ADMIN_PRODUCT_URL = "/api/admin/products";
 
 //回收單Controller的共同路徑
-const RECYCLE_APPLICATION_URL = "/api/recycle-applications";
+const RECYCLE_APPLICATION_URL = "/api/gigafix/members/me/recycle-applications";
 const ADMIN_RECYCLE_APPLICATION_URL = "/api/admin/recycle-applications";
 
 /**
@@ -186,6 +186,28 @@ export const getRecycleApplication = async (applyId) => {
 };
 
 /**
+ * 前台登入會員查詢自己的回收申請列表
+ *
+ * GET /api/gigafix/members/me/recycle-applications
+ */
+export const getMemberRecycleApplications = async (params = {}) => {
+  const response = await axios.get(RECYCLE_APPLICATION_URL, { params });
+
+  return response.data;
+};
+
+/**
+ * 前台登入會員查詢自己的單筆回收申請
+ *
+ * GET /api/gigafix/members/me/recycle-applications/{applyId}
+ */
+export const getMemberRecycleApplication = async (applyId) => {
+  const response = await axios.get(`${RECYCLE_APPLICATION_URL}/${applyId}`);
+
+  return response.data;
+};
+
+/**
  * 使用者新增回收申請
  *
  * POST /api/recycle-applications
@@ -226,4 +248,18 @@ export const deleteRecycleApplication = async (applyId) => {
  */
 export const deleteAllRecycleApplications = async () => {
   await axios.delete(ADMIN_RECYCLE_APPLICATION_URL);
+};
+
+/**
+ * 後台將全部回收申請匯出為 JSON 檔
+ *
+ * GET /api/admin/recycle-applications/export
+ */
+export const exportRecycleApplications = async () => {
+  const response = await axios.get(
+    `${ADMIN_RECYCLE_APPLICATION_URL}/export`,
+    { responseType: "blob" },
+  );
+
+  return response.data;
 };

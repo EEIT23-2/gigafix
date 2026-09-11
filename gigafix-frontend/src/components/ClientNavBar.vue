@@ -1,13 +1,11 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
-import { RouterLink } from 'vue-router';
-import { useRouter } from 'vue-router';
-import LoginRegisterModal from './LoginRegisterModal.vue';
-import AddressSelect from './AddressSelect.vue';
-import axios from 'axios';
 import { useFetchMemberInfoStore } from '@/stores/member';
-import { storeToRefs } from 'pinia'
-import client from '@/features/cart/router/client.js';
+import axios from 'axios';
+import { storeToRefs } from 'pinia';
+import { computed, ref, watch } from 'vue';
+import { RouterLink, useRouter } from 'vue-router';
+import AddressSelect from './AddressSelect.vue';
+import LoginRegisterModal from './LoginRegisterModal.vue';
 
 
 //跟登入有關的變數宣告
@@ -419,8 +417,19 @@ const goToCart = () => {
           <!-- 選單項目置中 -->
           <ul class="nav-list">
             <router-link class="nav-item">最新活動 ▾</router-link>
-            <router-link class="nav-item" to="/mall">二手手機 ▾</router-link>
-            <a class="nav-item" role="button" @click="goToRepairAppointment">維修手機 ▾</a>
+            <router-link class="nav-item" to="/mall"
+              >認證二手手機 ▾</router-link
+            >
+            <router-link class="nav-item" to="/recycle"
+              >二手機收購/回收 ▾</router-link
+            >
+            <div class="dropdown">
+              <a class="nav-item dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">維修手機</a>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item" role="button" @click="goToRepairAppointment">預約維修</a></li>
+                <li><router-link class="dropdown-item" to="/repair-price-reference">報價參考</router-link></li>
+              </ul>
+            </div>
             <router-link class="nav-item" to="/forum">Gigafix討論區</router-link>
             <router-link class="nav-item">關於Gigafix</router-link>
           </ul>
@@ -441,13 +450,6 @@ const goToCart = () => {
   <LoginRegisterModal v-model="showloginModal" :showBackdrop="false">
     <template #title>會員登入</template>
     <label class="form-label">Email</label>
-<<<<<<< HEAD
-    <input type="email" class="form-control mb-3" v-model="mail" :disabled="loginLoading" placeholder="請輸入Email"
-      @input="checkLoginError()" />
-    <label class="form-label">密碼</label>
-    <input type="password" class="form-control" v-model="password" :disabled="loginLoading" placeholder="請輸入密碼"
-      @input="checkLoginError()" />
-=======
     <input
       type="email"
       class="form-control mb-3"
@@ -465,7 +467,6 @@ const goToCart = () => {
       placeholder="請輸入密碼"
       @input="password = $event.target.value.replace(/\s/g, ''); checkLoginError()"
     />
->>>>>>> main
     <p v-if="loginErrorMsg" class="text-danger form-error-msg">
       {{ loginErrorMsg }}
     </p>
@@ -498,10 +499,6 @@ const goToCart = () => {
   <LoginRegisterModal v-model="showRegisterModal" :showBackdrop="false">
     <template #title>會員註冊</template>
     <label class="form-label">Email</label>
-<<<<<<< HEAD
-    <input type="email" class="form-control mb-2" v-model="regEmail" placeholder="請輸入Email"
-      @input="checkRegisterError()" />
-=======
     <input
       type="email"
       class="form-control mb-2"
@@ -509,7 +506,6 @@ const goToCart = () => {
       placeholder="請輸入Email"
       @input="regEmail = $event.target.value.replace(/\s/g, ''); checkRegisterError()"
     />
->>>>>>> main
     <label class="form-label">OTP驗證碼</label>
     <div class="otp-row mb-2">
       <input type="text" class="form-control" v-model="regOtp" maxlength="6" placeholder="請輸入6碼驗證碼"
@@ -526,10 +522,6 @@ const goToCart = () => {
       </button>
     </div>
     <label class="form-label">密碼</label>
-<<<<<<< HEAD
-    <input type="password" class="form-control mb-2" v-model="regPassword" placeholder="至少8碼，需含大小寫英文字母及數字"
-      @input="checkRegisterError()" />
-=======
     <input
       type="password"
       class="form-control mb-2"
@@ -537,7 +529,6 @@ const goToCart = () => {
       placeholder="至少8碼，需含大小寫英文字母及數字"
       @input="regPassword = $event.target.value.replace(/\s/g, ''); checkRegisterError()"
     />
->>>>>>> main
     <!-- 真實姓名+暱稱併成一排，縮短表單高度，密碼/手機號碼維持獨立一排避免看起來擁擠 -->
     <div class="row g-2 mb-2">
       <div class="col-6">
@@ -738,7 +729,8 @@ const goToCart = () => {
 }
 
 .header-inner {
-  max-width: 1200px;
+  width: 100%;
+  max-width: 1760px;
   margin: 0 auto;
   padding: 14px 20px 16px;
 }
@@ -887,7 +879,7 @@ const goToCart = () => {
   gap: 26px;
   padding: 0;
   margin: 0 auto;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .nav-item {
