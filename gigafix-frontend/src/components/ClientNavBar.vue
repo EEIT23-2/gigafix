@@ -533,7 +533,7 @@ const goToCart = () => {
       </button>
       <span v-if="loginErrorMsg" class="btn btn-primary disabled">請輸入正確資訊</span>
       <button v-else class="btn btn-primary" @click="login()">送出</button>
-      
+
       <div class="w-100 d-flex align-items-center gap-2 my-2">
         <hr class="flex-grow-1 m-0">
         <span class="text-muted small">或</span>

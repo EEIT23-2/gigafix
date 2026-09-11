@@ -48,6 +48,11 @@ public class RecycleApplication {
 	@Column(name="recycle_status" ,nullable = false)
 	@JsonProperty("recycle_status")
 	private RecycleStatus recycleStatus;     // 回收進度狀態碼 之後要改成Enum型別改狀態
+	// 保存會員在 Canvas 完成的 PNG data URL，作為本次估價同意的簽署紀錄。
+	@Column(name = "agreement_signature", columnDefinition = "nvarchar(max)")
+	private String agreementSignature;
+	@Column(name = "agreement_signed_time")
+	private LocalDateTime agreementSignedTime;
 	@Column(name ="created_time" ,nullable = false)
 	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss",timezone = "GMT+8")
 	private LocalDateTime createdTime; // 申請時間

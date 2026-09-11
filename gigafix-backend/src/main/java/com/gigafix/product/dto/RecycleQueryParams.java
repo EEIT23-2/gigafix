@@ -8,6 +8,8 @@ import lombok.Setter;
 @Setter
 @Getter
 public class RecycleQueryParams {
+    // 後台可用回收單主鍵精確篩選列表；未傳入時不套用此條件。
+    private Long applyId;
     //查詢條件  dao要實作模糊查詢品名
     private Long memberId;
     private String productName;
