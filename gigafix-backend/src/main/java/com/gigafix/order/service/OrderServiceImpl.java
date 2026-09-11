@@ -10,6 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.gigafix.cart.entity.CartItem;
 import com.gigafix.cart.repository.CartItemRepository;
+import com.gigafix.coupon.entity.Coupon;
+import com.gigafix.coupon.service.CouponService;
 import com.gigafix.member.entity.Member;
 import com.gigafix.member.repository.MemberRepository;
 import com.gigafix.order.constant.OrderStatus;
@@ -31,8 +33,6 @@ import com.gigafix.product.constant.ProductSaleStatus;
 import com.gigafix.product.entity.Product;
 import com.gigafix.product.repository.ProductDao;
 import com.gigafix.product.service.ProductService;
-import com.gigafix.coupon.entity.Coupon;
-import com.gigafix.coupon.service.CouponService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -858,6 +858,9 @@ public class OrderServiceImpl implements OrderService {
                                 .map(item -> OrderItemResponse.builder()
                                                 .productId(item.getProductId())
                                                 .productName(item.getProductName())
+                                                .imageUrl(productDao.findById(item.getProductId())
+                                                .map(Product::getImageUrl)
+                                                .orElse(null))
                                                 .unitPrice(item.getUnitPrice())
                                                 .build())
                                 .toList();
