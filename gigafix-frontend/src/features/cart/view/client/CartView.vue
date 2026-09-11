@@ -171,44 +171,165 @@ onMounted(async () => {
 </script>
 
 <template>
-    <div class="container py-5">
-        <h2 class="mb-4">我的購物車</h2>
+    <main class="container py-5 cart-page">
+        <!-- 頁面標題 -->
+        <header class="cart-page-header">
+            <div>
+                <h2 class="mb-1">
+                    購物車
+                </h2>
 
+                <p class="mb-0 text-muted">
+                    選擇要一起結帳的商品
+                </p>
+            </div>
+
+            <span v-if="!loading" class="cart-item-count">
+                購物車內共 {{ cartItems.length }} 件
+            </span>
+        </header>
+
+        <!-- 錯誤訊息 -->
         <div v-if="errorMessage" class="alert alert-danger">
             {{ errorMessage }}
         </div>
 
-        <div v-if="loading">
-            載入中...
+        <!-- 載入狀態 -->
+        <div v-if="loading" class="text-center py-5 text-muted">
+            <div class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></div>
+
+            載入購物車中...
         </div>
 
-        <div v-else-if="cartItems.length === 0" class="text-center py-5">
-            <p class="text-muted">購物車目前沒有商品</p>
+        <!-- 空購物車 -->
+        <div v-else-if="cartItems.length === 0" class="empty-cart">
+            <i class="bi bi-cart-x" aria-hidden="true"></i>
+
+            <p class="mb-0">
+                購物車目前沒有商品
+            </p>
         </div>
 
-        <div v-else>
+        <!-- 購物車內容 -->
+        <section v-else>
+            <!-- 商品欄位標頭 -->
+            <div class="cart-list-header">
+                <label for="selectAll" class="cart-header-product">
+                    <input id="selectAll" class="form-check-input" type="checkbox" :checked="allSelected" @change="
+                        handleSelectAll(
+                            $event.target.checked
+                        )
+                        ">
 
-            <!-- 全選 -->
-            <div class="d-flex align-items-center mb-3">
-                <input id="selectAll" class="form-check-input me-2" type="checkbox" :checked="allSelected"
-                    @change="handleSelectAll($event.target.checked)">
-
-                <label for="selectAll" class="form-check-label">
-                    全選
+                    <span>勾選要結帳的商品</span>
                 </label>
+
+                <span class="text-end">
+                    單價
+                </span>
+
+                <span class="text-center">
+                    操作
+                </span>
             </div>
 
             <!-- 購物車商品 -->
-            <CartItemCard v-for="item in cartItems" :key="item.cartItemId" :item="item"
-                :selected="selectedCartItemIds.includes(item.cartItemId)"
-                @update:selected="checked => handleSelect(item.cartItemId, checked)" @delete="handleDelete" />
+            <div class="cart-list">
+                <CartItemCard v-for="item in cartItems" :key="item.cartItemId" :item="item" :selected="selectedCartItemIds.includes(
+                    item.cartItemId
+                )
+                    " @update:selected="
+                        checked =>
+                            handleSelect(
+                                item.cartItemId,
+                                checked
+                            )
+                    " @delete="handleDelete" />
+            </div>
 
             <!-- 購物車摘要 -->
             <CartSummary :totalAmount="selectedTotalAmount" :itemCount="selectedItems.length" :clearing="clearing"
-                :checkoutDisabled="selectedItems.length === 0" :coupons="coupons"
-                :selectedCouponCode="selectedCouponCode" :couponDiscount="couponDiscount" :finalAmount="finalAmount"
-                @update:selectedCouponCode="selectedCouponCode = $event" @clear="handleClear"
-                @checkout="handleCheckout" />
-        </div>
-    </div>
+                :checkoutDisabled="selectedItems.length === 0
+                    " :coupons="coupons" :selectedCouponCode="selectedCouponCode" :couponDiscount="couponDiscount"
+                :finalAmount="finalAmount" @update:selectedCouponCode="
+                    selectedCouponCode = $event
+                    " @clear="handleClear" @checkout="handleCheckout" />
+        </section>
+    </main>
 </template>
+
+<style scoped>
+.cart-page {
+    max-width: 1200px;
+}
+
+.cart-page-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 22px;
+}
+
+.cart-item-count {
+    color: #6b7280;
+    white-space: nowrap;
+}
+
+.cart-list-header {
+    display: grid;
+    grid-template-columns:
+        minmax(360px, 1fr) 140px 80px;
+    align-items: center;
+    gap: 18px;
+    min-height: 48px;
+    margin-bottom: 12px;
+    padding: 10px 18px;
+    border: 1px solid #d8dde6;
+    border-radius: 8px;
+    color: #6b7280;
+    background: #f7f8fa;
+    font-size: 0.9rem;
+}
+
+.cart-header-product {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    cursor: pointer;
+}
+
+.cart-header-product .form-check-input {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    cursor: pointer;
+}
+
+.empty-cart {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    min-height: 260px;
+    color: #6b7280;
+    text-align: center;
+}
+
+.empty-cart i {
+    font-size: 2.5rem;
+}
+
+@media (max-width: 767.98px) {
+    .cart-page-header {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .cart-list-header {
+        display: none;
+    }
+}
+</style>
