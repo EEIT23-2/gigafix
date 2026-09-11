@@ -241,15 +241,16 @@ export const requestRecycleAgreementOtp = async (applyId) => {
 };
 
 /**
- * 提交 6 位 OTP 與 Canvas PNG 簽名；驗證成功後狀態才會更新為 WAITING_FOR_AGREEMENT。
+ * 前台登入會員提交自己的 6 位 OTP 與 Canvas PNG 簽名。
+ * 後端驗證回收單歸屬與簽署資料後，狀態才會更新為 WAITING_FOR_AGREEMENT。
  */
-export const confirmRecycleAgreement = async (
+export const confirmMemberRecycleAgreement = async (
   applyId,
   otp,
   signatureDataUrl,
 ) => {
   const response = await axios.post(
-    `${ADMIN_RECYCLE_APPLICATION_URL}/${applyId}/agreement`,
+    `${RECYCLE_APPLICATION_URL}/${applyId}/agreement`,
     { otp, signatureDataUrl },
   );
 

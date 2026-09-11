@@ -145,14 +145,20 @@ public class RecycleApplicationController {
         }
     }
 
-    // OTP 與 Canvas 簽名皆驗證成功後，才將回收單更新為 WAITING_FOR_AGREEMENT。
-    @PostMapping("/api/admin/recycle-applications/{applyId}/agreement")
+    // 前台會員提交 OTP 與 Canvas 簽名，並且只能簽署屬於自己的回收單。
+    @PostMapping("/api/gigafix/members/me/recycle-applications/{applyId}/agreement")
     public ResponseEntity<RecycleResponse> confirmAgreement(
+            Authentication authentication,
             @PathVariable Long applyId,
             @RequestBody @Valid RecycleAgreementRequest request
     ) {
         try {
-            RecycleResponse response = recycleApplicationService.confirmAgreement(applyId, request);
+            Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
+            RecycleResponse response = recycleApplicationService.confirmAgreement(
+                    memberId,
+                    applyId,
+                    request
+            );
             return response == null
                     ? ResponseEntity.notFound().build()
                     : ResponseEntity.ok(response);

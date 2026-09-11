@@ -252,8 +252,15 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
     }
 
     @Override
-    public RecycleResponse confirmAgreement(Long applyId, RecycleAgreementRequest request) {
-        RecycleApplication applyForm = recycleApplicationDao.findById(applyId).orElse(null);
+    public RecycleResponse confirmAgreement(
+            Long memberId,
+            Long applyId,
+            RecycleAgreementRequest request
+    ) {
+        // 必須同時符合回收單 ID 與登入會員 ID，前台不能簽署其他會員的回收單。
+        RecycleApplication applyForm = recycleApplicationDao
+                .findByApplyIdAndMember_Id(applyId, memberId)
+                .orElse(null);
         if (applyForm == null) {
             return null;
         }

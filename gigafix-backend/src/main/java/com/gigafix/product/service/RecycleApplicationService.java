@@ -43,8 +43,11 @@ public interface RecycleApplicationService {
     /** 產生 5 分鐘有效的 OTP 並寄到回收單所屬會員信箱。 */
     boolean sendAgreementOtp(Long applyId);
 
-    /** 驗證 OTP 與電子簽名，成功後將狀態更新為待簽署同意。 */
-    RecycleResponse confirmAgreement(Long applyId, RecycleAgreementRequest request);
+    /**
+     * 驗證登入會員自己的回收單 OTP 與電子簽名，成功後將狀態更新為待簽署同意。
+     * memberId 用來避免會員替其他人的回收單完成簽署。
+     */
+    RecycleResponse confirmAgreement(Long memberId, Long applyId, RecycleAgreementRequest request);
 
     //修改回收單
     void updateApplyForm(Long applyId,RecycleRequest recycleRequest);

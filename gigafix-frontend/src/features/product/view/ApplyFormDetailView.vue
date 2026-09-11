@@ -1,12 +1,11 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   deleteRecycleApplication,
   getRecycleApplication,
   markRecycleApplicationAsInspecting,
   requestRecycleAgreementOtp,
-  confirmRecycleAgreement,
   updateRecycleApplication,
 } from "../api";
 import { estimateRecyclePrice } from "../recyclePriceEstimator";
@@ -26,16 +25,9 @@ const selectedStatus = ref("");
 // 保存最近一次估價的辨識依據，讓管理者能確認系統使用了哪個型號與規格。
 const estimateError = ref("");
 const estimateResult = ref(null);
-const signatureCanvas = ref(null);
-const agreementOtp = ref("");
 const agreementRequested = ref(false);
 const requestingAgreementOtp = ref(false);
-const confirmingAgreement = ref(false);
-const agreementError = ref("");
-const hasSignature = ref(false);
 const showDeleteConfirm = ref(false);
-
-let drawingSignature = false;
 
 let successTimer = null;
 
@@ -213,19 +205,13 @@ async function requestAgreementOtp() {
 
   requestingAgreementOtp.value = true;
   statusError.value = "";
-  agreementError.value = "";
   closeSuccessMessage();
 
   try {
     await requestRecycleAgreementOtp(application.value.applyId);
     agreementRequested.value = true;
-    agreementOtp.value = "";
-    hasSignature.value = false;
-    successMessage.value = "6 位數驗證碼已寄到會員信箱，有效期限為 5 分鐘";
-
-    // Canvas 由 v-if 動態建立，需等 Vue 完成 DOM 更新後才能取得繪圖環境。
-    await nextTick();
-    initializeSignaturePad();
+    successMessage.value =
+      "6 位數驗證碼已寄到會員信箱，請會員在前台回收明細完成簽署";
   } catch (error) {
     console.error(error);
     statusError.value =
@@ -236,97 +222,6 @@ async function requestAgreementOtp() {
           : "驗證碼寄送失敗，請稍後再試。";
   } finally {
     requestingAgreementOtp.value = false;
-  }
-}
-
-function initializeSignaturePad() {
-  const canvas = signatureCanvas.value;
-  if (!canvas) return;
-
-  const context = canvas.getContext("2d");
-  context.clearRect(0, 0, canvas.width, canvas.height);
-  context.lineWidth = 3;
-  context.lineCap = "round";
-  context.lineJoin = "round";
-  context.strokeStyle = "#172b4d";
-}
-
-function signaturePoint(event) {
-  const canvas = signatureCanvas.value;
-  const rect = canvas.getBoundingClientRect();
-  return {
-    x: (event.clientX - rect.left) * (canvas.width / rect.width),
-    y: (event.clientY - rect.top) * (canvas.height / rect.height),
-  };
-}
-
-// Pointer Events 同時支援滑鼠、觸控筆與手機觸控，不需要維護三套事件。
-function startSignature(event) {
-  const canvas = signatureCanvas.value;
-  const context = canvas.getContext("2d");
-  const point = signaturePoint(event);
-
-  drawingSignature = true;
-  canvas.setPointerCapture(event.pointerId);
-  context.beginPath();
-  context.moveTo(point.x, point.y);
-}
-
-function drawSignature(event) {
-  if (!drawingSignature) return;
-
-  const context = signatureCanvas.value.getContext("2d");
-  const point = signaturePoint(event);
-  context.lineTo(point.x, point.y);
-  context.stroke();
-  hasSignature.value = true;
-}
-
-function stopSignature() {
-  drawingSignature = false;
-}
-
-function clearSignature() {
-  initializeSignaturePad();
-  hasSignature.value = false;
-  agreementError.value = "";
-}
-
-async function confirmAgreement() {
-  if (!/^\d{6}$/.test(agreementOtp.value)) {
-    agreementError.value = "請輸入信件中的 6 位數驗證碼。";
-    return;
-  }
-  if (!hasSignature.value) {
-    agreementError.value = "請先在簽名板完成電子簽名。";
-    return;
-  }
-
-  confirmingAgreement.value = true;
-  agreementError.value = "";
-  closeSuccessMessage();
-
-  try {
-    // Canvas 以 PNG data URL 傳給後端驗證；OTP 驗證成功後才會更新狀態。
-    const signatureDataUrl = signatureCanvas.value.toDataURL("image/png");
-    application.value = await confirmRecycleAgreement(
-      application.value.applyId,
-      agreementOtp.value,
-      signatureDataUrl,
-    );
-    selectedStatus.value = application.value.recycleStatus;
-    agreementRequested.value = false;
-    successMessage.value = "OTP 與電子簽名驗證成功，狀態已更新為待簽署同意";
-  } catch (error) {
-    console.error(error);
-    agreementError.value =
-      error.response?.status === 400
-        ? "驗證碼錯誤或已逾期，請確認後重試；連續錯誤 5 次需重新寄送。"
-        : error.response?.status === 409
-          ? "目前回收單狀態已變更，請重新載入。"
-          : "同意確認失敗，請稍後再試。";
-  } finally {
-    confirmingAgreement.value = false;
   }
 }
 
@@ -675,85 +570,6 @@ onBeforeUnmount(() => {
           <div v-if="statusError" class="alert alert-danger mt-3 mb-0">
             {{ statusError }}
           </div>
-
-          <!-- OTP 寄送成功後才顯示同意區，避免在尚未產生驗證碼時提交簽名。 -->
-          <section
-            v-if="agreementRequested"
-            class="agreement-panel mt-4 pt-4 border-top"
-            aria-labelledby="agreement-title"
-          >
-            <h3 id="agreement-title" class="fs-5 fw-bold mb-2">
-              客戶估價同意確認
-            </h3>
-            <p class="text-secondary mb-3">
-              請客戶輸入 Email 中的 6 位數驗證碼，並在下方完成電子簽名。
-            </p>
-
-            <div class="row g-3">
-              <div class="col-lg-4">
-                <label for="agreement-otp" class="form-label fw-semibold">
-                  6 位數驗證碼
-                </label>
-                <input
-                  id="agreement-otp"
-                  v-model.trim="agreementOtp"
-                  type="text"
-                  inputmode="numeric"
-                  maxlength="6"
-                  autocomplete="one-time-code"
-                  class="form-control form-control-lg otp-input"
-                  placeholder="000000"
-                  :disabled="confirmingAgreement"
-                />
-                <div class="form-text">驗證碼寄出後 5 分鐘失效。</div>
-              </div>
-
-              <div class="col-lg-8">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                  <label class="form-label fw-semibold mb-0">電子簽名</label>
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline-secondary"
-                    :disabled="confirmingAgreement"
-                    @click="clearSignature"
-                  >
-                    清除簽名
-                  </button>
-                </div>
-                <canvas
-                  ref="signatureCanvas"
-                  class="signature-canvas"
-                  width="720"
-                  height="220"
-                  aria-label="電子簽名板"
-                  @pointerdown.prevent="startSignature"
-                  @pointermove.prevent="drawSignature"
-                  @pointerup="stopSignature"
-                  @pointercancel="stopSignature"
-                  @pointerleave="stopSignature"
-                ></canvas>
-              </div>
-            </div>
-
-            <div v-if="agreementError" class="alert alert-danger mt-3 mb-0">
-              {{ agreementError }}
-            </div>
-
-            <div class="d-flex justify-content-end mt-3">
-              <button
-                type="button"
-                class="btn btn-primary"
-                :disabled="confirmingAgreement"
-                @click="confirmAgreement"
-              >
-                <span
-                  v-if="confirmingAgreement"
-                  class="spinner-border spinner-border-sm me-1"
-                ></span>
-                {{ confirmingAgreement ? "驗證中..." : "驗證並完成簽署" }}
-              </button>
-            </div>
-          </section>
         </div>
       </section>
     </div>
@@ -895,33 +711,6 @@ main {
 
 .status-controls .form-select {
   min-width: 220px;
-}
-
-.agreement-panel {
-  color: #212529;
-}
-
-.otp-input {
-  max-width: 220px;
-  font-weight: 700;
-  letter-spacing: 0.35em;
-  text-align: center;
-}
-
-.signature-canvas {
-  display: block;
-  width: 100%;
-  height: 220px;
-  border: 2px dashed #9aa8b6;
-  border-radius: 0.5rem;
-  background: #fff;
-  cursor: crosshair;
-  touch-action: none;
-}
-
-.signature-canvas:focus-visible {
-  outline: 3px solid rgb(13 110 253 / 25%);
-  outline-offset: 2px;
 }
 
 .delete-alert-backdrop {
