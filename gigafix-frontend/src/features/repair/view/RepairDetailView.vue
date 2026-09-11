@@ -734,7 +734,7 @@ onMounted(() => {
               <input
                 v-model.number="completeForm.finalCost"
                 type="number"
-                class="form-control"
+                class="form-control no-spinner"
               />
             </div>
             <div class="col-12">
