@@ -1,6 +1,7 @@
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import { Modal } from "bootstrap";
 import {
   closeRepair,
   completeRepair,
@@ -12,6 +13,13 @@ import {
   updateInspectionResult,
   updateQuote,
 } from "../api";
+import {
+  SERIES_LIST,
+  REPAIR_ITEMS,
+  getModelsForSeries,
+  getItemPrice,
+  formatPrice,
+} from "../priceTable";
 
 const props = defineProps({
   repairId: { type: [String, Number], required: true },
@@ -83,45 +91,189 @@ function formatDateTime(value) {
 // 取件方式/付款方式/付款狀態：只有走到「尚未取件」或「已結案」才有實際值可看
 const HAS_PICKUP_INFO = ["AWAITING_PICKUP", "CLOSED"];
 
-// ===== 檢測報價區：手機序號／維修項目／估價金額（待估價+已認領時可編輯） =====
+// ===== 檢測報價區：手機序號／報價項目購物車／估價金額（待估價+已認領時可編輯） =====
 const quoteForm = ref({
   serialNumber: "",
-  repairItems: "",
-  estimatedCost: null,
   inspectionResult: "",
+});
+
+// 報價項目改成購物車：每一列是{id, label, price}，可能是從下面的參考小工具選的標準項目，
+// 也可能是技師自己手動輸入的自訂項目(金額可以打負數，代表折扣/優惠)
+const quoteItems = ref([]);
+let quoteItemSeq = 0; // 給每一列一個遞增id當:key用，不需要真的全域唯一
+
+// 這張單之前如果已經存過報價，購物車一律從空的開始(不解析舊字串)，這裡只存來顯示參考用
+const previousQuote = ref({ repairItems: "", estimatedCost: null });
+
+// 送出報價按下去，手機序號沒填、或購物車一個項目都沒有，就要標示錯誤
+const quoteFieldErrors = ref({
+  serialNumber: false,
+  quoteItems: false,
 });
 
 function loadQuoteForm(r) {
   quoteForm.value = {
     serialNumber: r.serialNumber ?? "",
-    repairItems: r.repairItems ?? "",
-    estimatedCost: r.estimatedCost ?? null,
     inspectionResult: r.inspectionResult ?? "",
   };
+  quoteItems.value = [];
+  previousQuote.value = {
+    repairItems: r.repairItems ?? "",
+    estimatedCost: r.estimatedCost ?? null,
+  };
+  quoteFieldErrors.value = { serialNumber: false, quoteItems: false };
 }
 
-// 送出報價：先存最新輸入內容，再正式送出，兩步合成一個按鈕
-async function handleSubmitQuote() {
-  if (
-    !quoteForm.value.serialNumber ||
-    !quoteForm.value.repairItems ||
-    quoteForm.value.estimatedCost === null ||
-    quoteForm.value.estimatedCost === ""
-  ) {
-    alert("手機序號、維修項目、估價金額都要填寫完才能送出報價");
+// 手機序號補填之後，即時把紅框拿掉，不用等下一次按送出才清除
+watch(
+  () => quoteForm.value.serialNumber,
+  (value) => {
+    if (quoteFieldErrors.value.serialNumber && value) {
+      quoteFieldErrors.value.serialNumber = false;
+    }
+  },
+);
+// 購物車只要有項目了，就把「至少要有一個項目」的錯誤拿掉
+watch(
+  () => quoteItems.value.length,
+  (length) => {
+    if (quoteFieldErrors.value.quoteItems && length > 0) {
+      quoteFieldErrors.value.quoteItems = false;
+    }
+  },
+);
+
+// ===== 報價參考小工具：選系列/機型，下拉選項目直接加進購物車(不會清掉購物車裡原本的項目) =====
+const pickerSeries = ref(SERIES_LIST[0].id);
+const pickerModelIndex = ref(0);
+const pickerItemKey = ref(""); // 選完就加入購物車、重置成空字串，可以連續加選
+
+const pickerModels = computed(() => getModelsForSeries(pickerSeries.value));
+
+// 換系列時，原本選的機型index可能超出新系列的機型數量，重置成第一個機型避免對不到價格
+watch(pickerSeries, () => {
+  pickerModelIndex.value = 0;
+});
+
+// 下拉選單只列「這個機型查得到價格、購物車裡還沒加過」的項目：
+// 已經在購物車的不會重複出現，尚未開放報價(詢價)的項目也不會出現，避免加進去金額變成空的
+const pickerAvailableItems = computed(() => {
+  const addedKeys = new Set(
+    quoteItems.value.filter((i) => i.itemKey).map((i) => i.itemKey),
+  );
+  return REPAIR_ITEMS.filter((item) => {
+    if (addedKeys.has(item.key)) return false;
+    return getItemPrice(pickerSeries.value, pickerModelIndex.value, item.key) != null;
+  });
+});
+
+function addPickerItem() {
+  if (!pickerItemKey.value) return;
+  const item = REPAIR_ITEMS.find((i) => i.key === pickerItemKey.value);
+  const price = getItemPrice(pickerSeries.value, pickerModelIndex.value, pickerItemKey.value);
+  quoteItems.value.push({
+    id: ++quoteItemSeq,
+    label: item.label,
+    type: "amount",
+    price,
+    itemKey: item.key,
+  });
+  pickerItemKey.value = "";
+}
+
+// ===== 購物車最下面：技師自己手動新增項目(不在13個標準項目裡的，或是折扣/優惠列) =====
+// 類型「金額」：直接加(打負數就是扣錢)；類型「折扣」：把這一列以上已經加總的金額乘上折數(例如打8折輸入8)
+const customItemLabel = ref("");
+const customItemType = ref("amount"); // "amount" | "percent"
+const customItemPrice = ref("");
+
+function addCustomItem() {
+  const label = customItemLabel.value.trim();
+  if (!label) return;
+  if (customItemType.value === "percent") {
+    const percent = customItemPrice.value === "" ? 10 : Number(customItemPrice.value);
+    quoteItems.value.push({ id: ++quoteItemSeq, label, type: "percent", percent, itemKey: null });
+  } else {
+    const price = customItemPrice.value === "" ? 0 : Number(customItemPrice.value);
+    quoteItems.value.push({ id: ++quoteItemSeq, label, type: "amount", price, itemKey: null });
+  }
+  customItemLabel.value = "";
+  customItemType.value = "amount";
+  customItemPrice.value = "";
+}
+
+function removeQuoteItem(id) {
+  quoteItems.value = quoteItems.value.filter((i) => i.id !== id);
+}
+
+// 目前加總：由上到下依序計算，「金額」列直接加(可打負數扣錢)，「折扣」列把目前為止的加總乘上折數，
+// 所以折扣列要套用在全部品項上的話，記得放在購物車最後一列
+const cartTotal = computed(() => {
+  let total = 0;
+  for (const item of quoteItems.value) {
+    if (item.type === "percent") {
+      total = total * (item.percent / 10);
+    } else {
+      total += Number(item.price) || 0;
+    }
+  }
+  return total;
+});
+
+// 組成要送給後端的報價項目文字，跟畫面上購物車顯示的內容一致
+const repairItemsText = computed(() =>
+  quoteItems.value
+    .map((i) => (i.type === "percent" ? `${i.label}(×${i.percent}折)` : `${i.label}(${formatPrice(i.price)})`))
+    .join("、"),
+);
+
+// ===== 送出報價前的確認彈窗：唯讀顯示目前內容，技師再看一次確認沒填錯 =====
+const quoteConfirmModalRef = ref(null);
+let quoteConfirmModalInstance = null;
+
+// 按「送出報價」先檢查必填欄位，沒填的欄位標紅框，通過才打開確認彈窗
+function openQuoteConfirmModal() {
+  quoteFieldErrors.value = {
+    serialNumber: !quoteForm.value.serialNumber,
+    quoteItems: quoteItems.value.length === 0,
+  };
+  if (Object.values(quoteFieldErrors.value).some(Boolean)) {
+    alert("需填寫完整才能送出報價");
     return;
   }
-  if (!window.confirm("確定要送出嗎？送出即無法修改報價")) return;
+  quoteConfirmModalInstance.show();
+}
+
+// 確認彈窗裡按「送出報價」才是真的送出，送出即無法修改
+async function confirmSubmitQuote() {
+  quoteConfirmModalInstance.hide();
   await runAction(async () => {
     await updateQuote(repair.value.id, {
       technicianId: repair.value.technicianId,
       serialNumber: quoteForm.value.serialNumber,
-      repairItems: quoteForm.value.repairItems,
-      estimatedCost: quoteForm.value.estimatedCost,
+      repairItems: repairItemsText.value,
+      estimatedCost: cartTotal.value,
       inspectionResult: quoteForm.value.inspectionResult || null,
     });
     await submitQuote(repair.value.id, repair.value.technicianId);
   });
+}
+
+// 「儲存」：先把目前填的內容存起來，不用全部欄位都填好，方便技師分次填寫、避免資料遺失。
+// 購物車是空的話，報價項目/估價金額傳null(後端會跳過不覆蓋)，不然會把之前存的報價洗成空的
+async function handleSaveQuoteDraft() {
+  await runAction(() =>
+    updateQuote(repair.value.id, {
+      technicianId: repair.value.technicianId,
+      serialNumber: quoteForm.value.serialNumber,
+      repairItems: quoteItems.value.length > 0 ? repairItemsText.value : null,
+      estimatedCost: quoteItems.value.length > 0 ? cartTotal.value : null,
+      inspectionResult: quoteForm.value.inspectionResult,
+    }),
+  );
+  if (!errorMessage.value) {
+    alert("儲存成功");
+  }
 }
 
 // ===== 未送檢（僅限待估價、已認領時，按鈕放在最上方狀態旁邊） =====
@@ -258,7 +410,10 @@ async function fetchRepair() {
   }
 }
 
-onMounted(() => fetchRepair());
+onMounted(() => {
+  quoteConfirmModalInstance = new Modal(quoteConfirmModalRef.value);
+  fetchRepair();
+});
 </script>
 
 <template>
@@ -306,6 +461,12 @@ onMounted(() => fetchRepair());
           <div class="col-12">
             <span class="text-secondary">客戶：</span
             >{{ repair.memberName }}（id:{{ repair.memberId }}）
+          </div>
+          <div class="col-md-6">
+            <span class="text-secondary">聯絡姓名：</span>{{ repair.contactName }}
+          </div>
+          <div class="col-md-6">
+            <span class="text-secondary">聯絡電話：</span>{{ repair.contactPhone }}
           </div>
           <div class="col-md-6">
             <span class="text-secondary">品牌：</span>{{ repair.repairBrand }}
@@ -356,6 +517,7 @@ onMounted(() => fetchRepair());
               v-model="quoteForm.serialNumber"
               type="text"
               class="form-control"
+              :class="{ 'is-invalid': quoteFieldErrors.serialNumber }"
               style="
                 display: inline-block;
                 width: 140px;
@@ -374,7 +536,40 @@ onMounted(() => fetchRepair());
             >{{ label(APPROVAL_LABELS, repair.approvalStatus) }}
           </div>
 
-          <!-- 維修項目 -->
+          <!-- 報價參考小工具：選系列/機型，下拉選項目直接加進下面的購物車 -->
+          <div
+            class="col-12"
+            v-if="
+              repair.repairStatus === 'PENDING_QUOTE' && repair.technicianId
+            "
+          >
+            <label class="form-label text-secondary">報價參考小工具：</label>
+            <div class="d-flex flex-wrap gap-2">
+              <select v-model="pickerSeries" class="form-select" style="max-width: 160px">
+                <option v-for="s in SERIES_LIST" :key="s.id" :value="s.id">
+                  {{ s.label }}
+                </option>
+              </select>
+              <select v-model.number="pickerModelIndex" class="form-select" style="max-width: 160px">
+                <option v-for="(model, index) in pickerModels" :key="model" :value="index">
+                  {{ model }}
+                </option>
+              </select>
+              <select
+                v-model="pickerItemKey"
+                class="form-select"
+                style="max-width: 260px"
+                @change="addPickerItem"
+              >
+                <option value="">選擇項目，加入下方報價項目</option>
+                <option v-for="item in pickerAvailableItems" :key="item.key" :value="item.key">
+                  {{ item.label }}({{ formatPrice(getItemPrice(pickerSeries, pickerModelIndex, item.key)) }})
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 報價項目：購物車形式，選小工具的項目或自己新增都會往下加一列，可以個別刪除 -->
           <div
             class="col-12"
             v-if="
@@ -382,32 +577,76 @@ onMounted(() => fetchRepair());
             "
           >
             <label class="form-label text-secondary">報價項目：</label>
-            <textarea
-              v-model="quoteForm.repairItems"
-              class="form-control"
-              rows="2"
-            ></textarea>
+            <p v-if="previousQuote.repairItems" class="text-muted small mb-2">
+              先前紀錄(僅供參考，購物車不會自動帶入)：{{ previousQuote.repairItems }}（{{
+                previousQuote.estimatedCost ?? "—"
+              }}元）
+            </p>
+            <div class="quote-cart">
+              <div v-for="item in quoteItems" :key="item.id" class="quote-cart-row">
+                <span class="quote-cart-label">{{ item.label }}</span>
+                <span class="quote-cart-price">
+                  {{ item.type === "percent" ? `× ${item.percent}折` : formatPrice(item.price) }}
+                </span>
+                <button
+                  type="button"
+                  class="btn-close"
+                  aria-label="移除"
+                  @click="removeQuoteItem(item.id)"
+                ></button>
+              </div>
+              <p v-if="quoteItems.length === 0" class="text-muted small mb-0 py-1">
+                還沒有任何報價項目，可以從上面小工具選，或在下面自己新增
+              </p>
+              <div class="quote-cart-row quote-cart-new">
+                <input
+                  v-model="customItemLabel"
+                  type="text"
+                  class="form-control form-control-sm"
+                  placeholder="自訂項目名稱"
+                  @keyup.enter="addCustomItem"
+                />
+                <select v-model="customItemType" class="form-select form-select-sm" style="max-width: 90px">
+                  <option value="amount">金額</option>
+                  <option value="percent">折扣</option>
+                </select>
+                <input
+                  v-model="customItemPrice"
+                  type="number"
+                  class="form-control form-control-sm no-spinner"
+                  :placeholder="customItemType === 'percent' ? '折數(例如8=8折)' : '金額(折扣可打負數)'"
+                  @keyup.enter="addCustomItem"
+                />
+                <button
+                  type="button"
+                  class="btn btn-outline-primary btn-sm"
+                  :disabled="!customItemLabel.trim()"
+                  @click="addCustomItem"
+                >
+                  ＋
+                </button>
+              </div>
+            </div>
+            <p v-if="quoteFieldErrors.quoteItems" class="text-danger small mb-0 mt-1">
+              請至少新增一個報價項目
+            </p>
+            <hr class="my-2" />
+            <div class="text-end fw-bold">
+              估價金額(＝目前加總)：{{ formatPrice(cartTotal) }}
+            </div>
           </div>
           <div class="col-12" v-else>
             <span class="text-secondary">報價項目：</span
             >{{ repair.repairItems ?? "—" }}
           </div>
 
-          <!-- 估價金額 -->
+          <!-- 估價金額：非編輯狀態時顯示，編輯狀態的估價金額已經併入上面購物車底部的「目前加總」 -->
           <div
             class="col-md-4"
             v-if="
-              repair.repairStatus === 'PENDING_QUOTE' && repair.technicianId
+              !(repair.repairStatus === 'PENDING_QUOTE' && repair.technicianId)
             "
           >
-            <label class="form-label text-secondary">估價金額：</label>
-            <input
-              v-model.number="quoteForm.estimatedCost"
-              type="number"
-              class="form-control"
-            />
-          </div>
-          <div class="col-md-4" v-else>
             <span class="text-secondary">估價金額：</span
             >{{ repair.estimatedCost ?? "—" }}元
           </div>
@@ -459,9 +698,16 @@ onMounted(() => fetchRepair());
             "
           >
             <button
+              class="btn btn-outline-secondary me-2"
+              :disabled="loading"
+              @click="handleSaveQuoteDraft"
+            >
+              儲存
+            </button>
+            <button
               class="btn btn-primary"
               :disabled="loading"
-              @click="handleSubmitQuote"
+              @click="openQuoteConfirmModal"
             >
               送出報價
             </button>
@@ -616,7 +862,93 @@ onMounted(() => fetchRepair());
         }}
       </div>
     </template>
+
+    <!-- 送出報價前的確認彈窗：唯讀顯示目前檢測/報價內容，技師確認無誤才真的送出
+         (放在v-else-if區塊外面，確保onMounted初始化Modal實例時這個元素已經在畫面上) -->
+    <div class="modal fade" ref="quoteConfirmModalRef" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+          <div class="modal-header border-0 pb-0">
+            <h5 class="modal-title">確認報價內容</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <p class="text-secondary mb-3">
+              送出後客戶就會看到這份報價，請再確認一次內容是否正確。
+            </p>
+            <div class="mb-2">
+              <span class="text-secondary">手機序號：</span>{{ quoteForm.serialNumber || "—" }}
+            </div>
+            <div class="mb-2">
+              <span class="text-secondary">報價項目：</span>{{ repairItemsText || "—" }}
+            </div>
+            <div class="mb-2">
+              <span class="text-secondary">估價金額：</span>{{ formatPrice(cartTotal) }}
+            </div>
+            <div class="mb-2">
+              <span class="text-secondary">檢測結果：</span>{{ quoteForm.inspectionResult || "—" }}
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+              編輯
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              :disabled="loading"
+              @click="confirmSubmitQuote"
+            >
+              送出報價
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </main>
 </template>
 
-<style scoped></style>
+<style scoped>
+/* 估價金額欄位很容易不小心點到數字輸入框旁邊的上下箭頭改到數值，這裡把箭頭藏起來，看起來就是普通文字框 */
+.no-spinner::-webkit-outer-spin-button,
+.no-spinner::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.no-spinner {
+  -moz-appearance: textfield;
+}
+
+/* 報價項目購物車：一列一個項目，左邊項目名、右邊價格、最右邊x移除鈕 */
+.quote-cart {
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 4px 12px;
+}
+
+.quote-cart-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.quote-cart-row:last-child {
+  border-bottom: none;
+}
+
+.quote-cart-label {
+  flex: 1;
+}
+
+.quote-cart-price {
+  white-space: nowrap;
+  color: #444;
+}
+
+.quote-cart-new .form-control {
+  max-width: 220px;
+}
+</style>
