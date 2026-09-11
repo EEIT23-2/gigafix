@@ -232,6 +232,31 @@ export const markRecycleApplicationAsInspecting = async (applyId) => {
 };
 
 /**
+ * 寄送回收估價同意 OTP 到會員信箱。後端將驗證碼保存在 5 分鐘 Caffeine 快取中。
+ */
+export const requestRecycleAgreementOtp = async (applyId) => {
+  await axios.post(
+    `${ADMIN_RECYCLE_APPLICATION_URL}/${applyId}/agreement-otp`,
+  );
+};
+
+/**
+ * 提交 6 位 OTP 與 Canvas PNG 簽名；驗證成功後狀態才會更新為 WAITING_FOR_AGREEMENT。
+ */
+export const confirmRecycleAgreement = async (
+  applyId,
+  otp,
+  signatureDataUrl,
+) => {
+  const response = await axios.post(
+    `${ADMIN_RECYCLE_APPLICATION_URL}/${applyId}/agreement`,
+    { otp, signatureDataUrl },
+  );
+
+  return response.data;
+};
+
+/**
  * 後台修改回收申請
  *
  * PUT /api/admin/recycle-applications/{applyId}

@@ -2,6 +2,7 @@ package com.gigafix.product.controller;
 
 
 import com.gigafix.product.dto.ProductRequest;
+import com.gigafix.product.dto.RecycleAgreementRequest;
 import com.gigafix.product.dto.RecycleQueryParams;
 import com.gigafix.product.dto.RecycleRequest;
 import com.gigafix.product.dto.RecycleResponse;
@@ -127,6 +128,37 @@ public class RecycleApplicationController {
             return ResponseEntity.ok(response);
         } catch (IllegalStateException exception) {
             // 回收單若已取消或進入後續階段，以 409 表示與目前狀態衝突。
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
+    }
+
+    // 後台完成估價後觸發 OTP；驗證碼會寄到該回收單會員的信箱並保存 5 分鐘。
+    @PostMapping("/api/admin/recycle-applications/{applyId}/agreement-otp")
+    public ResponseEntity<Void> sendAgreementOtp(@PathVariable Long applyId) {
+        try {
+            boolean sent = recycleApplicationService.sendAgreementOtp(applyId);
+            return sent
+                    ? ResponseEntity.noContent().build()
+                    : ResponseEntity.notFound().build();
+        } catch (IllegalStateException exception) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
+    }
+
+    // OTP 與 Canvas 簽名皆驗證成功後，才將回收單更新為 WAITING_FOR_AGREEMENT。
+    @PostMapping("/api/admin/recycle-applications/{applyId}/agreement")
+    public ResponseEntity<RecycleResponse> confirmAgreement(
+            @PathVariable Long applyId,
+            @RequestBody @Valid RecycleAgreementRequest request
+    ) {
+        try {
+            RecycleResponse response = recycleApplicationService.confirmAgreement(applyId, request);
+            return response == null
+                    ? ResponseEntity.notFound().build()
+                    : ResponseEntity.ok(response);
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest().build();
+        } catch (IllegalStateException exception) {
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
         }
     }

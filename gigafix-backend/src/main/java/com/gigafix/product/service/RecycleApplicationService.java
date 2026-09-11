@@ -2,6 +2,7 @@ package com.gigafix.product.service;
 
 
 import com.gigafix.product.dto.RecycleQueryParams;
+import com.gigafix.product.dto.RecycleAgreementRequest;
 import com.gigafix.product.dto.RecycleRequest;
 import com.gigafix.product.dto.RecycleResponse;
 import com.gigafix.product.entity.RecycleApplication;
@@ -38,6 +39,12 @@ public interface RecycleApplicationService {
      * 找不到資料時回傳 null，狀態不允許轉換時拋出 IllegalStateException。
      */
     RecycleResponse markAsInspecting(Long applyId);
+
+    /** 產生 5 分鐘有效的 OTP 並寄到回收單所屬會員信箱。 */
+    boolean sendAgreementOtp(Long applyId);
+
+    /** 驗證 OTP 與電子簽名，成功後將狀態更新為待簽署同意。 */
+    RecycleResponse confirmAgreement(Long applyId, RecycleAgreementRequest request);
 
     //修改回收單
     void updateApplyForm(Long applyId,RecycleRequest recycleRequest);

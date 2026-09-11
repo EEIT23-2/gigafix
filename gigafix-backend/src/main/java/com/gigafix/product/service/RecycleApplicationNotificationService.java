@@ -34,6 +34,22 @@ public class RecycleApplicationNotificationService {
         mailSender.send(message);
     }
 
+    /** 將一次性驗證碼寄給回收單所屬會員；OTP 本身不會寫入資料庫或 log。 */
+    public void sendAgreementOtp(RecycleApplication application, String otp) {
+        MimeMessage message = mailSender.createMimeMessage();
+
+        try {
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+            helper.setTo(application.getMember().getEmail());
+            helper.setSubject("【Gigafix】回收估價同意驗證碼");
+            helper.setText(buildAgreementOtpContent(application, otp), true);
+        } catch (MessagingException exception) {
+            throw new IllegalStateException("無法建立回收估價同意通知", exception);
+        }
+
+        mailSender.send(message);
+    }
+
     private String buildApplicationSuccessContent(RecycleApplication application) {
         Member member = application.getMember();
         // 會員輸入會放入 HTML 信件，因此先跳脫，避免內容被當成 HTML 執行。
@@ -70,5 +86,35 @@ public class RecycleApplicationNotificationService {
                 productName,
                 appearance,
                 storeName);
+    }
+
+    private String buildAgreementOtpContent(RecycleApplication application, String otp) {
+        String memberName = HtmlUtils.htmlEscape(application.getMember().getRealName());
+        String productName = HtmlUtils.htmlEscape(application.getProductName());
+        String estimatedPrice = application.getEstimatedPrice() == null
+                ? "尚未估價"
+                : "NT$ " + String.format("%,d", application.getEstimatedPrice());
+
+        return """
+                <div style="max-width:560px;margin:0 auto;font-family:'Microsoft JhengHei',Arial,sans-serif;border:1px solid #eaeaea;border-radius:12px;overflow:hidden;">
+                    <div style="background-color:#1e3557;padding:24px 32px;color:#ffffff;font-size:22px;font-weight:700;">
+                        Gigafix 回收服務
+                    </div>
+                    <div style="padding:32px;background-color:#ffffff;color:#333333;">
+                        <h2 style="color:#1d324b;margin-top:0;">回收估價同意驗證</h2>
+                        <p>%s 您好，回收單 #%s（%s）的參考估價為 <strong>%s</strong>。</p>
+                        <p>請在 5 分鐘內輸入以下驗證碼，並完成電子簽名：</p>
+                        <div style="margin:24px 0;padding:16px;text-align:center;border:1px dashed #2b77c5;border-radius:10px;background:#eef4fb;color:#2b77c5;font-size:32px;font-weight:800;letter-spacing:8px;">
+                            %s
+                        </div>
+                        <p style="color:#888888;font-size:13px;">若您沒有進行此回收估價確認，請忽略本信件。</p>
+                    </div>
+                </div>
+                """.formatted(
+                memberName,
+                application.getApplyId(),
+                productName,
+                estimatedPrice,
+                otp);
     }
 }
