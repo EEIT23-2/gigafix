@@ -169,6 +169,36 @@ public class RecycleApplicationController {
         }
     }
 
+    // 前台會員主動取消自己的回收單；後端會核對回收單歸屬與目前狀態。
+    @PatchMapping("/api/gigafix/members/me/recycle-applications/{applyId}/status/cancelled")
+    public ResponseEntity<RecycleResponse> cancelMyRecycle(
+            Authentication authentication,
+            @PathVariable Long applyId
+    ) {
+        try {
+            Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
+            RecycleResponse response = recycleApplicationService.cancelMemberRecycle(memberId, applyId);
+            return response == null
+                    ? ResponseEntity.notFound().build()
+                    : ResponseEntity.ok(response);
+        } catch (IllegalStateException exception) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
+    }
+
+    // 後台管理員取消尚未進入資料清除階段的回收單。
+    @PatchMapping("/api/admin/recycle-applications/{applyId}/status/cancelled")
+    public ResponseEntity<RecycleResponse> cancelRecycle(@PathVariable Long applyId) {
+        try {
+            RecycleResponse response = recycleApplicationService.cancelRecycle(applyId);
+            return response == null
+                    ? ResponseEntity.notFound().build()
+                    : ResponseEntity.ok(response);
+        } catch (IllegalStateException exception) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
+    }
+
     // 工程師確認資料清除完成後結案，同時新增一筆可販售的商品庫存並通知會員。
     @PatchMapping("/api/admin/recycle-applications/{applyId}/status/completed")
     public ResponseEntity<RecycleResponse> completeRecycle(@PathVariable Long applyId) {
@@ -203,15 +233,27 @@ public class RecycleApplicationController {
     //刪除一筆回收單
     @DeleteMapping("/api/admin/recycle-applications/{applyId}")
     public ResponseEntity<Void> deleteApplyForm(@PathVariable Long applyId){
-        recycleApplicationService.deleteApplyFormById(applyId);
-        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+        try {
+            boolean deleted = recycleApplicationService.deleteApplyFormById(applyId);
+            return deleted
+                    ? ResponseEntity.noContent().build()
+                    : ResponseEntity.notFound().build();
+        } catch (IllegalStateException exception) {
+            // 管理員必須先將回收單取消，才可以永久刪除該筆資料。
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
     }
 
     //刪除所有回收單
     @DeleteMapping("/api/admin/recycle-applications")
     public ResponseEntity<Void> deleteAllApplyForms(){//因不回傳任何Product物件 以Void泛型解偶
-        recycleApplicationService.deleteAllApplyForms();
-        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+        try {
+            recycleApplicationService.deleteAllApplyForms();
+            return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+        } catch (IllegalStateException exception) {
+            // 只要仍有任一筆未取消的回收單，就不允許使用全部刪除繞過狀態限制。
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
 
     }
 

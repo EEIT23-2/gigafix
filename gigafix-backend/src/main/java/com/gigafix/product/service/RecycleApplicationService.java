@@ -52,10 +52,16 @@ public interface RecycleApplicationService {
     /** 完成資料清除後結案，並將回收裝置新增為一筆可販售商品。 */
     RecycleResponse completeRecycle(Long applyId);
 
+    /** 後台取消尚未進入資料清除階段的回收單。 */
+    RecycleResponse cancelRecycle(Long applyId);
+
+    /** 會員取消屬於自己的、尚未進入資料清除階段的回收單。 */
+    RecycleResponse cancelMemberRecycle(Long memberId, Long applyId);
+
     //修改回收單
     void updateApplyForm(Long applyId,RecycleRequest recycleRequest);
     //刪除單筆回收單
-    void deleteApplyFormById(Long applyId);
+    boolean deleteApplyFormById(Long applyId);
 
     //刪除所有回收單
     void deleteAllApplyForms();

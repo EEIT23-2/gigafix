@@ -39,8 +39,17 @@ public interface RecycleApplicationDao extends JpaRepository<RecycleApplication,
             Long memberId
     );
 
-    // 結案時鎖定單筆回收單，避免管理員重複點擊而新增兩筆相同庫存商品。
+    // 改狀態或刪除前鎖定單筆回收單，避免同時操作造成狀態或庫存重複異動。
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT r FROM RecycleApplication r WHERE r.applyId = :applyId")
-    Optional<RecycleApplication> findByIdForCompletion(@Param("applyId") Long applyId);
+    Optional<RecycleApplication> findByIdForUpdate(@Param("applyId") Long applyId);
+
+    // 會員取消時同時檢查回收單歸屬，並鎖定資料避免與後台狀態更新互相覆蓋。
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM RecycleApplication r " +
+            "WHERE r.applyId = :applyId AND r.member.id = :memberId")
+    Optional<RecycleApplication> findMemberApplicationForUpdate(
+            @Param("applyId") Long applyId,
+            @Param("memberId") Long memberId
+    );
 }

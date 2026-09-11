@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import {
+  cancelMemberRecycleApplication,
   confirmMemberRecycleAgreement,
   getMemberRecycleApplication,
 } from "../../api";
@@ -23,6 +24,9 @@ const hasSignature = ref(false);
 const confirmingAgreement = ref(false);
 const agreementError = ref("");
 const agreementSuccess = ref("");
+const cancellingApplication = ref(false);
+const cancelError = ref("");
+const cancelSuccess = ref("");
 
 let drawingSignature = false;
 
@@ -31,6 +35,13 @@ const canSignAgreement = computed(
   () =>
     application.value?.recycleStatus === "INSPECTING" &&
     application.value?.estimatedPrice != null,
+);
+
+// 開始資料清除後流程不可逆，因此會員只可取消清除前的回收單。
+const canCancelApplication = computed(() =>
+  ["APPLIED", "INSPECTING", "WAITING_FOR_AGREEMENT"].includes(
+    application.value?.recycleStatus,
+  ),
 );
 
 const categoryLabels = {
@@ -184,6 +195,36 @@ async function confirmAgreement() {
   }
 }
 
+async function cancelApplication() {
+  if (!canCancelApplication.value) return;
+
+  const confirmed = window.confirm("確定要取消這筆回收申請嗎？取消後將無法繼續簽署流程。");
+  if (!confirmed) return;
+
+  cancellingApplication.value = true;
+  cancelError.value = "";
+  cancelSuccess.value = "";
+
+  try {
+    application.value = await cancelMemberRecycleApplication(
+      application.value.applyId,
+    );
+    agreementOtp.value = "";
+    hasSignature.value = false;
+    cancelSuccess.value = "回收申請已取消。";
+  } catch (error) {
+    console.error(error);
+    cancelError.value =
+      error?.response?.status === 409
+        ? "目前回收進度已無法取消，請重新載入確認。"
+        : error?.response?.status === 404
+          ? "找不到這筆回收申請，或這筆申請不屬於目前登入的會員。"
+          : "取消回收申請失敗，請稍後再試。";
+  } finally {
+    cancellingApplication.value = false;
+  }
+}
+
 function goBack() {
   router.push({ name: "member-recycle-applications" });
 }
@@ -221,17 +262,36 @@ onMounted(fetchApplication);
           <h1>回收申請明細</h1>
           <p class="application-number">申請編號 #{{ application.applyId }}</p>
         </div>
-        <span
-          class="status-badge"
-          :class="`status-${application.recycleStatus?.toLowerCase()}`"
-        >
-          {{
-            statusLabels[application.recycleStatus] ??
-            application.recycleStatus ??
-            "狀態未設定"
-          }}
-        </span>
+        <div class="header-actions">
+          <span
+            class="status-badge"
+            :class="`status-${application.recycleStatus?.toLowerCase()}`"
+          >
+            {{
+              statusLabels[application.recycleStatus] ??
+              application.recycleStatus ??
+              "狀態未設定"
+            }}
+          </span>
+          <button
+            v-if="canCancelApplication"
+            type="button"
+            class="cancel-application-button"
+            :disabled="cancellingApplication"
+            @click="cancelApplication"
+          >
+            {{ cancellingApplication ? "取消中..." : "取消回收申請" }}
+          </button>
+        </div>
       </header>
+
+      <p v-if="cancelError" class="agreement-message error-message" role="alert">
+        {{ cancelError }}
+      </p>
+      <p v-if="cancelSuccess" class="agreement-message success-message" role="status">
+        <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+        {{ cancelSuccess }}
+      </p>
 
       <div class="detail-body">
         <div class="image-panel">
@@ -454,6 +514,32 @@ h1 {
   background: #dfeffc;
   font-size: 13px;
   font-weight: 750;
+}
+
+.header-actions {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cancel-application-button {
+  padding: 9px 14px;
+  border: 1px solid #c74343;
+  border-radius: 9px;
+  color: #a52d2d;
+  background: #fff;
+  font-weight: 750;
+}
+
+.cancel-application-button:hover:not(:disabled) {
+  color: #fff;
+  background: #b73535;
+}
+
+.cancel-application-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 .status-cancelled {
@@ -749,6 +835,10 @@ h1 {
     align-items: flex-start;
     flex-direction: column;
     padding: 24px;
+  }
+
+  .header-actions {
+    align-items: flex-start;
   }
 
   .detail-body {

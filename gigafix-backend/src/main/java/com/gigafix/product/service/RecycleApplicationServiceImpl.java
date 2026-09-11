@@ -295,7 +295,7 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
     @Override
     public RecycleResponse completeRecycle(Long applyId) {
         RecycleApplication applyForm = recycleApplicationDao
-                .findByIdForCompletion(applyId)
+                .findByIdForUpdate(applyId)
                 .orElse(null);
         if (applyForm == null) {
             return null;
@@ -319,6 +319,41 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
         // 郵件寄送失敗會向外拋錯，讓結案交易回滾，避免會員未收到結案通知。
         recycleApplicationNotificationService.sendCompletionNotice(completedApplication);
         return toResponse(completedApplication);
+    }
+
+    @Override
+    public RecycleResponse cancelRecycle(Long applyId) {
+        RecycleApplication applyForm = recycleApplicationDao
+                .findByIdForUpdate(applyId)
+                .orElse(null);
+        return applyForm == null ? null : cancelApplication(applyForm);
+    }
+
+    @Override
+    public RecycleResponse cancelMemberRecycle(Long memberId, Long applyId) {
+        RecycleApplication applyForm = recycleApplicationDao
+                .findMemberApplicationForUpdate(applyId, memberId)
+                .orElse(null);
+        return applyForm == null ? null : cancelApplication(applyForm);
+    }
+
+    /** APPLIED、INSPECTING 或待同意階段可取消；開始清除資料後不可逆轉。 */
+    private RecycleResponse cancelApplication(RecycleApplication applyForm) {
+        RecycleStatus currentStatus = applyForm.getRecycleStatus();
+        if (currentStatus != RecycleStatus.APPLIED
+                && currentStatus != RecycleStatus.INSPECTING
+                && currentStatus != RecycleStatus.WAITING_FOR_AGREEMENT) {
+            throw new IllegalStateException("目前回收狀態不允許取消");
+        }
+
+        applyForm.setRecycleStatus(RecycleStatus.CANCELLED);
+        applyForm.setLastModifiedTime(LocalDateTime.now());
+        // 取消後立即移除可能尚未使用的 OTP，避免驗證碼繼續有效。
+        Cache otpCache = cacheManager.getCache(CacheConfig.REGISTER_OTP_CACHE);
+        if (otpCache != null) {
+            otpCache.evict(agreementOtpKey(applyForm.getApplyId()));
+        }
+        return toResponse(recycleApplicationDao.save(applyForm));
     }
 
     /** 將回收單欄位轉成商品庫存資料，售價為回收估價加上 NT$1,500。 */
@@ -493,14 +528,30 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
 
     //實作刪除一筆回收單
     @Override
-    public void deleteApplyFormById(Long applyId) {
-        recycleApplicationDao.deleteById(applyId);
+    public boolean deleteApplyFormById(Long applyId) {
+        RecycleApplication applyForm = recycleApplicationDao
+                .findByIdForUpdate(applyId)
+                .orElse(null);
+        if (applyForm == null) {
+            return false;
+        }
+        if (applyForm.getRecycleStatus() != RecycleStatus.CANCELLED) {
+            throw new IllegalStateException("只有已取消的回收單可以刪除");
+        }
 
+        recycleApplicationDao.delete(applyForm);
+        return true;
     }
     //實作刪除所有回收單
     @Override
     public void deleteAllApplyForms() {
-        recycleApplicationDao.deleteAll();
+        List<RecycleApplication> applyForms = recycleApplicationDao.findAll();
+        boolean containsActiveApplication = applyForms.stream()
+                .anyMatch(application -> application.getRecycleStatus() != RecycleStatus.CANCELLED);
+        if (containsActiveApplication) {
+            throw new IllegalStateException("仍有未取消的回收單，不可執行全部刪除");
+        }
+        recycleApplicationDao.deleteAll(applyForms);
     }
 
     //將全部回收單轉為 DTO 後匯出，避免直接序列化 Member、Stores 的關聯資料

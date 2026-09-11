@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
+  cancelRecycleApplication,
   completeRecycleApplication,
   deleteRecycleApplication,
   getRecycleApplication,
@@ -106,6 +107,11 @@ async function fetchApplication() {
 async function updateStatus() {
   if (!application.value) return;
 
+  if (selectedStatus.value === "CANCELLED") {
+    await cancelRecycle();
+    return;
+  }
+
   // 資料清除確認完成後呼叫結案 API，由後端同步建立商品庫存與寄送會員通知。
   if (
     application.value.recycleStatus === "WIPING" &&
@@ -150,6 +156,32 @@ async function updateStatus() {
           : error.response
             ? `更新檢測狀態失敗（HTTP ${error.response.status}）`
             : "無法連線至伺服器";
+  } finally {
+    updatingStatus.value = false;
+  }
+}
+
+async function cancelRecycle() {
+  updatingStatus.value = true;
+  statusError.value = "";
+  closeSuccessMessage();
+
+  try {
+    application.value = await cancelRecycleApplication(
+      application.value.applyId,
+    );
+    selectedStatus.value = application.value.recycleStatus;
+    agreementRequested.value = false;
+    successMessage.value = "回收單已取消，現在可視需要永久刪除。";
+  } catch (error) {
+    console.error(error);
+    selectedStatus.value = application.value.recycleStatus;
+    statusError.value =
+      error.response?.status === 409
+        ? "目前回收進度已無法取消，請重新載入確認。"
+        : error.response?.status === 404
+          ? "找不到這筆回收申請。"
+          : "取消回收申請失敗，請稍後再試。";
   } finally {
     updatingStatus.value = false;
   }
@@ -284,7 +316,10 @@ function goToEdit() {
 }
 
 function openDeleteConfirm() {
-  if (!application.value) return;
+  // 前端先阻擋誤操作，後端 DELETE API 仍會再次檢查 CANCELLED 狀態。
+  if (!application.value || application.value.recycleStatus !== "CANCELLED") {
+    return;
+  }
   showDeleteConfirm.value = true;
 }
 
@@ -294,7 +329,9 @@ function closeDeleteConfirm() {
 }
 
 async function confirmDelete() {
-  if (!application.value) return;
+  if (!application.value || application.value.recycleStatus !== "CANCELLED") {
+    return;
+  }
 
   deleting.value = true;
   errorMessage.value = "";
@@ -305,9 +342,12 @@ async function confirmDelete() {
     await router.push({ name: "admin-applyForms" });
   } catch (error) {
     console.error(error);
-    errorMessage.value = error.response
-      ? `刪除回收申請失敗（HTTP ${error.response.status}）`
-      : "無法連線至伺服器";
+    errorMessage.value =
+      error.response?.status === 409
+        ? "只有已取消的回收單可以刪除。"
+        : error.response
+          ? `刪除回收申請失敗（HTTP ${error.response.status}）`
+          : "無法連線至伺服器";
   } finally {
     deleting.value = false;
   }
@@ -376,7 +416,12 @@ onBeforeUnmount(() => {
           <button
             type="button"
             class="btn btn-outline-danger"
-            :disabled="deleting"
+            :disabled="deleting || application.recycleStatus !== 'CANCELLED'"
+            :title="
+              application.recycleStatus === 'CANCELLED'
+                ? '永久刪除此筆回收單'
+                : '請先將回收單狀態改為已取消'
+            "
             @click="openDeleteConfirm"
           >
             <span
@@ -558,7 +603,12 @@ onBeforeUnmount(() => {
                 :disabled="
                   updatingStatus ||
                   requestingAgreementOtp ||
-                  !['APPLIED', 'INSPECTING', 'WIPING'].includes(
+                  ![
+                    'APPLIED',
+                    'INSPECTING',
+                    'WAITING_FOR_AGREEMENT',
+                    'WIPING',
+                  ].includes(
                     application.recycleStatus,
                   )
                 "
@@ -584,6 +634,16 @@ onBeforeUnmount(() => {
                 >
                   完成回收
                 </option>
+                <option
+                  v-if="
+                    ['APPLIED', 'INSPECTING', 'WAITING_FOR_AGREEMENT'].includes(
+                      application.recycleStatus,
+                    )
+                  "
+                  value="CANCELLED"
+                >
+                  已取消
+                </option>
               </select>
               <button
                 type="button"
@@ -592,6 +652,10 @@ onBeforeUnmount(() => {
                   updatingStatus ||
                   requestingAgreementOtp ||
                   !(
+                    (selectedStatus === 'CANCELLED' &&
+                      ['APPLIED', 'INSPECTING', 'WAITING_FOR_AGREEMENT'].includes(
+                        application.recycleStatus,
+                      )) ||
                     (application.recycleStatus === 'APPLIED' &&
                       selectedStatus === 'INSPECTING') ||
                     (application.recycleStatus === 'INSPECTING' &&
@@ -611,11 +675,13 @@ onBeforeUnmount(() => {
                     ? "更新中..."
                     : requestingAgreementOtp
                       ? "寄送中..."
-                      : selectedStatus === "WAITING_FOR_AGREEMENT"
-                        ? agreementRequested
-                          ? "重新寄送 OTP"
-                          : "寄送 OTP"
-                        : "確認更新"
+                      : selectedStatus === "CANCELLED"
+                        ? "確認取消"
+                        : selectedStatus === "WAITING_FOR_AGREEMENT"
+                          ? agreementRequested
+                            ? "重新寄送 OTP"
+                            : "寄送 OTP"
+                          : "確認更新"
                 }}
               </button>
             </div>

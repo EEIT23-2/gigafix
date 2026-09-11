@@ -257,6 +257,24 @@ export const confirmMemberRecycleAgreement = async (
   return response.data;
 };
 
+/** 前台登入會員取消自己的回收申請。 */
+export const cancelMemberRecycleApplication = async (applyId) => {
+  const response = await axios.patch(
+    `${RECYCLE_APPLICATION_URL}/${applyId}/status/cancelled`,
+  );
+
+  return response.data;
+};
+
+/** 後台管理員將回收申請更新為 CANCELLED。 */
+export const cancelRecycleApplication = async (applyId) => {
+  const response = await axios.patch(
+    `${ADMIN_RECYCLE_APPLICATION_URL}/${applyId}/status/cancelled`,
+  );
+
+  return response.data;
+};
+
 /**
  * 後台確認資料清除完成並結案；後端會同步新增一筆商品庫存及寄送會員通知。
  */

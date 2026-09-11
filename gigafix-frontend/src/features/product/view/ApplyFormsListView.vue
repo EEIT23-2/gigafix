@@ -216,6 +216,8 @@ function goToEdit(application) {
 }
 
 function openSingleDeleteConfirm(application) {
+  // 單筆刪除只開放 CANCELLED；後端仍會再次驗證，避免繞過前端操作。
+  if (application.recycleStatus !== "CANCELLED") return;
   deleteMode.value = "single";
   deleteTarget.value = application;
   showDeleteConfirm.value = true;
@@ -264,9 +266,12 @@ async function confirmDeleteSingle() {
     await fetchApplications(targetPage);
   } catch (error) {
     console.error(error);
-    errorMessage.value = error.response
-      ? `刪除回收申請失敗（HTTP ${error.response.status}）`
-      : "無法連線至伺服器";
+    errorMessage.value =
+      error.response?.status === 409
+        ? "只有已取消的回收單可以刪除。"
+        : error.response
+          ? `刪除回收申請失敗（HTTP ${error.response.status}）`
+          : "無法連線至伺服器";
   } finally {
     deletingId.value = null;
   }
@@ -287,9 +292,12 @@ async function confirmDeleteAll() {
     await fetchApplications(0);
   } catch (error) {
     console.error(error);
-    errorMessage.value = error.response
-      ? `刪除全部回收申請失敗（HTTP ${error.response.status}）`
-      : "無法連線至伺服器";
+    errorMessage.value =
+      error.response?.status === 409
+        ? "仍有未取消的回收單，只有全部回收單皆為已取消時才能全部刪除。"
+        : error.response
+          ? `刪除全部回收申請失敗（HTTP ${error.response.status}）`
+          : "無法連線至伺服器";
   } finally {
     deletingAll.value = false;
   }
