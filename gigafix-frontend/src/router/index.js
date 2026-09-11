@@ -49,13 +49,20 @@ const router = createRouter({
             ...productMembercenter,
             ...repairMembercenter,
           ]
-        }
+        },
+        //前台404，放在children最後一筆，前面都比對不到才會落到這裡
+        {
+          path: ":pathMatch(.*)*",
+          name: "clientNotFound",
+          component: () => import("@/views/ClientNotFound.vue"),
+        },
       ],
     },
     {
       path: "/admin",
       name: "gigafixadmin",
       component: () => import("@/layouts/AdminLayout.vue"),
+      redirect: { name: "manager" }, //單獨打 /admin 時，導去管理員資訊頁當後台首頁
       children: [
         ...managerAdminRoutes,
         ...memberAdminRoutes,
@@ -63,8 +70,14 @@ const router = createRouter({
         ...productAdminRoutes,
         ...forumAdminRoutes,
         ...repairAdminRoutes,
+        //後台404，放在children最後一筆，前面都比對不到才會落到這裡
+        {
+          path: ":pathMatch(.*)*",
+          name: "adminNotFound",
+          component: () => import("@/views/AdminNotFound.vue"),
+        },
       ],
-    }, //NotFound待寫
+    },
     {
       path: "/adminLogin",
       name: "adminLogin",

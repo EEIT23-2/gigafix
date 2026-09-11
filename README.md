@@ -71,6 +71,7 @@ Gigafix 是前後端分離的三層式架構：前端 SPA 透過 REST API 呼叫
    - `MSSQL_SA_PASSWORD`：資料庫 sa 密碼
    - `JWT_SECRET`：後端簽發 JWT 用的密鑰
    - `GIGAFIX_GMAIL_USERNAME` / `GIGAFIX_GMAIL_PASSWORD`：寄送 Email（OTP、忘記密碼等）用的 Gmail 帳密
+   - `RECAPTCHA_SECRET_KEY`：註冊會員時人機驗證用的secret key，去 [reCAPTCHA後台](https://www.google.com/recaptcha/admin) 申請
 2. 啟動所有服務：
    ```bash
    docker compose up -d --build
@@ -89,7 +90,7 @@ Gigafix 是前後端分離的三層式架構：前端 SPA 透過 REST API 呼叫
    cd gigafix-backend
    ./mvnw spring-boot:run
    ```
-   需要設定跟 `docker-compose.yml` 裡 `backend` 服務同樣的環境變數（`SPRING_DATASOURCE_URL`、`SPRING_DATASOURCE_USERNAME`、`SPRING_DATASOURCE_PASSWORD`、`JWT_SECRET`、`GIGAFIX_GMAIL_USERNAME`、`GIGAFIX_GMAIL_PASSWORD`），只是連線的 host 要改成 `localhost`（不是容器內的服務名稱 `db`）
+   需要設定跟 `docker-compose.yml` 裡 `backend` 服務同樣的環境變數（`SPRING_DATASOURCE_URL`、`SPRING_DATASOURCE_USERNAME`、`SPRING_DATASOURCE_PASSWORD`、`JWT_SECRET`、`GIGAFIX_GMAIL_USERNAME`、`GIGAFIX_GMAIL_PASSWORD`、`RECAPTCHA_SECRET_KEY`），只是連線的 host 要改成 `localhost`（不是容器內的服務名稱 `db`）；因為這裡是直接用IDE/終端機跑，不是透過docker-compose帶入 `.env`，所以要自行在電腦上設定這些環境變數
 3. **啟動前端**：
    ```bash
    cd gigafix-frontend
