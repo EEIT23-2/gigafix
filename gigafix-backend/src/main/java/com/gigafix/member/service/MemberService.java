@@ -1,6 +1,5 @@
 package com.gigafix.member.service;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 
 import org.springframework.http.ResponseCookie;
@@ -10,7 +9,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
 import com.gigafix.common.util.JwtUtils;
 import com.gigafix.member.dto.UpdatePasswordReq;
-import com.gigafix.member.dto.CreateJwtDto;
 import com.gigafix.member.dto.ForgotPasswordReq;
 import com.gigafix.member.dto.LoginResp;
 import com.gigafix.member.dto.MemberInfoResp;
@@ -58,16 +56,8 @@ public class MemberService {
 				.gender(registerReq.gender())
 				.createTime(LocalDateTime.now()).build();
 		memberRepository.save(member);// 註冊使用者到資料庫
-		// 註冊成功的話，就發放JWT給使用者讓其有辦法登入
-		String jwt = jwtUtils.createToken(CreateJwtDto.builder().subject(String.valueOf(member.getId())).build());
-		// 在創建jwt時要把從資料庫撈出來的id轉成字串，避免前端的number型別太小，導致後端的long型別溢位
-		ResponseCookie cookie = ResponseCookie.from("token", jwt)
-				.httpOnly(true)
-				.secure(true)
-				.sameSite("None") // 允許跨網域帶cookie
-				.path("/")
-				.maxAge(Duration.ofMinutes(15))
-				.build();// 把JWT放到cookie裡面給controller，之後再放到response header的cookie裡面給前端
+		// 註冊成功的話，就發放JWT給使用者讓其有辦法登入(cookie組裝統一交給jwtUtils處理)
+		ResponseCookie cookie = jwtUtils.createTokenCookie(member.getId());
 		LoginResp loginResp = LoginResp.builder()
 				.email(member.getEmail())
 				.nickName(member.getNickName())
@@ -167,15 +157,8 @@ public class MemberService {
 			member = memberRepository.findByEmail("JavaJava5241@gmail.com")
 					.orElseThrow(() -> new MemberNotFoundException());
 		}
-		// 發放JWT
-		String jwt = jwtUtils.createToken(CreateJwtDto.builder().subject(String.valueOf(member.getId())).build());
-		ResponseCookie cookie = ResponseCookie.from("token", jwt)
-				.httpOnly(true)
-				.secure(true)
-				.sameSite("None") // 允許跨網域帶cookie
-				.path("/")
-				.maxAge(Duration.ofMinutes(15))
-				.build();
+		// 發放JWT(cookie組裝統一交給jwtUtils處理)
+		ResponseCookie cookie = jwtUtils.createTokenCookie(member.getId());
 		LoginResp loginResp = LoginResp.builder()
 				.email(member.getEmail())
 				.nickName(member.getNickName())

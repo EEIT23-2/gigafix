@@ -17,5 +17,7 @@ public class OrderItemResponse {
 
     private String productName;  // 下單時商品名稱
 
+    private String imageUrl; // 商品圖片網址
+
     private Integer unitPrice;   // 下單時商品成交價格
 }

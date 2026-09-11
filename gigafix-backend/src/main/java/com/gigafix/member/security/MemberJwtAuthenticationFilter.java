@@ -2,6 +2,8 @@ package com.gigafix.member.security;
 
 import java.io.IOException;
 
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -55,6 +57,10 @@ public class MemberJwtAuthenticationFilter extends OncePerRequestFilter {
                     null, memberDetails.getAuthorities());
             SecurityContextHolder.getContext().setAuthentication(authentication);
             // authentication放到SecurityContextHolder，後面的filter就可以藉此判斷這是一個已經認證合格的請求
+
+            // 因為JWT要設計成滑動過期，所以每次有API請求，且是有使用者是有登入的話，就塞JWT給他
+            ResponseCookie newJwtCookie = jwtUtils.createTokenCookie(memberId);
+            response.addHeader(HttpHeaders.SET_COOKIE, newJwtCookie.toString());// 用setHeader會把整個header覆蓋掉，用addHeader會保留之前的Header內容並加上現在的這個，比較保險
         }
         // 如果沒有JWT可能是還沒登入或是註冊，所以就算jwt解析沒過也不會拋出例外
 
