@@ -100,6 +100,11 @@ router.beforeEach(async (to) => {
   if (!fetchAdminInfoStore.fetched) {
     await fetchAdminInfoStore.fetchAdmin() // 真正觸發抓資料的動作
   }
+
+  //後台網址沒登入就彈回後台登入頁，避免沒登入卻能停在 /admin 底下看到空白畫面
+  if (to.path.startsWith('/admin') && !fetchAdminInfoStore.adminInfo) {
+    return { name: 'adminLogin' }
+  }
 })
 
 const fetchMemberExcludedPaths = ['/admin']
