@@ -112,18 +112,27 @@ gigafix/
 
 ## CI/CD
 
-`Jenkinsfile` 定義了 4 個 stage：
+前端與後端走的是兩條不同的路：
+
+- **前端**：Vercel 直接連 GitHub repo，push 到指定分支就自動 build + deploy，不經過 Jenkins
+- **後端**：`Jenkinsfile` 負責 build image、push 到 DockerHub，並在人工確認後部署到 Azure Container Apps
+
+`Jenkinsfile` 定義了以下 stage：
 
 1. **Checkout**：從 Git 抓取最新程式碼
 2. **Build backend image**：在 `gigafix-backend` 目錄用 Dockerfile build 後端 image
-3. **Build frontend image**：在 `gigafix-frontend` 目錄用 Dockerfile build 前端 image
-4. **Push images**：把兩個 image 推到 DockerHub
+3. **Build frontend image**：在 `gigafix-frontend` 目錄用 Dockerfile build 前端 image（僅供本機 `docker-compose.images.yml` 測試用，正式環境的前端由 Vercel 另外從原始碼 build，不會用到這個 image）
+4. **Push images**：把後端、前端兩個 image 推到 DockerHub
+5. **Confirm deploy to Azure**（僅 `main` 分支）：暫停 pipeline，等人工確認要部署的 image 沒問題才繼續，避免 main 上剛合併、還沒手動驗證過的版本被自動推上正式環境
+6. **Deploy backend to Azure**（僅 `main` 分支）：確認後用 `az containerapp update` 把新 image 部署到 Azure Container Apps
 
 ![CI/CD架構簡圖](docs/images/cicd.png)
 
 ## 網站部署
 
-待實做...
+- **前端**：Vercel（由 GitHub repo 自動 build/deploy），`vercel.json` 把 `/api/*` 反向代理到後端的 Azure Container Apps URL
+- **後端**：Azure Container Apps，image 來自 DockerHub，由 Jenkins 在人工確認後部署
+- **資料庫**：Azure SQL Database（PaaS 代管服務）
 
 ## 目前已知限制
 
