@@ -163,6 +163,11 @@ export const updateRecipient = async (repairId, recipientRequest) => {
   return response.data;
 };
 
+// 客戶啟動綠界線上付款：後端回傳自動送出的表單頁面，要整頁導頁而不是用ajax
+export const redirectToEcpayPayment = (repairId) => {
+  window.location.assign(`${REPAIRS_URL}/${repairId}/ecpay-payment`);
+};
+
 // ========== 技師 ==========
 
 // 查詢技師，storeId 有填就查該分店的技師，不填就查全部

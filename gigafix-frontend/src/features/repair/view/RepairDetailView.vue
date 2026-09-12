@@ -79,7 +79,7 @@ const PAY_STATUS_LABELS = {
 };
 const PICKUP_LABELS = {
   SELF_PICKUP: "門市自取",
-  COURIER: "宅配超商寄回",
+  COURIER: "寄件",
 };
 function label(map, value) {
   if (!value) return "—";

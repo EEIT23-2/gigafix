@@ -1,7 +1,12 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { getRepair, respondToQuote, submitPickupPayment } from "../api";
+import {
+  getRepair,
+  redirectToEcpayPayment,
+  respondToQuote,
+  submitPickupPayment,
+} from "../api";
 
 const props = defineProps({
   repairId: { type: [String, Number], required: true },
@@ -57,7 +62,7 @@ const PAY_STATUS_LABELS = {
 };
 const PICKUP_LABELS = {
   SELF_PICKUP: "門市自取",
-  COURIER: "宅配超商寄回",
+  COURIER: "寄件",
 };
 function label(map, value) {
   if (!value) return "—";
@@ -111,14 +116,11 @@ async function handleSubmitPickupPayment() {
       recipientPhone: form.pickupType === "COURIER" ? form.recipientPhone : null,
       recipientAddress: form.pickupType === "COURIER" ? form.recipientAddress : null,
     });
-    // TODO(綠界金流)：這裡目前只是占位提示，還沒真的接綠界，真的要接的時候：
-    // 1. 後端要先跟綠界建立訂單(MerchantTradeNo/金額/商品名稱等)，把表單參數回傳給前端
-    // 2. 前端用拿到的參數組表單、整頁POST到綠界的付款頁面(測試站/正式站)，不是用ajax
-    // 3. 付款完成後，真正拿來把repairPayStatus改成PAID的依據是綠界打後端的NotifyURL(伺服器對伺服器回調)，
-    //    不能只靠付完款後導回來的ReturnURL，因為使用者可能付完直接關分頁、導回請求也可能被使用者取消或竄改
-    // 4. NotifyURL要是外部連得到的網址(不能是localhost)、要驗證CheckMacValue、金額要傳整數、字元編碼要用UTF8
+    // 選線上付款：後端已經把repairPayStatus標記PENDING，整頁導去綠界付款頁面(不是ajax)，
+    // 付款完成的狀態更新依據是綠界打後端的NotifyURL，不是這裡的導頁
     if (form.repairPay === "ONLINE") {
-      alert("（占位畫面）即將導向綠界付款頁面，尚未串接綠界，暫時以此提示代替");
+      redirectToEcpayPayment(repair.value.id);
+      return;
     }
     await fetchRepair();
   } catch (error) {
@@ -139,7 +141,7 @@ const responding = ref(false);
 async function handleRespond(approve) {
   const confirmMsg = approve
     ? "確定要同意這份報價，開始維修嗎？"
-    : "確定要拒絕這份報價嗎？拒絕後將只收取檢測費用。";
+    : "確定要拒絕這份報價嗎？拒絕後技師會再跟你聯繫確認費用。";
   if (!window.confirm(confirmMsg)) return;
 
   responding.value = true;
