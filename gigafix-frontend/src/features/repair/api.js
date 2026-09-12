@@ -27,6 +27,12 @@ export const searchRepairs = async (params = {}) => {
   return response.data;
 };
 
+// 後台統計：拒絕維修數／結案數／百分比／建立到結案耗時分布
+export const getRepairStats = async () => {
+  const response = await axios.get(`${REPAIRS_URL}/stats`);
+  return response.data;
+};
+
 // 依 id 查單一維修單
 export const getRepair = async (repairId) => {
   const response = await axios.get(`${REPAIRS_URL}/${repairId}`);

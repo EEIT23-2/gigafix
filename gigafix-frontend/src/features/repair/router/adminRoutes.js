@@ -5,6 +5,11 @@ export default [
     component: () => import("../view/RepairsListView.vue"),
   },
   {
+    path: "repairs/stats",
+    name: "admin-repairs-stats",
+    component: () => import("../view/RepairStatsView.vue"),
+  },
+  {
     path: "repairs/:repairId",
     name: "admin-repair-detail",
     component: () => import("../view/RepairDetailView.vue"),

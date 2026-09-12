@@ -25,6 +25,7 @@ import com.gigafix.repair.dto.InspectionResultRequest;
 import com.gigafix.repair.dto.PickupPaymentRequest;
 import com.gigafix.repair.dto.QuotationRequest;
 import com.gigafix.repair.dto.RecipientRequest;
+import com.gigafix.repair.dto.RepairStatsResp;
 import com.gigafix.repair.dto.RepairsResponse;
 import com.gigafix.repair.entity.status.RepairPayStatus;
 import com.gigafix.repair.entity.status.RepairStatus;
@@ -208,6 +209,12 @@ public class RepairsController {
 	public ResponseEntity<RepairsResponse> updateRecipient(@PathVariable Long id,
 			@Valid @RequestBody RecipientRequest req) {
 		return ResponseEntity.ok(rServ.updateRecipient(id, req));// 200
+	}
+
+	// 後台統計：拒絕維修數／結案數／百分比／建立到結案耗時分布，給後台統計圖表頁用
+	@GetMapping("/stats")
+	public ResponseEntity<RepairStatsResp> getStats() {
+		return ResponseEntity.ok(rServ.getStats());// 200
 	}
 
 }

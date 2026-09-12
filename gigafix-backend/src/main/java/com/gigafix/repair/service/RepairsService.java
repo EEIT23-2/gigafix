@@ -1,22 +1,31 @@
 package com.gigafix.repair.service;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
 import com.gigafix.member.entity.Member;
 import com.gigafix.member.repository.MemberRepository;
 import com.gigafix.repair.dto.AppointmentRequest;
+import com.gigafix.repair.dto.CloseDurationBucketResp;
 import com.gigafix.repair.dto.CompleteRepairRequest;
 import com.gigafix.repair.dto.InspectionResultRequest;
 import com.gigafix.repair.dto.PickupPaymentRequest;
 import com.gigafix.repair.dto.QuotationRequest;
 import com.gigafix.repair.dto.RecipientRequest;
+import com.gigafix.repair.dto.RepairStatsResp;
+import com.gigafix.repair.dto.RepairStatusCountResp;
 import com.gigafix.repair.dto.RepairsResponse;
+import com.gigafix.repair.dto.StoreStatsResp;
+import com.gigafix.repair.dto.TechnicianStatsResp;
 import com.gigafix.repair.entity.RepairTechnicians;
 import com.gigafix.repair.entity.Repairs;
 import com.gigafix.repair.entity.Stores;
@@ -623,5 +632,126 @@ public class RepairsService {
 				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
 		r.setRepairPayStatus(payStatus);
 		return toResponse(rRepos.save(r));
+	}
+
+//	後台統計：拒絕維修數／結案數／各自佔全部的百分比，以及已結案單的建立到結案耗時
+//	拒絕維修用approvalStatus=REJECTED判斷（客戶曾拒絕報價，不論該單目前是否已結案），不是用repairStatus=QUOTE_REJECTED（那只是過渡狀態）
+//	結案耗時沒有獨立欄位，用repairUpdatedTime-repairCreatedTime近似結案時間
+	public RepairStatsResp getStats() {
+		List<Repairs> all = rRepos.findAll();
+		long total = all.size();
+
+		long rejectedCount = all.stream()
+				.filter(r -> r.getApprovalStatus() == ApprovalStatus.REJECTED)
+				.count();
+
+		List<Repairs> closedList = all.stream()
+				.filter(r -> r.getRepairStatus() == RepairStatus.CLOSED)
+				.collect(Collectors.toList());
+		long closedCount = closedList.size();
+
+		List<Double> closeDurationHoursList = closedList.stream()
+				.map(r -> Duration.between(r.getRepairCreatedTime(), r.getRepairUpdatedTime()).toMinutes() / 60.0)
+				.collect(Collectors.toList());
+
+		Double avgCloseDurationHours = closeDurationHoursList.isEmpty() ? null
+				: round2(closeDurationHoursList.stream().mapToDouble(Double::doubleValue).average().orElse(0));
+
+		return RepairStatsResp.builder()
+				.totalCount(total)
+				.rejectedCount(rejectedCount)
+				.rejectedPercentage(total == 0 ? 0.0 : round2(rejectedCount * 100.0 / total))
+				.closedCount(closedCount)
+				.closedPercentage(total == 0 ? 0.0 : round2(closedCount * 100.0 / total))
+				.avgCloseDurationHours(avgCloseDurationHours)
+				.closeDurationDistribution(buildCloseDurationDistribution(closeDurationHoursList))
+				.statusBreakdown(buildStatusBreakdown(all, total))
+				.storeStats(buildStoreStats(all))
+				.technicianStats(buildTechnicianStats(all))
+				.build();
+	}
+
+//	各分店的維修單量與結案率，用store.id分組(不直接用Stores entity當key，避免Hibernate lazy proxy的equals/hashCode問題)
+	private List<StoreStatsResp> buildStoreStats(List<Repairs> all) {
+		Map<Byte, List<Repairs>> byStoreId = all.stream()
+				.collect(Collectors.groupingBy(r -> r.getStore().getId()));
+
+		List<StoreStatsResp> result = new ArrayList<>();
+		for (Map.Entry<Byte, List<Repairs>> entry : byStoreId.entrySet()) {
+			List<Repairs> list = entry.getValue();
+			long total = list.size();
+			long closed = list.stream().filter(r -> r.getRepairStatus() == RepairStatus.CLOSED).count();
+			result.add(StoreStatsResp.builder()
+					.storeId(entry.getKey())
+					.storeName(list.get(0).getStore().getName())
+					.totalCount(total)
+					.closedCount(closed)
+					.closedRate(total == 0 ? 0.0 : round2(closed * 100.0 / total))
+					.build());
+		}
+		result.sort(Comparator.comparing(StoreStatsResp::storeId));
+		return result;
+	}
+
+//	各技師的維修單量與結案率，尚未被任何技師認領的單(technicianId=null)不計入
+	private List<TechnicianStatsResp> buildTechnicianStats(List<Repairs> all) {
+		Map<Integer, List<Repairs>> byTechnicianId = all.stream()
+				.filter(r -> r.getRepairTechnicians() != null)
+				.collect(Collectors.groupingBy(r -> r.getRepairTechnicians().getId()));
+
+		List<TechnicianStatsResp> result = new ArrayList<>();
+		for (Map.Entry<Integer, List<Repairs>> entry : byTechnicianId.entrySet()) {
+			List<Repairs> list = entry.getValue();
+			long total = list.size();
+			long closed = list.stream().filter(r -> r.getRepairStatus() == RepairStatus.CLOSED).count();
+			result.add(TechnicianStatsResp.builder()
+					.technicianId(entry.getKey())
+					.technicianName(list.get(0).getRepairTechnicians().getName())
+					.totalCount(total)
+					.closedCount(closed)
+					.closedRate(total == 0 ? 0.0 : round2(closed * 100.0 / total))
+					.build());
+		}
+		result.sort(Comparator.comparing(TechnicianStatsResp::technicianId));
+		return result;
+	}
+
+//	全部9種repairStatus各自的筆數與佔全部的百分比，依RepairStatus.values()宣告順序(維修流程順序)排列，
+//	即使某狀態目前0筆(例如CANCELLED，目前沒有任何流程會設成這個狀態)也要列出來，不能漏掉
+	private List<RepairStatusCountResp> buildStatusBreakdown(List<Repairs> all, long total) {
+		Map<RepairStatus, Long> countByStatus = all.stream()
+				.collect(Collectors.groupingBy(Repairs::getRepairStatus, Collectors.counting()));
+
+		List<RepairStatusCountResp> breakdown = new ArrayList<>();
+		for (RepairStatus status : RepairStatus.values()) {
+			long count = countByStatus.getOrDefault(status, 0L);
+			breakdown.add(RepairStatusCountResp.builder()
+					.status(status)
+					.count(count)
+					.percentage(total == 0 ? 0.0 : round2(count * 100.0 / total))
+					.build());
+		}
+		return breakdown;
+	}
+
+	private List<CloseDurationBucketResp> buildCloseDurationDistribution(List<Double> hoursList) {
+		long within1h = hoursList.stream().filter(h -> h < 1).count();
+		long within6h = hoursList.stream().filter(h -> h >= 1 && h < 6).count();
+		long within24h = hoursList.stream().filter(h -> h >= 6 && h < 24).count();
+		long within3d = hoursList.stream().filter(h -> h >= 24 && h < 72).count();
+		long within7d = hoursList.stream().filter(h -> h >= 72 && h < 168).count();
+		long over7d = hoursList.stream().filter(h -> h >= 168).count();
+
+		return List.of(
+				CloseDurationBucketResp.builder().label("1小時內").count(within1h).build(),
+				CloseDurationBucketResp.builder().label("1~6小時").count(within6h).build(),
+				CloseDurationBucketResp.builder().label("6~24小時").count(within24h).build(),
+				CloseDurationBucketResp.builder().label("1~3天").count(within3d).build(),
+				CloseDurationBucketResp.builder().label("3~7天").count(within7d).build(),
+				CloseDurationBucketResp.builder().label("7天以上").count(over7d).build());
+	}
+
+	private double round2(double v) {
+		return Math.round(v * 100) / 100.0;
 	}
 }

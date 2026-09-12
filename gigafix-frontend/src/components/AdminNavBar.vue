@@ -32,6 +32,10 @@ import { RouterLink } from "vue-router";
       <span class="nav-title"><span class="icon">📁</span> 維修單</span>
       <span class="arrow">›</span>
     </RouterLink>
+    <RouterLink class="nav-item" to="/admin/repairs/stats">
+      <span class="nav-title"><span class="icon">📊</span> 維修統計</span>
+      <span class="arrow">›</span>
+    </RouterLink>
     <RouterLink class="nav-item" to="/admin/technicians">
       <span class="nav-title"><span class="icon">🧑</span> 技師管理</span>
       <span class="arrow">›</span>
