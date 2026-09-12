@@ -1,6 +1,7 @@
 <script setup>
 import {
   computed,
+  nextTick,
   onBeforeUnmount,
   onMounted,
   reactive,
@@ -56,6 +57,7 @@ const cartRefreshKey = ref(0);
 let requestSequence = 0;
 let debounceTimer;
 let cartMessageTimer;
+let suppressFilterWatch = false;
 
 const selectedCategoryLabel = computed(
   () =>
@@ -81,6 +83,13 @@ const visiblePages = computed(() => {
     (_, index) => start + index,
   );
 });
+
+const hasActiveFilters = computed(
+  () =>
+    selectedCategory.value !== "IPHONE" ||
+    sort.value !== "newest" ||
+    Object.values(filters).some((value) => value !== ""),
+);
 
 function compactParams(params) {
   return Object.fromEntries(
@@ -135,6 +144,28 @@ function changePage(page) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+// 回復商城預設分類與排序，並清空文字、規格及價格篩選條件。
+async function clearAllFilters() {
+  suppressFilterWatch = true;
+  clearTimeout(debounceTimer);
+  selectedCategory.value = "IPHONE";
+  sort.value = "newest";
+  Object.assign(filters, {
+    search: "",
+    modelName: "",
+    storage: "",
+    color: "",
+    min: "",
+    max: "",
+  });
+  pageNumber.value = 0;
+
+  // 等待本輪 watch 完成且略過其請求，再只重新載入一次完整商品列表。
+  await nextTick();
+  suppressFilterWatch = false;
+  fetchProducts();
+}
+
 function handleSelectProduct(product) {
   router.push({
     name: "mall-detail",
@@ -171,12 +202,14 @@ const openCartDrawer = () => {
 };
 
 watch([selectedCategory, sort, pageSize], () => {
+  if (suppressFilterWatch) return;
   pageNumber.value = 0;
   fetchProducts();
 });
 watch(
   filters,
   () => {
+    if (suppressFilterWatch) return;
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       pageNumber.value = 0;
@@ -311,6 +344,15 @@ onBeforeUnmount(() => {
             </p>
           </div>
           <div class="toolbar d-flex flex-wrap align-items-center gap-3">
+            <button
+              type="button"
+              class="btn btn-outline-secondary clear-filter-button"
+              :disabled="!hasActiveFilters || loading"
+              @click="clearAllFilters"
+            >
+              <i class="bi bi-x-circle me-1" aria-hidden="true"></i>
+              清除篩選
+            </button>
             <label class="page-size-selector d-flex align-items-center gap-2">
               <span>每頁顯示：</span>
               <select
@@ -467,6 +509,9 @@ onBeforeUnmount(() => {
 .toolbar {
   color: var(--muted);
   font-size: 14px;
+  white-space: nowrap;
+}
+.clear-filter-button {
   white-space: nowrap;
 }
 .page-size-selector .form-select {

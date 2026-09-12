@@ -115,18 +115,19 @@ const priceMenuItems = [
 }
 
 .menu-item {
+  /* 提高回收導覽的字級與點擊高度，讓桌面版選項更容易閱讀。 */
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  min-height: 52px;
-  padding: 13px 14px;
+  min-height: 56px;
+  padding: 14px 16px;
   border: 0;
   border-left: 2px solid transparent;
   border-radius: 0 10px 10px 0;
   color: var(--muted);
   background: transparent;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   line-height: 1.35;
   text-decoration: none;
@@ -147,7 +148,7 @@ const priceMenuItems = [
 }
 
 .menu-item > i:first-child {
-  font-size: 18px;
+  font-size: 20px;
   text-align: center;
 }
 
@@ -182,7 +183,7 @@ const priceMenuItems = [
     grid-template-columns: minmax(0, 1fr);
     gap: 4px;
     padding: 11px 10px;
-    font-size: 13px;
+    font-size: 14px;
   }
 
   .menu-item > i {

@@ -198,9 +198,16 @@ function formatDateTime(dateTime) {
               <button
                 type="button"
                 class="btn btn-sm btn-outline-danger"
-                title="刪除"
+                :title="
+                  application.recycleStatus === 'CANCELLED'
+                    ? '刪除'
+                    : '只有已取消的回收單可以刪除'
+                "
                 aria-label="刪除"
-                :disabled="String(deletingId) === String(application.applyId)"
+                :disabled="
+                  application.recycleStatus !== 'CANCELLED' ||
+                  String(deletingId) === String(application.applyId)
+                "
                 @click="emit('delete', application)"
               >
                 <span

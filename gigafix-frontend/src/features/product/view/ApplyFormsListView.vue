@@ -17,6 +17,7 @@ const recycleApplicationStore = useRecycleApplicationStore();
 const {
   page,
   size,
+  applyId: searchApplyId,
   productName: searchProductName,
   appearance: searchAppearance,
   category: searchCategory,
@@ -119,11 +120,13 @@ const deleteDialogLoading = computed(() =>
 function buildQueryParams(targetPage) {
   const [orderBy, sort] = sortOption.value.split(":");
 
+  // 空白條件不送到後端，讓同一支列表 API 可以任意組合多種篩選條件。
   return {
     limit: size.value,
     offset: targetPage * size.value,
     orderBy,
     sort,
+    ...(searchApplyId.value && { applyId: searchApplyId.value }),
     ...(searchMemberId.value && { memberId: searchMemberId.value }),
     ...(searchProductName.value && { productName: searchProductName.value }),
     ...(searchAppearance.value && { appearance: searchAppearance.value }),
@@ -154,6 +157,11 @@ async function fetchApplications(targetPage = page.value) {
 }
 
 function search() {
+  // 回收單 ID 與會員 ID 都是資料庫正整數主鍵，送出前先阻擋無效格式。
+  if (searchApplyId.value && !/^[1-9]\d*$/.test(searchApplyId.value)) {
+    errorMessage.value = "回收單 ID 必須是正整數";
+    return;
+  }
   if (searchMemberId.value && !/^[1-9]\d*$/.test(searchMemberId.value)) {
     errorMessage.value = "會員 ID 必須是正整數";
     return;
@@ -208,6 +216,8 @@ function goToEdit(application) {
 }
 
 function openSingleDeleteConfirm(application) {
+  // 單筆刪除只開放 CANCELLED；後端仍會再次驗證，避免繞過前端操作。
+  if (application.recycleStatus !== "CANCELLED") return;
   deleteMode.value = "single";
   deleteTarget.value = application;
   showDeleteConfirm.value = true;
@@ -256,9 +266,12 @@ async function confirmDeleteSingle() {
     await fetchApplications(targetPage);
   } catch (error) {
     console.error(error);
-    errorMessage.value = error.response
-      ? `刪除回收申請失敗（HTTP ${error.response.status}）`
-      : "無法連線至伺服器";
+    errorMessage.value =
+      error.response?.status === 409
+        ? "只有已取消的回收單可以刪除。"
+        : error.response
+          ? `刪除回收申請失敗（HTTP ${error.response.status}）`
+          : "無法連線至伺服器";
   } finally {
     deletingId.value = null;
   }
@@ -279,9 +292,12 @@ async function confirmDeleteAll() {
     await fetchApplications(0);
   } catch (error) {
     console.error(error);
-    errorMessage.value = error.response
-      ? `刪除全部回收申請失敗（HTTP ${error.response.status}）`
-      : "無法連線至伺服器";
+    errorMessage.value =
+      error.response?.status === 409
+        ? "仍有未取消的回收單，只有全部回收單皆為已取消時才能全部刪除。"
+        : error.response
+          ? `刪除全部回收申請失敗（HTTP ${error.response.status}）`
+          : "無法連線至伺服器";
   } finally {
     deletingAll.value = false;
   }
@@ -375,6 +391,15 @@ onMounted(() => fetchApplications(page.value));
 
       <section class="card border-0 shadow-sm mb-4">
         <div class="card-body d-flex flex-column flex-lg-row flex-wrap gap-3">
+          <input
+            v-model.trim="searchApplyId"
+            type="text"
+            inputmode="numeric"
+            class="form-control apply-id-input"
+            placeholder="搜尋回收單 ID"
+            aria-label="搜尋回收單 ID"
+            @keyup.enter="search"
+          />
           <input
             v-model.trim="searchMemberId"
             type="text"
@@ -635,6 +660,7 @@ main {
 .search-input {
   flex: 1 1 210px;
 }
+.apply-id-input,
 .member-id-input {
   flex: 0 1 180px;
 }

@@ -1,7 +1,11 @@
 <script setup>
-import { onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { getMemberRecycleApplication } from "../../api";
+import {
+  cancelMemberRecycleApplication,
+  confirmMemberRecycleAgreement,
+  getMemberRecycleApplication,
+} from "../../api";
 
 const props = defineProps({
   applyId: {
@@ -14,6 +18,31 @@ const router = useRouter();
 const application = ref(null);
 const loading = ref(false);
 const errorMessage = ref("");
+const agreementOtp = ref("");
+const signatureCanvas = ref(null);
+const hasSignature = ref(false);
+const confirmingAgreement = ref(false);
+const agreementError = ref("");
+const agreementSuccess = ref("");
+const cancellingApplication = ref(false);
+const cancelError = ref("");
+const cancelSuccess = ref("");
+
+let drawingSignature = false;
+
+// 後台完成估價並寄出 OTP 後，資料庫狀態仍維持 INSPECTING，直到會員簽署成功。
+const canSignAgreement = computed(
+  () =>
+    application.value?.recycleStatus === "INSPECTING" &&
+    application.value?.estimatedPrice != null,
+);
+
+// 開始資料清除後流程不可逆，因此會員只可取消清除前的回收單。
+const canCancelApplication = computed(() =>
+  ["APPLIED", "INSPECTING", "WAITING_FOR_AGREEMENT"].includes(
+    application.value?.recycleStatus,
+  ),
+);
 
 const categoryLabels = {
   IPHONE: "iPhone",
@@ -53,6 +82,11 @@ async function fetchApplication() {
 
   try {
     application.value = await getMemberRecycleApplication(applyId);
+    if (canSignAgreement.value) {
+      // 簽名板由 v-if 建立，需等待 DOM 更新後再設定畫筆。
+      await nextTick();
+      initializeSignaturePad();
+    }
   } catch (error) {
     console.error(error);
     application.value = null;
@@ -64,6 +98,130 @@ async function fetchApplication() {
           : "目前無法載入回收申請明細，請稍後再試。";
   } finally {
     loading.value = false;
+  }
+}
+
+function initializeSignaturePad() {
+  const canvas = signatureCanvas.value;
+  if (!canvas) return;
+
+  const context = canvas.getContext("2d");
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.lineWidth = 3;
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  context.strokeStyle = "#1d324b";
+}
+
+function signaturePoint(event) {
+  const canvas = signatureCanvas.value;
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: (event.clientX - rect.left) * (canvas.width / rect.width),
+    y: (event.clientY - rect.top) * (canvas.height / rect.height),
+  };
+}
+
+// Pointer Events 可同時支援桌機滑鼠、觸控筆與手機觸控簽名。
+function startSignature(event) {
+  const canvas = signatureCanvas.value;
+  const context = canvas.getContext("2d");
+  const point = signaturePoint(event);
+
+  drawingSignature = true;
+  canvas.setPointerCapture(event.pointerId);
+  context.beginPath();
+  context.moveTo(point.x, point.y);
+}
+
+function drawSignature(event) {
+  if (!drawingSignature) return;
+
+  const context = signatureCanvas.value.getContext("2d");
+  const point = signaturePoint(event);
+  context.lineTo(point.x, point.y);
+  context.stroke();
+  hasSignature.value = true;
+}
+
+function stopSignature() {
+  drawingSignature = false;
+}
+
+function clearSignature() {
+  initializeSignaturePad();
+  hasSignature.value = false;
+  agreementError.value = "";
+}
+
+async function confirmAgreement() {
+  if (!/^\d{6}$/.test(agreementOtp.value)) {
+    agreementError.value = "請輸入 Email 中的 6 位數驗證碼。";
+    return;
+  }
+  if (!hasSignature.value) {
+    agreementError.value = "請先在簽名板完成電子簽名。";
+    return;
+  }
+
+  confirmingAgreement.value = true;
+  agreementError.value = "";
+  agreementSuccess.value = "";
+
+  try {
+    // Canvas 轉成 PNG 後連同 OTP 送到會員專用 API，由後端核對回收單歸屬。
+    const signatureDataUrl = signatureCanvas.value.toDataURL("image/png");
+    application.value = await confirmMemberRecycleAgreement(
+      application.value.applyId,
+      agreementOtp.value,
+      signatureDataUrl,
+    );
+    agreementOtp.value = "";
+    hasSignature.value = false;
+    agreementSuccess.value =
+      "驗證與電子簽名已完成，工程師將開始進行原廠重置與隱私資料清除。";
+  } catch (error) {
+    console.error(error);
+    agreementError.value =
+      error?.response?.status === 400
+        ? "驗證碼錯誤或已逾期，請確認後重試；連續錯誤 5 次需請門市重新寄送。"
+        : error?.response?.status === 404
+          ? "找不到這筆回收申請，或這筆申請不屬於目前登入的會員。"
+          : error?.response?.status === 409
+            ? "目前回收單狀態已變更，請重新載入。"
+            : "簽署確認失敗，請稍後再試。";
+  } finally {
+    confirmingAgreement.value = false;
+  }
+}
+
+async function cancelApplication() {
+  if (!canCancelApplication.value) return;
+
+  const confirmed = window.confirm("確定要取消這筆回收申請嗎？取消後將無法繼續簽署流程。");
+  if (!confirmed) return;
+
+  cancellingApplication.value = true;
+  cancelError.value = "";
+  cancelSuccess.value = "";
+
+  try {
+    application.value = await cancelMemberRecycleApplication(
+      application.value.applyId,
+    );
+    agreementOtp.value = "";
+    hasSignature.value = false;
+    cancelSuccess.value = "回收申請已取消。";
+  } catch (error) {
+    console.error(error);
+    cancelError.value =
+      error?.response?.status === 409
+        ? "目前回收進度已無法取消，請重新載入確認。"
+        : error?.response?.status === 404
+          ? "找不到這筆回收申請，或這筆申請不屬於目前登入的會員。"
+          : "取消回收申請失敗，請稍後再試。";
+  } finally {
+    cancellingApplication.value = false;
   }
 }
 
@@ -104,17 +262,36 @@ onMounted(fetchApplication);
           <h1>回收申請明細</h1>
           <p class="application-number">申請編號 #{{ application.applyId }}</p>
         </div>
-        <span
-          class="status-badge"
-          :class="`status-${application.recycleStatus?.toLowerCase()}`"
-        >
-          {{
-            statusLabels[application.recycleStatus] ??
-            application.recycleStatus ??
-            "狀態未設定"
-          }}
-        </span>
+        <div class="header-actions">
+          <span
+            class="status-badge"
+            :class="`status-${application.recycleStatus?.toLowerCase()}`"
+          >
+            {{
+              statusLabels[application.recycleStatus] ??
+              application.recycleStatus ??
+              "狀態未設定"
+            }}
+          </span>
+          <button
+            v-if="canCancelApplication"
+            type="button"
+            class="cancel-application-button"
+            :disabled="cancellingApplication"
+            @click="cancelApplication"
+          >
+            {{ cancellingApplication ? "取消中..." : "取消回收申請" }}
+          </button>
+        </div>
       </header>
+
+      <p v-if="cancelError" class="agreement-message error-message" role="alert">
+        {{ cancelError }}
+      </p>
+      <p v-if="cancelSuccess" class="agreement-message success-message" role="status">
+        <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+        {{ cancelSuccess }}
+      </p>
 
       <div class="detail-body">
         <div class="image-panel">
@@ -168,8 +345,102 @@ onMounted(fetchApplication);
             <dt>最後更新時間</dt>
             <dd>{{ formatDateTime(application.lastModifiedTime) }}</dd>
           </div>
+          <div v-if="application.agreementSignedTime">
+            <dt>電子簽署時間</dt>
+            <dd>{{ formatDateTime(application.agreementSignedTime) }}</dd>
+          </div>
         </dl>
       </div>
+
+      <!-- 會員收到門市寄出的 OTP 後，在自己的回收單明細完成驗證與電子簽名。 -->
+      <section
+        v-if="canSignAgreement"
+        class="agreement-panel"
+        aria-labelledby="member-agreement-title"
+      >
+        <div class="agreement-heading">
+          <div>
+            <p class="agreement-step">估價確認</p>
+            <h2 id="member-agreement-title">客戶估價同意確認</h2>
+          </div>
+          <span>驗證碼有效期限為 5 分鐘</span>
+        </div>
+
+        <p class="agreement-description">
+          請輸入 Email 中的 6 位數驗證碼，確認上方估價後完成電子簽名。
+        </p>
+
+        <div class="agreement-content">
+          <div class="otp-panel">
+            <label for="member-agreement-otp">6 位數驗證碼</label>
+            <input
+              id="member-agreement-otp"
+              v-model.trim="agreementOtp"
+              type="text"
+              inputmode="numeric"
+              maxlength="6"
+              autocomplete="one-time-code"
+              placeholder="000000"
+              :disabled="confirmingAgreement"
+            />
+            <small>請輸入門市寄到會員信箱的驗證碼。</small>
+          </div>
+
+          <div class="signature-panel">
+            <div class="signature-heading">
+              <label>電子簽名</label>
+              <button
+                type="button"
+                :disabled="confirmingAgreement"
+                @click="clearSignature"
+              >
+                清除簽名
+              </button>
+            </div>
+            <canvas
+              ref="signatureCanvas"
+              class="signature-canvas"
+              width="720"
+              height="220"
+              aria-label="電子簽名板"
+              @pointerdown.prevent="startSignature"
+              @pointermove.prevent="drawSignature"
+              @pointerup="stopSignature"
+              @pointercancel="stopSignature"
+              @pointerleave="stopSignature"
+            ></canvas>
+          </div>
+        </div>
+
+        <p v-if="agreementError" class="agreement-message error-message" role="alert">
+          {{ agreementError }}
+        </p>
+
+        <div class="agreement-actions">
+          <button
+            type="button"
+            class="confirm-agreement-button"
+            :disabled="confirmingAgreement"
+            @click="confirmAgreement"
+          >
+            <span
+              v-if="confirmingAgreement"
+              class="spinner-border spinner-border-sm"
+              aria-hidden="true"
+            ></span>
+            {{ confirmingAgreement ? "驗證中..." : "驗證並完成簽署" }}
+          </button>
+        </div>
+      </section>
+
+      <p
+        v-if="agreementSuccess"
+        class="agreement-message success-message"
+        role="status"
+      >
+        <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+        {{ agreementSuccess }}
+      </p>
     </article>
   </section>
 </template>
@@ -243,6 +514,32 @@ h1 {
   background: #dfeffc;
   font-size: 13px;
   font-weight: 750;
+}
+
+.header-actions {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cancel-application-button {
+  padding: 9px 14px;
+  border: 1px solid #c74343;
+  border-radius: 9px;
+  color: #a52d2d;
+  background: #fff;
+  font-weight: 750;
+}
+
+.cancel-application-button:hover:not(:disabled) {
+  color: #fff;
+  background: #b73535;
+}
+
+.cancel-application-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 .status-cancelled {
@@ -334,6 +631,151 @@ h1 {
   font-size: 18px;
 }
 
+.agreement-panel {
+  padding: 32px 34px 36px;
+  border-top: 1px solid #e1e8ef;
+  background: #f9fbfd;
+}
+
+.agreement-heading,
+.signature-heading,
+.agreement-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.agreement-heading h2 {
+  margin: 0;
+  font-size: 25px;
+  font-weight: 800;
+}
+
+.agreement-heading > span,
+.agreement-description,
+.otp-panel small {
+  color: var(--muted);
+}
+
+.agreement-step {
+  margin: 0 0 5px;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.agreement-description {
+  margin: 12px 0 24px;
+  font-size: 17px;
+}
+
+.agreement-content {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.55fr) minmax(0, 1.45fr);
+  gap: 32px;
+}
+
+.otp-panel,
+.signature-panel {
+  min-width: 0;
+}
+
+.otp-panel label,
+.signature-heading label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.otp-panel input {
+  width: 100%;
+  max-width: 330px;
+  padding: 14px 16px;
+  border: 1px solid #cfd9e3;
+  border-radius: 12px;
+  color: var(--ink);
+  background: #fff;
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: 0.38em;
+  text-align: center;
+}
+
+.otp-panel small {
+  display: block;
+  margin-top: 9px;
+}
+
+.signature-heading label {
+  margin-bottom: 0;
+}
+
+.signature-heading button {
+  padding: 7px 13px;
+  border: 1px solid #aab8c5;
+  border-radius: 8px;
+  color: #526579;
+  background: #fff;
+  font-weight: 700;
+}
+
+.signature-canvas {
+  display: block;
+  width: 100%;
+  height: 220px;
+  margin-top: 10px;
+  border: 2px dashed #9aaabd;
+  border-radius: 12px;
+  background: #fff;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.agreement-actions {
+  justify-content: flex-end;
+  margin-top: 22px;
+}
+
+.confirm-agreement-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 22px;
+  border: 0;
+  border-radius: 10px;
+  color: #fff;
+  background: var(--blue);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.confirm-agreement-button:disabled,
+.signature-heading button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.agreement-message {
+  margin: 18px 0 0;
+  padding: 13px 16px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.error-message {
+  color: #8f2626;
+  background: #fbe3e3;
+}
+
+.success-message {
+  margin: 24px 34px 32px;
+  color: #216a45;
+  background: #dff3e7;
+}
+
 .state-card {
   display: grid;
   min-height: 300px;
@@ -382,6 +824,10 @@ h1 {
   .image-placeholder {
     min-height: 240px;
   }
+
+  .agreement-content {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 560px) {
@@ -389,6 +835,10 @@ h1 {
     align-items: flex-start;
     flex-direction: column;
     padding: 24px;
+  }
+
+  .header-actions {
+    align-items: flex-start;
   }
 
   .detail-body {
@@ -399,6 +849,19 @@ h1 {
   .detail-list > div {
     grid-template-columns: 1fr;
     gap: 6px;
+  }
+
+  .agreement-panel {
+    padding: 24px;
+  }
+
+  .agreement-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .success-message {
+    margin: 20px 24px 24px;
   }
 }
 </style>
