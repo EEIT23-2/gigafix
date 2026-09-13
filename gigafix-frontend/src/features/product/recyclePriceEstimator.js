@@ -32,6 +32,14 @@ const IPHONE_PRICES = {
   },
 };
 
+// iPhone 11 與更舊機型統一使用同一價格區間，避免為大量舊世代逐一維護價目表。
+const LEGACY_IPHONE_PRICE = {
+  minCapacity: 16,
+  maxCapacity: 512,
+  minPrice: 300,
+  maxPrice: 5000,
+};
+
 // iPad 以晶片、產品線或世代判斷價目表列；使用函式可容納多種使用者輸入方式。
 const IPAD_PRICES = [
   {
@@ -162,25 +170,44 @@ function capacityScore(capacity, rule) {
 }
 
 function estimateIPhone(text, condition) {
-  // category 已確認為 IPHONE，因此也接受省略「iPhone」的輸入，例如「17 Pro 512GB」。
-  const modelMatch = text.match(/(?:iphone\s*)?(17|16|15|14|13|12)\b/i);
-  if (!modelMatch) {
-    throw new Error("無法辨識 iPhone 型號，目前支援 iPhone 12～17。");
-  }
-
-  const model = Number(modelMatch[1]);
-  const variant = /\bpro(?:\s*max)?\b/i.test(text) ? "pro" : "standard";
-  const rule = IPHONE_PRICES[model][variant];
   const capacity = parseCapacity(text);
   if (capacity == null) {
     throw new Error("無法辨識容量，請在商品名稱或描述填寫例如「256GB」。");
   }
 
+  // iPhone 12～17 維持原本各代與 Pro 價差；category 已確認時可省略 iPhone 字樣。
+  const currentModelMatch = text.match(/(?:iphone\s*)?(17|16|15|14|13|12)\b/i);
+  if (currentModelMatch) {
+    const model = Number(currentModelMatch[1]);
+    const variant = /\bpro(?:\s*max)?\b/i.test(text) ? "pro" : "standard";
+    const rule = IPHONE_PRICES[model][variant];
+
+    return {
+      rule,
+      modelLabel: `iPhone ${model}${variant === "pro" ? " Pro 系列" : " 非 Pro 系列"}`,
+      specificationLabel: `${capacity}GB`,
+      specificationScore: capacityScore(capacity, rule),
+      condition,
+    };
+  }
+
+  // 11 以下涵蓋數字世代、X／XS／XR 與 SE；所有舊款不再區分 Pro 或個別世代。
+  const legacyModelMatch = text.match(
+    /\b(?:iphone\s*)?(11|10|[4-9]|xs|xr|x|se(?:\s*(?:[123]|第?\s*[123]\s*代))?)\b/i,
+  );
+  if (!legacyModelMatch) {
+    throw new Error(
+      "無法辨識 iPhone 型號，目前支援 iPhone 4～17、X／XS／XR 與 SE。",
+    );
+  }
+
+  const legacyModel = legacyModelMatch[1].toUpperCase();
+
   return {
-    rule,
-    modelLabel: `iPhone ${model}${variant === "pro" ? " Pro 系列" : " 非 Pro 系列"}`,
+    rule: LEGACY_IPHONE_PRICE,
+    modelLabel: `iPhone ${legacyModel}（11 與更舊機型統一估價）`,
     specificationLabel: `${capacity}GB`,
-    specificationScore: capacityScore(capacity, rule),
+    specificationScore: capacityScore(capacity, LEGACY_IPHONE_PRICE),
     condition,
   };
 }
