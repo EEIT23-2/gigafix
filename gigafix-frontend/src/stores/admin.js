@@ -19,7 +19,7 @@ export const useFetchAdminInfoStore = defineStore('adminInfo', {
                 this.adminInfo = null //清空避免前端null exception
             } finally {
                 this.loading = false
-                this.fetched = true //因為不管是否取得資料都嘗試過一次，所以設為true避免沒拿到資料就無窮迴圈(因為沒有擋未登入就不能進入管理頁面)
+                this.fetched = true //不管成功失敗都算「嘗試過一次」，避免同一輪導航重複發request；真正擋未登入的邏輯在 router 的 beforeEach（見 router/index.js）
             }
         },
         async logoutAdmin() {
