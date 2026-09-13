@@ -2,6 +2,7 @@ package com.gigafix.product.service;
 
 
 import com.gigafix.product.dto.RecycleQueryParams;
+import com.gigafix.product.dto.RecycleAgreementRequest;
 import com.gigafix.product.dto.RecycleRequest;
 import com.gigafix.product.dto.RecycleResponse;
 import com.gigafix.product.entity.RecycleApplication;
@@ -32,11 +33,35 @@ public interface RecycleApplicationService {
 
     //新增回收單
     RecycleResponse createApplyForm( Long memberId, RecycleRequest recycleRequest);
+    //修改狀態api 回收單手機檢測中
+    /**
+     * 將已預約交件的回收單推進到現場檢測階段。
+     * 找不到資料時回傳 null，狀態不允許轉換時拋出 IllegalStateException。
+     */
+    RecycleResponse markAsInspecting(Long applyId);
+
+    /** 產生 5 分鐘有效的 OTP 並寄到回收單所屬會員信箱。 */
+    boolean sendAgreementOtp(Long applyId);
+
+    /**
+     * 驗證登入會員自己的回收單 OTP 與電子簽名，存檔後將狀態更新為資料清除中。
+     * memberId 用來避免會員替其他人的回收單完成簽署。
+     */
+    RecycleResponse confirmAgreement(Long memberId, Long applyId, RecycleAgreementRequest request);
+
+    /** 完成資料清除後結案，並將回收裝置新增為一筆可販售商品。 */
+    RecycleResponse completeRecycle(Long applyId);
+
+    /** 後台取消尚未進入資料清除階段的回收單。 */
+    RecycleResponse cancelRecycle(Long applyId);
+
+    /** 會員取消屬於自己的、尚未進入資料清除階段的回收單。 */
+    RecycleResponse cancelMemberRecycle(Long memberId, Long applyId);
 
     //修改回收單
     void updateApplyForm(Long applyId,RecycleRequest recycleRequest);
     //刪除單筆回收單
-    void deleteApplyFormById(Long applyId);
+    boolean deleteApplyFormById(Long applyId);
 
     //刪除所有回收單
     void deleteAllApplyForms();

@@ -26,6 +26,7 @@ import com.gigafix.member.dto.SendOtpReq;
 import com.gigafix.member.dto.UpdateAvatarReq;
 import com.gigafix.member.dto.UpdateMemberInfoReq;
 import com.gigafix.member.security.MemberUserDetails;
+import com.gigafix.member.service.CaptchaService;
 import com.gigafix.member.service.MailSenderService;
 import com.gigafix.member.service.MemberService;
 
@@ -38,6 +39,7 @@ import lombok.RequiredArgsConstructor;
 public class MemberController {
 	private final MemberService memberService;
 	private final MailSenderService mailSenderService;
+	private final CaptchaService captchaService;
 
 	@PostMapping("/register") // 註冊,因為不是只資源操作，而是還有包含驗證所以不適用restful原則
 	public ResponseEntity<LoginResp> register(@Valid @RequestBody RegisterReq registerReq) throws Exception {
@@ -50,6 +52,7 @@ public class MemberController {
 
 	@PostMapping("/register/otp") // 寄送註冊用的OTP驗證碼，掛在register底下代表這是註冊流程要用的子資源，同樣不套用restful原則
 	public ResponseEntity<Void> sendRegisterOtp(@Valid @RequestBody SendOtpReq sendOtpReq) throws Exception {
+		captchaService.verify(sendOtpReq.captchaToken()); // 先過人機驗證才寄信，擋機器人狂發OTP信件/大量註冊
 		mailSenderService.sendRegisterOtp(sendOtpReq.email());
 		return ResponseEntity.accepted().build(); // 202，代表已受理寄送請求
 	}

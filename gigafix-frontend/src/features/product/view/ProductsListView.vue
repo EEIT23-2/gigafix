@@ -51,6 +51,21 @@ const advancedFilterCount = computed(
   () => [modelName.value, color.value, storage.value].filter(Boolean).length,
 );
 
+// 每頁筆數與幣別屬於顯示偏好，不列入可清除的商品篩選條件。
+const hasActiveFilters = computed(() =>
+  Boolean(
+    keyword.value ||
+      category.value ||
+      saleStatus.value ||
+      modelName.value ||
+      color.value ||
+      storage.value ||
+      sortOption.value ||
+      (minPrice.value !== null && minPrice.value !== "") ||
+      (maxPrice.value !== null && maxPrice.value !== ""),
+  ),
+);
+
 // 計算第一頁與最後一頁之間要顯示的頁碼。
 // 頁數少時全部顯示；頁數多時只顯示目前頁附近的頁碼。
 const middlePages = computed(() => {
@@ -171,6 +186,22 @@ function resetAdvancedFilters() {
   modelName.value = "";
   color.value = "";
   storage.value = "";
+  showAdvancedFilter.value = false;
+  fetchProducts(0);
+}
+
+// 清除一般與進階篩選並回到第一頁，保留每頁筆數及幣別顯示偏好。
+function clearAllFilters() {
+  keyword.value = "";
+  category.value = "";
+  saleStatus.value = "";
+  modelName.value = "";
+  color.value = "";
+  storage.value = "";
+  sortOption.value = "";
+  minPrice.value = null;
+  maxPrice.value = null;
+  page.value = 0;
   showAdvancedFilter.value = false;
   fetchProducts(0);
 }
@@ -470,6 +501,14 @@ onMounted(() => fetchProducts(page.value));
             @click="fetchProducts(0)"
           >
             搜尋
+          </button>
+          <button
+            class="btn btn-outline-secondary text-nowrap"
+            type="button"
+            :disabled="!hasActiveFilters || loading"
+            @click="clearAllFilters"
+          >
+            清除條件
           </button>
           <button
             class="btn btn-outline-secondary text-nowrap position-relative d-inline-flex align-items-center gap-1"

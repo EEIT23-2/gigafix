@@ -24,6 +24,9 @@ public class RecycleResponse {
     private String description;
     private Integer estimatedPrice;
     private RecycleStatus recycleStatus;
+    // 僅回傳簽署時間，不把具個人性的簽名影像送到列表或明細 API。
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
+    private LocalDateTime agreementSignedTime;
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private LocalDateTime createdTime;
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")

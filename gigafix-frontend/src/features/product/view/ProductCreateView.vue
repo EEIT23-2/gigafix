@@ -10,6 +10,24 @@ const submitting = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
 const showLeaveConfirm = ref(false);
+const demoProduct = ref({});
+
+// 專題展示用：更新 initialProduct 後由共用 ProductForm 自動同步到各欄位。
+function fillDemoData() {
+  demoProduct.value = {
+    product_name: "iPhone 15 Pro 256GB",
+    category: "IPHONE",
+    grade: "S級",
+    appearance: "95成新",
+    description: "功能正常，外觀保存良好，螢幕與機身僅有輕微使用痕跡。",
+    price: 26500,
+    sale_status: "AVAILABLE",
+    image_url:
+      "https://megapx-assets.dcard.tw/images/1752868f-8991-4de9-9455-d5418769ff30/640.jpeg",
+  };
+  errorMessage.value = "";
+  successMessage.value = "";
+}
 
 function wait(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -76,9 +94,23 @@ async function confirmLeave() {
 <template>
   <main class="container-fluid px-3 px-md-4 py-4 create-page">
     <div class="page-shell mx-auto">
-      <header class="mb-4">
-        <h1 class="h2 fw-bold mb-1">新增商品</h1>
-        <p class="text-secondary mb-0">建立商品基本資訊、價格、狀態與圖片。</p>
+      <header
+        class="d-flex flex-column flex-sm-row align-items-sm-start justify-content-between gap-3 mb-4"
+      >
+        <div>
+          <h1 class="h2 fw-bold mb-1">新增商品</h1>
+          <p class="text-secondary mb-0">
+            建立商品基本資訊、價格、狀態與圖片。
+          </p>
+        </div>
+        <button
+          class="btn btn-outline-primary demo-fill-button"
+          type="button"
+          :disabled="submitting"
+          @click="fillDemoData"
+        >
+          自動填寫
+        </button>
       </header>
 
       <div v-if="errorMessage" class="alert alert-danger" role="alert">
@@ -95,6 +127,7 @@ async function confirmLeave() {
       </div>
 
       <ProductForm
+        :initial-product="demoProduct"
         :submitting="submitting"
         submit-text="建立產品"
         @submit="handleCreate"
@@ -142,6 +175,11 @@ async function confirmLeave() {
 }
 .page-shell {
   max-width: 1600px;
+}
+
+.demo-fill-button {
+  min-width: 112px;
+  font-weight: 700;
 }
 
 .confirm-backdrop {

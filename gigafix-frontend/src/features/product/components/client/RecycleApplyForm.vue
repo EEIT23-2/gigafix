@@ -45,6 +45,22 @@ const compactOptionalText = (value) => {
   return result || null;
 };
 
+// 專題展示用：一次填入固定測試資料，但不會自動送出回收申請。
+const fillDemoData = () => {
+  Object.assign(form, {
+    productName: "iPhone 16 Plus 256GB",
+    category: "IPHONE",
+    appearance: "95成新",
+    imageUrl:
+      "https://media.karousell.com/media/photos/products/2024/11/15/iphone_16_plus_256g__1731707667_36ad03f4_progressive.jpg",
+    description: "功能正常，外觀保存良好，螢幕與機身僅有輕微使用痕跡。",
+    estimatedPrice: 25000,
+    // 門市資料載入完成時自動選第一間；沒有門市資料時維持暫不指定。
+    storeId: stores.value[0]?.id ?? "",
+  });
+  errorMessage.value = "";
+};
+
 const submitApplication = async () => {
   errorMessage.value = "";
   submitting.value = true;
@@ -114,6 +130,17 @@ onMounted(loadStores);
       </header>
 
       <form class="application-form" @submit.prevent="submitApplication">
+        <div class="demo-button-row">
+          <button
+            class="demo-fill-button"
+            type="button"
+            :disabled="submitting"
+            @click="fillDemoData"
+          >
+            自動填寫
+          </button>
+        </div>
+
         <div class="form-grid">
           <label class="field-group field-product-name">
             <span
@@ -290,6 +317,35 @@ onMounted(loadStores);
   border-radius: 20px;
   background: #fff;
   box-shadow: 0 24px 60px -36px rgba(0, 0, 0, 0.28);
+}
+
+.demo-button-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 18px;
+}
+
+.demo-fill-button {
+  flex: 0 0 auto;
+  padding: 10px 16px;
+  border: 1px solid #005ab7;
+  border-radius: 9px;
+  color: #005ab7;
+  background: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.demo-fill-button:hover:not(:disabled),
+.demo-fill-button:focus-visible:not(:disabled) {
+  color: #fff;
+  background: #005ab7;
+}
+
+.demo-fill-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 .form-grid {
@@ -481,6 +537,10 @@ onMounted(loadStores);
   .form-grid {
     grid-template-columns: minmax(0, 1fr);
     gap: 20px;
+  }
+
+  .demo-fill-button {
+    width: 100%;
   }
 
   .back-button {

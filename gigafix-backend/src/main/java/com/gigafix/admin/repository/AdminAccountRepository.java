@@ -11,7 +11,9 @@ import com.gigafix.admin.entity.AdminAccount.Role;
 public interface AdminAccountRepository extends JpaRepository<AdminAccount, Integer> {
 	
 	Optional<AdminAccount> findByName(String name);
-	
+
+	boolean existsByName(String name); //建立/改名前檢查名稱有沒有被別人用過
+
 	boolean existsByRole(Role role); //檢查某管理類型是否存在
 	
 	List<AdminAccount> findByRole(AdminAccount.Role role);

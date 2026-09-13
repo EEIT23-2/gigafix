@@ -66,6 +66,9 @@ public class AdminAccountService {
 		if (req.role() == Role.ROLE_SUPER_ADMIN) {
 			throw new AdminBusinessRuleCheckException("總管理員不能有第二位");
 		}
+		if (adminRepository.existsByName(req.adminName())) { //帳號名稱是唯一鍵，建立前要先檢查有沒有撞名
+			throw new AdminBusinessRuleCheckException("帳號名稱已被使用");
+		}
 		AdminAccount adminCreated = adminRepository.save(AdminAccount.builder()
 				.name(req.adminName())
 				.password(passwordEncoder.encode(req.password())) //要編碼才可以儲存
@@ -96,6 +99,10 @@ public class AdminAccountService {
     public AdminInfoDto updateupdateMyName(Integer id, String adminName) {
         AdminAccount account = adminRepository.findById(id).orElseThrow(() -> new AdminAccountNotFoundException());
 
+        //只有名稱真的改變時才需要檢查撞名，不然自己原本的名稱會被自己的existsByName誤判成已被使用
+        if (!account.getName().equals(adminName) && adminRepository.existsByName(adminName)) {
+            throw new AdminBusinessRuleCheckException("帳號名稱已被使用");
+        }
         account.setName(adminName);
         AdminAccount saved = adminRepository.save(account);
         

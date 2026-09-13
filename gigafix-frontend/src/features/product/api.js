@@ -219,6 +219,74 @@ export const createRecycleApplication = async (recycleRequest) => {
 };
 
 /**
+ * 後台將回收申請改為「現場檢測評估中」。
+ *
+ * PATCH /api/admin/recycle-applications/{applyId}/status/inspecting
+ */
+export const markRecycleApplicationAsInspecting = async (applyId) => {
+  const response = await axios.patch(
+    `${ADMIN_RECYCLE_APPLICATION_URL}/${applyId}/status/inspecting`,
+  );
+
+  return response.data;
+};
+
+/**
+ * 寄送回收估價同意 OTP 到會員信箱。後端將驗證碼保存在 5 分鐘 Caffeine 快取中。
+ */
+export const requestRecycleAgreementOtp = async (applyId) => {
+  await axios.post(
+    `${ADMIN_RECYCLE_APPLICATION_URL}/${applyId}/agreement-otp`,
+  );
+};
+
+/**
+ * 前台登入會員提交自己的 6 位 OTP 與 Canvas PNG 簽名。
+ * 後端保存簽名並驗證回收單歸屬後，狀態會更新為 WIPING。
+ */
+export const confirmMemberRecycleAgreement = async (
+  applyId,
+  otp,
+  signatureDataUrl,
+) => {
+  const response = await axios.post(
+    `${RECYCLE_APPLICATION_URL}/${applyId}/agreement`,
+    { otp, signatureDataUrl },
+  );
+
+  return response.data;
+};
+
+/** 前台登入會員取消自己的回收申請。 */
+export const cancelMemberRecycleApplication = async (applyId) => {
+  const response = await axios.patch(
+    `${RECYCLE_APPLICATION_URL}/${applyId}/status/cancelled`,
+  );
+
+  return response.data;
+};
+
+/** 後台管理員將回收申請更新為 CANCELLED。 */
+export const cancelRecycleApplication = async (applyId) => {
+  const response = await axios.patch(
+    `${ADMIN_RECYCLE_APPLICATION_URL}/${applyId}/status/cancelled`,
+  );
+
+  return response.data;
+};
+
+/**
+ * 後台確認資料清除完成並結案；後端會同步新增一筆商品庫存及寄送會員通知。
+ */
+export const completeRecycleApplication = async (applyId) => {
+  const response = await axios.patch(
+    `${ADMIN_RECYCLE_APPLICATION_URL}/${applyId}/status/completed`,
+  );
+
+  return response.data;
+};
+
+/**
  * 後台修改回收申請
  *
  * PUT /api/admin/recycle-applications/{applyId}
