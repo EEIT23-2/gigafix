@@ -99,6 +99,24 @@ function compactParams(params) {
   );
 }
 
+// 阻擋鍵盤直接輸入負號，避免價格欄位出現負數。
+function preventNegativePriceKey(event) {
+  if (event.key === "-" || event.key === "Subtract") {
+    event.preventDefault();
+  }
+}
+
+// 貼上或其他輸入方式仍可能帶入負數，因此輸入後再次修正為 0。
+function normalizePriceFilter(field) {
+  const value = filters[field];
+  if (value === "" || value == null) return;
+
+  const numericValue = Number(value);
+  filters[field] = Number.isFinite(numericValue)
+    ? Math.max(0, numericValue)
+    : "";
+}
+
 async function fetchProducts() {
   const currentRequest = ++requestSequence;
   loading.value = true;
@@ -180,7 +198,8 @@ const addToCart = async (product) => {
   }
 
   clearTimeout(cartMessageTimer);
-  const name = product.product_name ?? product.productName ?? product.name ?? "商品";
+  const name =
+    product.product_name ?? product.productName ?? product.name ?? "商品";
   try {
     await addCartItem(product.productId);
     cartMessageType.value = "success";
@@ -276,7 +295,7 @@ onBeforeUnmount(() => {
             <select v-model="filters.storage" class="form-select">
               <option value="">全部容量</option>
               <option
-                v-for="value in ['64GB', '128GB', '256GB', '512GB']"
+                v-for="value in ['64G', '128G', '256G', '512G']"
                 :key="value"
                 :value="value"
               >
@@ -290,11 +309,14 @@ onBeforeUnmount(() => {
               <option value="">全部顏色</option>
               <option
                 v-for="value in [
-                  '深紫色',
-                  '星光色',
-                  '午夜色',
-                  '原色鈦金屬',
-                  '綠色',
+                  '紫',
+                  '星空',
+                  '午夜',
+                  '銀',
+                  '綠',
+                  '藍',
+                  '紅',
+                  '黑',
                 ]"
                 :key="value"
                 :value="value"
@@ -307,16 +329,26 @@ onBeforeUnmount(() => {
             <h3>價格範圍</h3>
             <label class="small text-muted">最低價格</label
             ><input
-              v-model="filters.min"
+              v-model.number="filters.min"
               class="form-control mb-3"
               type="number"
+              min="0"
+              step="1"
+              inputmode="numeric"
               placeholder="NT$"
+              @keydown="preventNegativePriceKey"
+              @input="normalizePriceFilter('min')"
             /><label class="small text-muted">最高價格</label
             ><input
-              v-model="filters.max"
+              v-model.number="filters.max"
               class="form-control"
               type="number"
+              min="0"
+              step="1"
+              inputmode="numeric"
               placeholder="NT$"
+              @keydown="preventNegativePriceKey"
+              @input="normalizePriceFilter('max')"
             />
           </div>
         </div>
