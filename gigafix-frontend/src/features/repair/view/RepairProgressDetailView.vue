@@ -1,7 +1,12 @@
 <script setup>
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { getRepair, respondToQuote } from "../api";
+import {
+  getRepair,
+  redirectToEcpayPayment,
+  respondToQuote,
+  submitPickupPayment,
+} from "../api";
 
 const props = defineProps({
   repairId: { type: [String, Number], required: true },
@@ -53,10 +58,11 @@ const PAY_STATUS_LABELS = {
   UNPAID: "未付款",
   PAID: "已付款",
   REFUNDED: "已退款",
+  PENDING: "付款中",
 };
 const PICKUP_LABELS = {
   SELF_PICKUP: "門市自取",
-  COURIER: "宅配超商寄回",
+  COURIER: "寄件",
 };
 function label(map, value) {
   if (!value) return "—";
@@ -67,7 +73,67 @@ function formatDateTime(value) {
   return value.replace("T", " ").slice(0, 16);
 }
 
-const HAS_PICKUP_INFO = ["AWAITING_PICKUP", "CLOSED"];
+// ===== 取件付款：客戶選取件方式＋付款方式（選寄件要附收件人資訊），只能送出一次 =====
+const pickupPaymentForm = ref({
+  pickupType: "",
+  repairPay: "",
+  recipientName: "",
+  recipientPhone: "",
+  recipientAddress: "",
+});
+const submittingPickupPayment = ref(false);
+
+// 狀態要到「維修完成」或「尚未取件」、而且還沒送出過(pickupType還是null)才顯示選擇表單
+const needsPickupPaymentChoice = computed(
+  () =>
+    repair.value &&
+    ["REPAIR_COMPLETED", "AWAITING_PICKUP"].includes(repair.value.repairStatus) &&
+    !repair.value.pickupType,
+);
+
+async function handleSubmitPickupPayment() {
+  const form = pickupPaymentForm.value;
+  if (!form.pickupType || !form.repairPay) {
+    alert("請選擇取件方式與付款方式");
+    return;
+  }
+  if (
+    form.pickupType === "COURIER" &&
+    (!form.recipientName || !form.recipientPhone || !form.recipientAddress)
+  ) {
+    alert("寄件需要填寫收件人姓名、電話、地址");
+    return;
+  }
+  if (!window.confirm("確定送出後如需更動需聯繫技師")) return;
+
+  submittingPickupPayment.value = true;
+  errorMessage.value = "";
+  try {
+    await submitPickupPayment(repair.value.id, {
+      pickupType: form.pickupType,
+      repairPay: form.repairPay,
+      recipientName: form.pickupType === "COURIER" ? form.recipientName : null,
+      recipientPhone: form.pickupType === "COURIER" ? form.recipientPhone : null,
+      recipientAddress: form.pickupType === "COURIER" ? form.recipientAddress : null,
+    });
+    // 選線上付款：後端已經把repairPayStatus標記PENDING，整頁導去綠界付款頁面(不是ajax)，
+    // 付款完成的狀態更新依據是綠界打後端的NotifyURL，不是這裡的導頁
+    if (form.repairPay === "ONLINE") {
+      redirectToEcpayPayment(repair.value.id);
+      return;
+    }
+    await fetchRepair();
+  } catch (error) {
+    console.error(error);
+    errorMessage.value = error.response?.data?.message
+      ? error.response.data.message
+      : error.response
+        ? `送出失敗：HTTP ${error.response.status}`
+        : "無法連線到後端伺服器";
+  } finally {
+    submittingPickupPayment.value = false;
+  }
+}
 
 // ===== 客戶回應報價（同意／拒絕） =====
 const responding = ref(false);
@@ -75,7 +141,7 @@ const responding = ref(false);
 async function handleRespond(approve) {
   const confirmMsg = approve
     ? "確定要同意這份報價，開始維修嗎？"
-    : "確定要拒絕這份報價嗎？拒絕後將只收取檢測費用。";
+    : "確定要拒絕這份報價嗎？拒絕後技師會再跟你聯繫確認費用。";
   if (!window.confirm(confirmMsg)) return;
 
   responding.value = true;
@@ -100,6 +166,13 @@ async function fetchRepair() {
   errorMessage.value = "";
   try {
     repair.value = await getRepair(props.repairId);
+    pickupPaymentForm.value = {
+      pickupType: "",
+      repairPay: "",
+      recipientName: "",
+      recipientPhone: "",
+      recipientAddress: "",
+    };
   } catch (error) {
     console.error(error);
     errorMessage.value = error.response
@@ -254,30 +327,110 @@ onMounted(() => {
       <section class="card mb-4">
         <div class="card-header fw-bold">取件付款</div>
         <div class="card-body row g-3">
-          <div class="col-md-4">
-            <span class="text-secondary">取件方式：</span
-            >{{
-              HAS_PICKUP_INFO.includes(repair.repairStatus)
-                ? label(PICKUP_LABELS, repair.pickupType)
-                : "—"
-            }}
-          </div>
-          <div class="col-md-4">
-            <span class="text-secondary">付款方式：</span
-            >{{
-              HAS_PICKUP_INFO.includes(repair.repairStatus)
-                ? label(PAY_LABELS, repair.repairPay)
-                : "—"
-            }}
-          </div>
-          <div class="col-md-4">
-            <span class="text-secondary">付款狀態：</span
-            >{{
-              repair.repairStatus === "CLOSED"
-                ? label(PAY_STATUS_LABELS, repair.repairPayStatus)
-                : "—"
-            }}
-          </div>
+          <!-- 維修完成/尚未取件、且還沒送出過取件付款方式：顯示選擇表單，送出後就鎖住 -->
+          <template v-if="needsPickupPaymentChoice">
+            <div class="col-12">
+              <label class="form-label text-secondary d-block">取件方式</label>
+              <div class="form-check form-check-inline">
+                <input
+                  id="pickupSelf"
+                  v-model="pickupPaymentForm.pickupType"
+                  class="form-check-input"
+                  type="radio"
+                  value="SELF_PICKUP"
+                />
+                <label class="form-check-label" for="pickupSelf">門市取件</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input
+                  id="pickupCourier"
+                  v-model="pickupPaymentForm.pickupType"
+                  class="form-check-input"
+                  type="radio"
+                  value="COURIER"
+                />
+                <label class="form-check-label" for="pickupCourier">寄件</label>
+              </div>
+            </div>
+
+            <template v-if="pickupPaymentForm.pickupType === 'COURIER'">
+              <div class="col-md-4">
+                <label class="form-label">收件人姓名</label>
+                <input v-model="pickupPaymentForm.recipientName" type="text" class="form-control" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">收件人電話</label>
+                <input v-model="pickupPaymentForm.recipientPhone" type="text" class="form-control" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">收件地址</label>
+                <input v-model="pickupPaymentForm.recipientAddress" type="text" class="form-control" />
+              </div>
+            </template>
+
+            <div class="col-12">
+              <label class="form-label text-secondary d-block">付款方式</label>
+              <!-- 寄件沒辦法到門市付款，只能線上付款 -->
+              <div class="form-check form-check-inline" v-if="pickupPaymentForm.pickupType !== 'COURIER'">
+                <input
+                  id="payInStore"
+                  v-model="pickupPaymentForm.repairPay"
+                  class="form-check-input"
+                  type="radio"
+                  value="IN_STORE"
+                />
+                <label class="form-check-label" for="payInStore">門市付款</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input
+                  id="payOnline"
+                  v-model="pickupPaymentForm.repairPay"
+                  class="form-check-input"
+                  type="radio"
+                  value="ONLINE"
+                />
+                <label class="form-check-label" for="payOnline">線上付款</label>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <button
+                class="btn btn-primary"
+                :disabled="submittingPickupPayment"
+                @click="handleSubmitPickupPayment"
+              >
+                送出
+              </button>
+            </div>
+          </template>
+
+          <!-- 已經送出過(顯示實際值)、或還沒到可以選的階段(label遇到null自動顯示—) -->
+          <template v-else>
+            <div class="col-md-4">
+              <span class="text-secondary">取件方式：</span
+              >{{ label(PICKUP_LABELS, repair.pickupType) }}
+            </div>
+            <div class="col-md-4">
+              <span class="text-secondary">付款方式：</span
+              >{{ label(PAY_LABELS, repair.repairPay) }}
+            </div>
+            <div class="col-md-4">
+              <span class="text-secondary">付款狀態：</span
+              >{{ label(PAY_STATUS_LABELS, repair.repairPayStatus) }}
+            </div>
+            <div class="col-12" v-if="repair.pickupType === 'COURIER'">
+              <span class="text-secondary">收件資訊：</span
+              >{{ repair.recipientName }}（{{ repair.recipientPhone }}）　{{
+                repair.recipientAddress
+              }}
+            </div>
+            <div
+              class="col-12 text-muted small"
+              v-if="repair.pickupType && repair.repairStatus !== 'CLOSED'"
+            >
+              如需更動取件/付款/收件資訊，請聯繫負責的技師。
+            </div>
+          </template>
         </div>
       </section>
 
