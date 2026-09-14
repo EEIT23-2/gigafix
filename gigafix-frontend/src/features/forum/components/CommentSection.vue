@@ -40,6 +40,12 @@ const textareaRef = ref(null)
 // 系統隱藏的留言暫時被使用者點開過（只存在這次瀏覽，重新整理會恢復遮蔽）
 const revealed = ref({})
 
+// 留言頭像圖片載入失敗（網址失效）時記錄下來改用暱稱首字當 fallback；用 commentId 當 key 讓每則留言的失敗狀態互不影響
+const avatarErrors = ref({})
+
+// 撰寫框裡「我」的頭像圖片載入失敗時的 fallback 狀態
+const myAvatarError = ref(false)
+
 // 檢舉表單：同時間只會展開一則留言的檢舉表單
 const reportingCommentId = ref(null)
 const reportReason = ref('')
@@ -51,9 +57,14 @@ const reportSuccessMessage = ref('')
 // 不用等使用者送出才發現失敗——涵蓋 CLOSED/FORCE_CLOSED，也涵蓋 HIDDEN/FORCE_HIDDEN/TAKEN_DOWN/DRAFT
 const locked = computed(() => props.status !== 'PUBLISHED')
 
-// 沒有頭像欄位，用暱稱首字當頭像。用展開運算子取字，避免 emoji 之類的字元被切成半個
+// 有頭像網址時優先顯示真實頭像，沒有欄位或圖片載入失敗才退回暱稱首字。用展開運算子取字，避免 emoji 之類的字元被切成半個
 function initial(nickName) {
   return nickName ? [...nickName][0] : '?'
+}
+
+// 系統隱藏且尚未被點開的留言，維持原本的「?」遮蔽，不論有沒有真實頭像
+function isMasked(comment) {
+  return comment.status === 'HIDDEN' && !revealed.value[comment.commentId]
 }
 
 function formatDateTime(value) {
@@ -188,8 +199,15 @@ async function handleReportSubmit(commentId) {
     <p v-if="loadError" class="error">{{ loadError }}</p>
     <ul v-else class="comment-list">
       <li v-for="comment in comments" :key="comment.commentId" class="comment-item">
-        <span class="avatar" :class="{ 'avatar-masked': comment.status === 'HIDDEN' && !revealed[comment.commentId] }">
-          {{ comment.status === 'HIDDEN' && !revealed[comment.commentId] ? '?' : initial(comment.authorNickName) }}
+        <span class="avatar" :class="{ 'avatar-masked': isMasked(comment) }">
+          <img
+            v-if="!isMasked(comment) && comment.authorProfileImageUrl && !avatarErrors[comment.commentId]"
+            :src="comment.authorProfileImageUrl"
+            alt=""
+            class="avatar-img"
+            @error="avatarErrors[comment.commentId] = true"
+          >
+          <template v-else>{{ isMasked(comment) ? '?' : initial(comment.authorNickName) }}</template>
         </span>
         <div class="comment-main">
           <div class="comment-header">
@@ -266,7 +284,16 @@ async function handleReportSubmit(commentId) {
     </p>
     <!-- 撰寫框放在留言列表下方 -->
     <form v-else class="comment-form" @submit.prevent="handleSubmit">
-      <span class="avatar avatar-me">我</span>
+      <span class="avatar avatar-me">
+        <img
+          v-if="memberInfo?.profileImageUrl && !myAvatarError"
+          :src="memberInfo.profileImageUrl"
+          alt=""
+          class="avatar-img"
+          @error="myAvatarError = true"
+        >
+        <template v-else>我</template>
+      </span>
       <div class="comment-form-main">
         <textarea
           ref="textareaRef"
@@ -318,6 +345,13 @@ async function handleReportSubmit(commentId) {
   color: #1d324b;
   font-size: 13px;
   font-weight: 700;
+  overflow: hidden;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .avatar-masked {

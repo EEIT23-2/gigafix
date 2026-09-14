@@ -639,6 +639,7 @@ public class ArticleServiceImpl implements ArticleService {
 				.categoryName(article.getCategory().getName())
 				.authorId(article.getAuthor().getId())
 				.authorNickName(article.getAuthor().getNickName())
+				.authorProfileImageUrl(article.getAuthor().getProfileImageUrl())
 				.title(visible ? article.getTitle() : null)
 				.content(visible ? article.getContent() : null)
 				.viewCount(article.getViewCount())

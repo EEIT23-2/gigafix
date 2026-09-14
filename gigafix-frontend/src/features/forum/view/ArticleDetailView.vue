@@ -89,10 +89,17 @@ const floorLocked = computed(
   () => article.value?.status === 'CLOSED' || article.value?.status === 'FORCE_CLOSED',
 )
 
-// 沒有頭像欄位，用暱稱首字當頭像。用展開運算子取字，避免 emoji 之類的字元被切成半個
+// 有頭像網址時優先顯示真實頭像，沒有欄位或圖片載入失敗才退回暱稱首字。用展開運算子取字，避免 emoji 之類的字元被切成半個
 function initial(nickName) {
   return nickName ? [...nickName][0] : '?'
 }
+
+// 文章上方作者列跟右側作者卡顯示的是同一位作者、同一張圖，共用同一個失敗狀態即可
+const articleAuthorAvatarError = ref(false)
+// 樓層各自的作者不同，要用 articleId 當 key 讓每個樓層的失敗狀態互不影響
+const floorAvatarErrors = ref({})
+// 蓋樓撰寫框裡「我」的頭像圖片載入失敗時的 fallback 狀態
+const myFloorAvatarError = ref(false)
 
 function formatDateTime(value) {
   if (!value) return ''
@@ -445,7 +452,16 @@ async function handleDeleteFloor(floorId) {
 
                   <div class="meta-row">
                     <span class="meta-author">
-                      <span class="avatar avatar-sm">{{ initial(article.authorNickName) }}</span>
+                      <span class="avatar avatar-sm">
+                        <img
+                          v-if="article.authorProfileImageUrl && !articleAuthorAvatarError"
+                          :src="article.authorProfileImageUrl"
+                          alt=""
+                          class="avatar-img"
+                          @error="articleAuthorAvatarError = true"
+                        >
+                        <template v-else>{{ initial(article.authorNickName) }}</template>
+                      </span>
                       <span class="author-name">{{ article.authorNickName }}</span>
                     </span>
                     <span class="meta-item">
@@ -537,6 +553,16 @@ async function handleDeleteFloor(floorId) {
               >
                 <div class="floor-head">
                   <span class="floor-badge">{{ floor.floorNumber }}樓</span>
+                  <span class="avatar avatar-sm">
+                    <img
+                      v-if="floor.authorProfileImageUrl && !floorAvatarErrors[floor.articleId]"
+                      :src="floor.authorProfileImageUrl"
+                      alt=""
+                      class="avatar-img"
+                      @error="floorAvatarErrors[floor.articleId] = true"
+                    >
+                    <template v-else>{{ initial(floor.authorNickName) }}</template>
+                  </span>
                   <span class="author-name">{{ floor.authorNickName }}</span>
                   <span class="floor-time">{{ formatDateTime(floor.articleCreatedTime) }}</span>
                   <!-- articleEditedTime 只在 updateFloor 真的存新內文時才會寫入，狀態變更/刪除不會動到它。
@@ -669,7 +695,16 @@ async function handleDeleteFloor(floorId) {
                   <i class="bi bi-lock"></i>蓋樓功能已關閉
                 </p>
                 <form v-else class="floor-form" @submit.prevent="handleCreateFloor">
-                  <span class="avatar avatar-md">{{ initial('我') }}</span>
+                  <span class="avatar avatar-md">
+                    <img
+                      v-if="memberInfo?.profileImageUrl && !myFloorAvatarError"
+                      :src="memberInfo.profileImageUrl"
+                      alt=""
+                      class="avatar-img"
+                      @error="myFloorAvatarError = true"
+                    >
+                    <template v-else>我</template>
+                  </span>
                   <div class="floor-form-main">
                     <RichTextEditor v-model="floorContent" placeholder="回覆這篇文章（蓋樓）..." />
                     <div class="form-footer">
@@ -686,7 +721,16 @@ async function handleDeleteFloor(floorId) {
             <!-- ──────── 側欄 ──────── -->
             <div class="col-lg-4">
               <section class="card author-card">
-                <span class="avatar avatar-lg">{{ initial(article.authorNickName) }}</span>
+                <span class="avatar avatar-lg">
+                  <img
+                    v-if="article.authorProfileImageUrl && !articleAuthorAvatarError"
+                    :src="article.authorProfileImageUrl"
+                    alt=""
+                    class="avatar-img"
+                    @error="articleAuthorAvatarError = true"
+                  >
+                  <template v-else>{{ initial(article.authorNickName) }}</template>
+                </span>
                 <span class="author-card-name">{{ article.authorNickName }}</span>
                 <!-- TODO: 後端還沒有「作者文章數」端點，也還沒有作者文章列表頁可以連，
                      等這兩件事補上再把篇數與連結接上，先不顯示假資料 -->
@@ -749,6 +793,13 @@ async function handleDeleteFloor(floorId) {
   background-color: #e5e9f0;
   color: #1d324b;
   font-weight: 700;
+  overflow: hidden;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .avatar-sm {
