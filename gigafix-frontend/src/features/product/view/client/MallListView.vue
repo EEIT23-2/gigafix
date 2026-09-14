@@ -45,7 +45,7 @@ const filters = reactive({
   max: "",
 });
 const pageNumber = ref(0);
-const pageSize = ref(48);
+const pageSize = ref(12);
 const totalPages = ref(0);
 const totalElements = ref(0);
 const loading = ref(false);
@@ -97,6 +97,24 @@ function compactParams(params) {
       ([, value]) => value !== "" && value !== null && value !== undefined,
     ),
   );
+}
+
+// 阻擋鍵盤直接輸入負號，避免價格欄位出現負數。
+function preventNegativePriceKey(event) {
+  if (event.key === "-" || event.key === "Subtract") {
+    event.preventDefault();
+  }
+}
+
+// 貼上或其他輸入方式仍可能帶入負數，因此輸入後再次修正為 0。
+function normalizePriceFilter(field) {
+  const value = filters[field];
+  if (value === "" || value == null) return;
+
+  const numericValue = Number(value);
+  filters[field] = Number.isFinite(numericValue)
+    ? Math.max(0, numericValue)
+    : "";
 }
 
 async function fetchProducts() {
@@ -180,7 +198,8 @@ const addToCart = async (product) => {
   }
 
   clearTimeout(cartMessageTimer);
-  const name = product.product_name ?? product.productName ?? product.name ?? "商品";
+  const name =
+    product.product_name ?? product.productName ?? product.name ?? "商品";
   try {
     await addCartItem(product.productId);
     cartMessageType.value = "success";
@@ -276,7 +295,7 @@ onBeforeUnmount(() => {
             <select v-model="filters.storage" class="form-select">
               <option value="">全部容量</option>
               <option
-                v-for="value in ['64GB', '128GB', '256GB', '512GB']"
+                v-for="value in ['64G', '128G', '256G', '512G']"
                 :key="value"
                 :value="value"
               >
@@ -290,11 +309,14 @@ onBeforeUnmount(() => {
               <option value="">全部顏色</option>
               <option
                 v-for="value in [
-                  '深紫色',
-                  '星光色',
-                  '午夜色',
-                  '原色鈦金屬',
-                  '綠色',
+                  '紫',
+                  '星空',
+                  '午夜',
+                  '銀',
+                  '綠',
+                  '藍',
+                  '紅',
+                  '黑',
                 ]"
                 :key="value"
                 :value="value"
@@ -307,16 +329,26 @@ onBeforeUnmount(() => {
             <h3>價格範圍</h3>
             <label class="small text-muted">最低價格</label
             ><input
-              v-model="filters.min"
+              v-model.number="filters.min"
               class="form-control mb-3"
               type="number"
+              min="0"
+              step="1"
+              inputmode="numeric"
               placeholder="NT$"
+              @keydown="preventNegativePriceKey"
+              @input="normalizePriceFilter('min')"
             /><label class="small text-muted">最高價格</label
             ><input
-              v-model="filters.max"
+              v-model.number="filters.max"
               class="form-control"
               type="number"
+              min="0"
+              step="1"
+              inputmode="numeric"
               placeholder="NT$"
+              @keydown="preventNegativePriceKey"
+              @input="normalizePriceFilter('max')"
             />
           </div>
         </div>
@@ -360,9 +392,9 @@ onBeforeUnmount(() => {
                 class="form-select fw-semibold"
                 aria-label="每頁顯示筆數"
               >
-                <option :value="48">48 筆</option>
-                <option :value="36">36 筆</option>
                 <option :value="12">12 筆</option>
+                <option :value="9">9 筆</option>
+                <option :value="6">6 筆</option>
               </select>
             </label>
             <label class="sorter d-flex align-items-center">
@@ -391,22 +423,6 @@ onBeforeUnmount(() => {
       </section>
     </div>
   </main>
-  <footer>
-    <div class="container-xxl">
-      <div class="row g-4">
-        <div class="col-md-6 col-lg-4">
-          <h2>All2Hands</h2>
-          <p>© 2026 All2Hands 二手商城。讓好物延續價值。</p>
-        </div>
-        <div class="col-6 col-lg-2">
-          <a href="#">隱私權政策</a><a href="#">服務條款</a>
-        </div>
-        <div class="col-6 col-lg-2">
-          <a href="#">配送說明</a><a href="#">人才招募</a>
-        </div>
-      </div>
-    </div>
-  </footer>
 </template>
 
 <style scoped>
@@ -632,28 +648,6 @@ onBeforeUnmount(() => {
   opacity: 0.35;
   pointer-events: none;
 }
-footer {
-  margin-top: 120px;
-  padding: 80px 5rem;
-  border-top: 1px solid #f3f3f3;
-  font-family: "Hanken Grotesk", "Noto Sans TC", sans-serif;
-}
-footer h2 {
-  font-size: 24px;
-  font-weight: 700;
-}
-footer p,
-footer a {
-  color: #635d5e;
-}
-footer a {
-  display: block;
-  margin-bottom: 12px;
-  text-decoration: none;
-}
-footer a:hover {
-  color: #000;
-}
 @media (max-width: 991.98px) {
   .shop-layout {
     padding: 56px 32px 72px;
@@ -671,10 +665,6 @@ footer a:hover {
   }
   .page-header p {
     font-size: 17px;
-  }
-  footer {
-    margin-top: 64px;
-    padding: 56px 20px;
   }
 }
 </style>
