@@ -19,6 +19,8 @@ const {
   page,
   size,
   applyId: searchApplyId,
+  // 直接綁定 Pinia state，從詳情或編輯頁返回後可恢復會員 ID 篩選。
+  memberId: searchMemberId,
   productName: searchProductName,
   appearance: searchAppearance,
   category: searchCategory,
@@ -27,7 +29,6 @@ const {
 } = storeToRefs(recycleApplicationStore);
 
 const applications = ref([]);
-const searchMemberId = ref("");
 const totalElements = ref(0);
 const totalPages = ref(0);
 const loading = ref(false);
@@ -172,7 +173,7 @@ function search() {
 }
 
 function resetSearch() {
-  searchMemberId.value = "";
+  // 統一由 store 清除所有篩選、排序及分頁狀態，避免漏掉個別欄位。
   recycleApplicationStore.resetListState();
   fetchApplications(0);
 }
