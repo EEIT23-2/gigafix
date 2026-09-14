@@ -57,17 +57,17 @@ public class SecurityConfig {
 				// .cors(null) //因為前端先用vite做反向代理，所以根本不會觸發cros因此先不寫
 				.csrf(csrf -> csrf.disable())
 				.authorizeHttpRequests(requests -> requests
-						.requestMatchers("/api/adminlogin", "/api/adminlogout", "/api/admin/account/super-admin")
+						.requestMatchers("/api/adminlogin", "/api/adminlogout", "/api/admin/**")
 						.permitAll() // 不需要登入，但享有Security的保護
 						.requestMatchers("/api/admin/account/me", "/api/admin/account/me/**")
 						.hasAnyAuthority("ROLE_REPAIR_ADMIN", "ROLE_FORUM_ADMIN", "ROLE_ECOMMERCE_ADMIN",
 								"ROLE_DEPUTY_ADMIN", "ROLE_SUPER_ADMIN")
 						.requestMatchers("/api/admin/account/**").hasAuthority("ROLE_SUPER_ADMIN")
 						.requestMatchers("/api/admin/**").hasAnyAuthority("ROLE_DEPUTY_ADMIN", "ROLE_SUPER_ADMIN")
-				// .requestMatchers("/admin/product/**","/admin/order/**").hasAnyAuthority("ROLE_ECOMMERCE_ADMIN")
-				// .requestMatchers("/admin/forum/**").hasAuthority("ROLE_FORUM_ADMIN")
-				// .requestMatchers("/admin/repair/**").hasAuthority("ROLE_REPAIR_ADMIN")
-				)
+						.requestMatchers("/api/gigafix/products**", "/api/admin/order/**")
+						.hasAnyAuthority("ROLE_ECOMMERCE_ADMIN")
+						.requestMatchers("/api/admin/forum/**").hasAuthority("ROLE_FORUM_ADMIN")
+						.requestMatchers("/api/admin/repair/**").hasAuthority("ROLE_REPAIR_ADMIN"))
 				.sessionManagement(session -> session // session-based 認證的核心設定
 						.maximumSessions(1) // 可選：限制同一使用者同時只能有一個 session
 						.sessionRegistry(sessionRegistry())// IF_REQUIRED = 預設值，有需要時才建立 session（例如登入成功時)
