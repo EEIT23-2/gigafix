@@ -45,7 +45,7 @@ const filters = reactive({
   max: "",
 });
 const pageNumber = ref(0);
-const pageSize = ref(48);
+const pageSize = ref(12);
 const totalPages = ref(0);
 const totalElements = ref(0);
 const loading = ref(false);
@@ -392,9 +392,9 @@ onBeforeUnmount(() => {
                 class="form-select fw-semibold"
                 aria-label="每頁顯示筆數"
               >
-                <option :value="48">48 筆</option>
-                <option :value="36">36 筆</option>
                 <option :value="12">12 筆</option>
+                <option :value="9">9 筆</option>
+                <option :value="6">6 筆</option>
               </select>
             </label>
             <label class="sorter d-flex align-items-center">
@@ -423,22 +423,6 @@ onBeforeUnmount(() => {
       </section>
     </div>
   </main>
-  <footer>
-    <div class="container-xxl">
-      <div class="row g-4">
-        <div class="col-md-6 col-lg-4">
-          <h2>All2Hands</h2>
-          <p>© 2026 All2Hands 二手商城。讓好物延續價值。</p>
-        </div>
-        <div class="col-6 col-lg-2">
-          <a href="#">隱私權政策</a><a href="#">服務條款</a>
-        </div>
-        <div class="col-6 col-lg-2">
-          <a href="#">配送說明</a><a href="#">人才招募</a>
-        </div>
-      </div>
-    </div>
-  </footer>
 </template>
 
 <style scoped>
@@ -664,28 +648,6 @@ onBeforeUnmount(() => {
   opacity: 0.35;
   pointer-events: none;
 }
-footer {
-  margin-top: 120px;
-  padding: 80px 5rem;
-  border-top: 1px solid #f3f3f3;
-  font-family: "Hanken Grotesk", "Noto Sans TC", sans-serif;
-}
-footer h2 {
-  font-size: 24px;
-  font-weight: 700;
-}
-footer p,
-footer a {
-  color: #635d5e;
-}
-footer a {
-  display: block;
-  margin-bottom: 12px;
-  text-decoration: none;
-}
-footer a:hover {
-  color: #000;
-}
 @media (max-width: 991.98px) {
   .shop-layout {
     padding: 56px 32px 72px;
@@ -703,10 +665,6 @@ footer a:hover {
   }
   .page-header p {
     font-size: 17px;
-  }
-  footer {
-    margin-top: 64px;
-    padding: 56px 20px;
   }
 }
 </style>
