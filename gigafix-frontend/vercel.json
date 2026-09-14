@@ -3,6 +3,10 @@
         {
             "source": "/api/:path*",
             "destination": "https://gigafix.ashyplant-71c38849.eastasia.azurecontainerapps.io/api/:path*"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/index.html"
         }
     ]
 }
