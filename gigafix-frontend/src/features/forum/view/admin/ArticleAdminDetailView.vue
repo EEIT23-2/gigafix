@@ -55,7 +55,10 @@ async function handleStatusSubmit() {
   errorMessage.value = ''
   successMessage.value = ''
   try {
-    await updateArticleStatus(articleId, { status: targetStatus.value, isPinned: targetPinned.value })
+    await updateArticleStatus(articleId, {
+      status: targetStatus.value,
+      isPinned: article.value?.parentArticleId == null ? targetPinned.value : null,
+    })
     successMessage.value = '狀態已更新'
     targetStatus.value = ''
     await fetchArticle()
@@ -155,7 +158,7 @@ onMounted(fetchArticle)
                   </option>
                 </select>
               </div>
-              <div class="form-check">
+              <div v-if="article.parentArticleId == null" class="form-check">
                 <input id="target-pinned" v-model="targetPinned" class="form-check-input" type="checkbox" />
                 <label class="form-check-label" for="target-pinned">置頂</label>
               </div>

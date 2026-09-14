@@ -456,7 +456,7 @@ watch(activeTab, () => {
 }
 
 .category {
-  font-size: 12px;
+  font-size: 14px;
   color: #2b77c5;
 }
 
@@ -465,7 +465,7 @@ watch(activeTab, () => {
   border-radius: 4px;
   background-color: #eef4fb;
   color: #2b77c5;
-  font-size: 11px;
+  font-size: 14px;
 }
 
 .row-title {
@@ -499,7 +499,7 @@ watch(activeTab, () => {
   display: flex;
   align-items: center;
   gap: 14px;
-  font-size: 13px;
+  font-size: 14px;
   color: #888888;
   min-width: 0;
 }
@@ -521,7 +521,7 @@ watch(activeTab, () => {
   border-radius: 4px;
   background-color: #ffffff;
   color: #555555;
-  font-size: 13px;
+  font-size: 14px;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -562,7 +562,7 @@ watch(activeTab, () => {
 }
 
 .confirm-text {
-  font-size: 13px;
+  font-size: 14px;
   color: #c0392b;
   white-space: nowrap;
 }
@@ -639,7 +639,7 @@ watch(activeTab, () => {
 .recent-category {
   flex-shrink: 0;
   width: 76px;
-  font-size: 12px;
+  font-size: 14px;
   color: #2b77c5;
 }
 
@@ -655,7 +655,7 @@ watch(activeTab, () => {
 
 .recent-author {
   flex-shrink: 0;
-  font-size: 13px;
+  font-size: 14px;
   color: #888888;
 }
 </style>

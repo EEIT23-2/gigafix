@@ -121,14 +121,14 @@ function initial(nickName) {
 }
 
 .category {
-  font-size: 12px;
+  font-size: 14px;
   color: #2b77c5;
 }
 
 .pinned-badge {
   background-color: #e05a2b;
   color: #ffffff;
-  font-size: 11px;
+  font-size: 14px;
   padding: 2px 8px;
   border-radius: 4px;
 }
@@ -148,7 +148,7 @@ function initial(nickName) {
   display: flex;
   align-items: center;
   gap: 14px;
-  font-size: 13px;
+  font-size: 14px;
   color: #888888;
 }
 
@@ -168,7 +168,7 @@ function initial(nickName) {
   border-radius: 50%;
   background-color: #e5e9f0;
   color: #1d324b;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 700;
   overflow: hidden;
 }

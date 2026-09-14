@@ -517,7 +517,7 @@ onBeforeUnmount(() => {
 }
 
 .mode-label {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.08em;
   color: #2b77c5;
@@ -550,7 +550,7 @@ onBeforeUnmount(() => {
 .pill {
   padding: 3px 10px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -565,7 +565,7 @@ onBeforeUnmount(() => {
 }
 
 .status-text {
-  font-size: 13px;
+  font-size: 14px;
   color: #888888;
 }
 
@@ -574,7 +574,7 @@ onBeforeUnmount(() => {
 }
 
 .status-note {
-  font-size: 12px;
+  font-size: 14px;
   color: #adb5bd;
 }
 
@@ -587,7 +587,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 14px;
   color: #1e7e34;
 }
 
@@ -604,7 +604,7 @@ onBeforeUnmount(() => {
   border: 0;
   background: none;
   color: #2b77c5;
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
 }
 
@@ -640,24 +640,24 @@ onBeforeUnmount(() => {
 }
 
 .field-label {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: #555555;
 }
 
 .required {
-  font-size: 12px;
+  font-size: 14px;
   color: #c0392b;
 }
 
 .optional {
-  font-size: 12px;
+  font-size: 14px;
   color: #adb5bd;
 }
 
 .counter {
   margin-left: auto;
-  font-size: 12px;
+  font-size: 14px;
   color: #adb5bd;
 }
 
@@ -731,7 +731,7 @@ onBeforeUnmount(() => {
 }
 
 .cover-hint {
-  font-size: 11px;
+  font-size: 14px;
   color: #6c757d;
 }
 
@@ -749,7 +749,7 @@ onBeforeUnmount(() => {
   border: 1px solid #d0d0d0;
   background: #ffffff;
   color: #888888;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1;
   cursor: pointer;
   display: flex;
@@ -782,12 +782,12 @@ onBeforeUnmount(() => {
 }
 
 .action-note {
-  font-size: 12px;
+  font-size: 14px;
   color: #adb5bd;
 }
 
 .blocked-reason {
-  font-size: 12px;
+  font-size: 14px;
   color: #a15c00;
 }
 
@@ -849,6 +849,6 @@ onBeforeUnmount(() => {
 .error {
   margin: 0;
   color: #c0392b;
-  font-size: 13px;
+  font-size: 14px;
 }
 </style>

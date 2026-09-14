@@ -528,7 +528,7 @@ function applyFormat() {
   border-radius: 4px;
   background: #ffffff;
   color: #5a5c69;
-  font-size: 13px;
+  font-size: 14px;
   padding: 0 2px;
   text-align: center;
 }

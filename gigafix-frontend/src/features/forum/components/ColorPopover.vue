@@ -213,7 +213,7 @@ function clear() {
   border-radius: 4px;
   background: #ffffff;
   color: #5a5c69;
-  font-size: 12px;
+  font-size: 14px;
   padding: 4px 0;
   cursor: pointer;
 }

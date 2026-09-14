@@ -592,8 +592,11 @@ public class ArticleServiceImpl implements ArticleService {
 		}
 		article.setStatus(request.getStatus());
 
-		// 置頂狀態為選填，null 表示不變更
+		// 置頂狀態為選填，null 表示不變更；樓層沒有置頂的語意，擋下把樓層設成置頂的請求
 		if (request.getIsPinned() != null) {
+			if (Boolean.TRUE.equals(request.getIsPinned()) && article.getParentArticle() != null) {
+				throw ForumException.badRequest("樓層不可設定置頂");
+			}
 			article.setIsPinned(request.getIsPinned());
 		}
 
@@ -610,6 +613,11 @@ public class ArticleServiceImpl implements ArticleService {
 
 		Article article = articleRepository.findById(articleId)
 				.orElseThrow(() -> new IllegalArgumentException("文章不存在，articleId：" + articleId));
+
+		// 樓層沒有置頂的語意，這支端點本來就不該對樓層呼叫
+		if (article.getParentArticle() != null) {
+			throw ForumException.badRequest("樓層不可設定置頂");
+		}
 
 		article.setIsPinned(isPinned);
 

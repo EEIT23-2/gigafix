@@ -805,13 +805,13 @@ async function handleDeleteFloor(floorId) {
 .avatar-sm {
   width: 26px;
   height: 26px;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .avatar-md {
   width: 34px;
   height: 34px;
-  font-size: 13px;
+  font-size: 14px;
   background-color: #2b77c5;
   color: #ffffff;
 }
@@ -831,7 +831,7 @@ async function handleDeleteFloor(floorId) {
   border-radius: 0.375rem;
   background-color: #ffffff;
   color: #6c757d;
-  font-size: 12px;
+  font-size: 14px;
   cursor: pointer;
 }
 
@@ -918,7 +918,7 @@ async function handleDeleteFloor(floorId) {
   gap: 4px;
   padding: 0.35em 0.65em;
   border-radius: 50rem;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -947,7 +947,7 @@ async function handleDeleteFloor(floorId) {
   gap: 16px;
   padding-bottom: 20px;
   border-bottom: 1px solid #eaeaea;
-  font-size: 13px;
+  font-size: 14px;
   color: #888888;
 }
 
@@ -1037,12 +1037,12 @@ async function handleDeleteFloor(floorId) {
   padding: 12px 20px;
   background-color: #f8fafc;
   border-bottom: 1px solid #e5e9f0;
-  font-size: 12px;
+  font-size: 14px;
   color: #888888;
 }
 
 .floor-head .author-name {
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .floor-badge {
@@ -1050,7 +1050,7 @@ async function handleDeleteFloor(floorId) {
   border-radius: 50rem;
   background-color: #2b77c5;
   color: #ffffff;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -1077,7 +1077,7 @@ async function handleDeleteFloor(floorId) {
   border: 1px dashed #cccccc;
   border-radius: 0.375rem;
   color: #888888;
-  font-size: 13px;
+  font-size: 14px;
   text-align: center;
 }
 
@@ -1092,7 +1092,7 @@ async function handleDeleteFloor(floorId) {
   border: 1px solid #ffe69c;
   border-radius: 0.375rem;
   color: #664d03;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 /* 原地編輯：排法比照蓋樓輸入的 .floor-form-main。
@@ -1196,7 +1196,7 @@ async function handleDeleteFloor(floorId) {
   border: 1px solid #e9ecef;
   border-radius: 0.375rem;
   color: #6c757d;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 /* ── 側欄作者卡 ── */
@@ -1247,7 +1247,7 @@ async function handleDeleteFloor(floorId) {
 }
 
 .char-count {
-  font-size: 12px;
+  font-size: 14px;
   color: #999999;
 }
 
@@ -1258,7 +1258,7 @@ async function handleDeleteFloor(floorId) {
 
 .report-form .cancel {
   padding: 4px 12px;
-  font-size: 13px;
+  font-size: 14px;
   background: none;
   border: 1px solid #d0d0d0;
   border-radius: 0.375rem;
@@ -1267,7 +1267,7 @@ async function handleDeleteFloor(floorId) {
 
 .report-form button[type='submit'] {
   padding: 4px 12px;
-  font-size: 13px;
+  font-size: 14px;
   background-color: #2b77c5;
   color: #ffffff;
   border: none;
@@ -1283,7 +1283,7 @@ async function handleDeleteFloor(floorId) {
 .report-success {
   margin: 0 24px 16px;
   color: #1e7e34;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .floor-body .report-success {
@@ -1293,6 +1293,6 @@ async function handleDeleteFloor(floorId) {
 .error {
   margin: 0;
   color: #c0392b;
-  font-size: 13px;
+  font-size: 14px;
 }
 </style>

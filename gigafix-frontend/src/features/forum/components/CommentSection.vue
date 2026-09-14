@@ -343,7 +343,7 @@ async function handleReportSubmit(commentId) {
   border-radius: 50%;
   background-color: #e5e9f0;
   color: #1d324b;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   overflow: hidden;
 }
@@ -376,7 +376,7 @@ async function handleReportSubmit(commentId) {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 12px;
+  font-size: 14px;
   color: #888888;
 }
 
@@ -409,7 +409,7 @@ async function handleReportSubmit(commentId) {
   border-radius: 0.375rem;
   background-color: #ffffff;
   color: #6c757d;
-  font-size: 12px;
+  font-size: 14px;
   cursor: pointer;
 }
 
@@ -432,7 +432,7 @@ async function handleReportSubmit(commentId) {
   border: 1px dashed #cccccc;
   border-radius: 0.375rem;
   color: #888888;
-  font-size: 13px;
+  font-size: 14px;
   text-align: center;
   cursor: pointer;
 }
@@ -446,7 +446,7 @@ async function handleReportSubmit(commentId) {
   border-top: 1px solid #eef1f5;
   color: #999999;
   text-align: center;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 /* ── 撰寫框：列表下方 ── */
@@ -483,7 +483,7 @@ async function handleReportSubmit(commentId) {
 }
 
 .char-count {
-  font-size: 12px;
+  font-size: 14px;
   color: #999999;
 }
 
@@ -511,7 +511,7 @@ async function handleReportSubmit(commentId) {
   padding: 16px 24px;
   border-top: 1px solid #eef1f5;
   color: #6c757d;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 /* ── 檢舉表單 ── */
@@ -539,7 +539,7 @@ async function handleReportSubmit(commentId) {
 
 .report-form .cancel {
   padding: 4px 12px;
-  font-size: 13px;
+  font-size: 14px;
   background: none;
   border: 1px solid #d0d0d0;
   border-radius: 0.375rem;
@@ -548,7 +548,7 @@ async function handleReportSubmit(commentId) {
 
 .report-form button[type='submit'] {
   padding: 4px 12px;
-  font-size: 13px;
+  font-size: 14px;
   background-color: #2b77c5;
   color: #ffffff;
   border: none;
@@ -565,12 +565,12 @@ async function handleReportSubmit(commentId) {
   margin: 0;
   padding: 8px 24px 0;
   color: #1e7e34;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .error {
   margin: 0;
   color: #c0392b;
-  font-size: 13px;
+  font-size: 14px;
 }
 </style>
