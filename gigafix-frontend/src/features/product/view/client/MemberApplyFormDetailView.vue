@@ -59,6 +59,43 @@ const statusLabels = {
   COMPLETED: "完成回收",
 };
 
+// 回收流程依後端狀態的先後順序顯示，讓會員可以直接查看目前進度。
+const recycleProgressSteps = [
+  { status: "APPLIED", label: "已預約交件" },
+  { status: "INSPECTING", label: "現場檢測" },
+  { status: "WAITING_FOR_AGREEMENT", label: "待簽署同意" },
+  { status: "WIPING", label: "資料清除" },
+  { status: "COMPLETED", label: "完成回收" },
+];
+
+const isCancelled = computed(
+  () => application.value?.recycleStatus === "CANCELLED",
+);
+
+// 找出目前狀態所在階段，供進度條及各階段樣式共同使用。
+const currentProgressIndex = computed(() =>
+  recycleProgressSteps.findIndex(
+    (step) => step.status === application.value?.recycleStatus,
+  ),
+);
+
+// 每完成一個階段增加 20%；取消或無法辨識的狀態不顯示完成百分比。
+const recycleProgressPercent = computed(() => {
+  if (isCancelled.value || currentProgressIndex.value < 0) return 0;
+  return Math.round(
+    ((currentProgressIndex.value + 1) / recycleProgressSteps.length) * 100,
+  );
+});
+
+function progressStepClass(index) {
+  if (isCancelled.value || currentProgressIndex.value < 0) return {};
+
+  return {
+    completed: index < currentProgressIndex.value,
+    current: index === currentProgressIndex.value,
+  };
+}
+
 function formatPrice(price) {
   if (price == null) return "尚未估價";
   return `NT$ ${Number(price).toLocaleString("zh-TW")}`;
@@ -284,6 +321,63 @@ onMounted(fetchApplication);
           </button>
         </div>
       </header>
+
+      <!-- 依回收單目前狀態顯示五個處理階段；取消時改顯示終止提示。 -->
+      <section class="recycle-progress" aria-labelledby="recycle-progress-title">
+        <div class="progress-heading">
+          <div>
+            <p class="progress-eyebrow">RECYCLE PROGRESS</p>
+            <h2 id="recycle-progress-title">手機回收進度</h2>
+          </div>
+          <strong :class="{ cancelled: isCancelled }">
+            {{
+              isCancelled
+                ? "流程已取消"
+                : `${recycleProgressPercent}%`
+            }}
+          </strong>
+        </div>
+
+        <div v-if="isCancelled" class="cancelled-progress" role="status">
+          <i class="bi bi-x-circle-fill" aria-hidden="true"></i>
+          <div>
+            <b>此回收申請已取消</b>
+            <span>後續檢測、簽署與資料清除流程已停止。</span>
+          </div>
+        </div>
+
+        <template v-else>
+          <div
+            class="progress-track"
+            role="progressbar"
+            aria-label="手機回收處理進度"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            :aria-valuenow="recycleProgressPercent"
+          >
+            <span :style="{ width: `${recycleProgressPercent}%` }"></span>
+          </div>
+
+          <ol class="progress-steps">
+            <li
+              v-for="(step, index) in recycleProgressSteps"
+              :key="step.status"
+              :class="progressStepClass(index)"
+              :aria-current="index === currentProgressIndex ? 'step' : undefined"
+            >
+              <span class="step-marker" aria-hidden="true">
+                <i
+                  v-if="index < currentProgressIndex"
+                  class="bi bi-check-lg"
+                ></i>
+                <span v-else>{{ index + 1 }}</span>
+              </span>
+              <span class="step-label">{{ step.label }}</span>
+              <small v-if="index === currentProgressIndex">目前進度</small>
+            </li>
+          </ol>
+        </template>
+      </section>
 
       <p v-if="cancelError" class="agreement-message error-message" role="alert">
         {{ cancelError }}
@@ -561,6 +655,144 @@ h1 {
 .status-completed {
   color: #24704a;
   background: #d9f2e4;
+}
+
+.recycle-progress {
+  padding: 28px 34px 30px;
+  border-bottom: 1px solid #e8edf2;
+  background: #fff;
+}
+
+.progress-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+
+.progress-eyebrow {
+  margin: 0 0 4px;
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+}
+
+.progress-heading h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.progress-heading strong {
+  color: var(--blue);
+  font-size: 24px;
+}
+
+.progress-heading strong.cancelled {
+  color: #9b4141;
+  font-size: 16px;
+}
+
+.progress-track {
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e5ebf1;
+}
+
+.progress-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2580c5, #43a879);
+  transition: width 0.35s ease;
+}
+
+.progress-steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.progress-steps li {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  flex-direction: column;
+  gap: 7px;
+  color: #8995a2;
+  text-align: center;
+}
+
+.step-marker {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 2px solid #cfd8e1;
+  border-radius: 50%;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.step-label {
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.progress-steps small {
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.progress-steps li.completed,
+.progress-steps li.current {
+  color: var(--ink);
+}
+
+.progress-steps li.completed .step-marker {
+  border-color: #43a879;
+  color: #fff;
+  background: #43a879;
+}
+
+.progress-steps li.current .step-marker {
+  border-color: var(--blue);
+  color: #fff;
+  background: var(--blue);
+  box-shadow: 0 0 0 5px rgb(23 105 170 / 12%);
+}
+
+.cancelled-progress {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 16px 18px;
+  border: 1px solid #e5caca;
+  border-radius: 12px;
+  color: #873838;
+  background: #fff4f4;
+}
+
+.cancelled-progress > i {
+  font-size: 25px;
+}
+
+.cancelled-progress div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cancelled-progress span {
+  color: #795f5f;
+  font-size: 13px;
 }
 
 .detail-body {
@@ -844,6 +1076,31 @@ h1 {
   .detail-body {
     gap: 24px;
     padding: 24px;
+  }
+
+  .recycle-progress {
+    padding: 24px;
+  }
+
+  .progress-heading {
+    margin-bottom: 18px;
+  }
+
+  .progress-steps {
+    gap: 5px;
+  }
+
+  .step-marker {
+    width: 28px;
+    height: 28px;
+  }
+
+  .step-label {
+    font-size: 11px;
+  }
+
+  .progress-steps small {
+    font-size: 10px;
   }
 
   .detail-list > div {
