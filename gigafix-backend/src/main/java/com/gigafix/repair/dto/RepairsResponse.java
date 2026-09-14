@@ -51,6 +51,9 @@ public class RepairsResponse{
 	private RepairPay repairPay;
 	private RepairPayStatus repairPayStatus;
 	private PickupType pickupType;
+	private String recipientName;
+	private String recipientPhone;
+	private String recipientAddress;
 	private LocalDateTime repairCreatedTime;
 	private LocalDateTime repairUpdatedTime;
 	

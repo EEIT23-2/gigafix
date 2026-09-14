@@ -30,6 +30,10 @@ public final class MemberPublicApiPaths {
 			"/api/gigafix/ecpay/payment/return",
 			// ECPay 金流 Browser Result
 			"/api/gigafix/ecpay/payment/result",
+			// ECPay 維修單付款結果 Server 回傳
+			"/api/gigafix/ecpay/repair-payment/return",
+			// ECPay 維修單付款 Browser Result
+			"/api/gigafix/ecpay/repair-payment/result",
 			// forum 的公開瀏覽端點（文章列表/詳情、樓層列表、留言列表、分類列表），皆為 GET，不需要登入
 			"/api/articles",
 			"/api/articles/**",
