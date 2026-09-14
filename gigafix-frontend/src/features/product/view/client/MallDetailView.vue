@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { storeToRefs } from "pinia";
 import { useRoute } from "vue-router";
+import gradeGuideImage from "@/assets/jack/grade.jpg";
 import { addCartItem } from "@/features/cart/api/cartApi.js";
 import { useFetchMemberInfoStore } from "@/stores/member";
 import { getProduct } from "../../api.js";
@@ -25,9 +26,7 @@ const formatter = new Intl.NumberFormat("zh-TW");
 
 const productName = computed(
   () =>
-    product.value?.product_name ??
-    product.value?.productName ??
-    "未命名商品",
+    product.value?.product_name ?? product.value?.productName ?? "未命名商品",
 );
 const productImage = computed(
   () => product.value?.image_url ?? product.value?.imageUrl ?? "",
@@ -58,7 +57,7 @@ const fetchProduct = async () => {
     errorMessage.value =
       error?.response?.status === 404
         ? "找不到這項商品，商品可能已下架。"
-        : error?.response?.data?.message ?? "商品資料載入失敗，請稍後再試。";
+        : (error?.response?.data?.message ?? "商品資料載入失敗，請稍後再試。");
   } finally {
     loading.value = false;
   }
@@ -151,7 +150,11 @@ onBeforeUnmount(() => clearTimeout(cartMessageTimer));
       <article v-else-if="product" class="product-detail">
         <div class="image-panel">
           <img v-if="productImage" :src="productImage" :alt="productName" />
-          <i v-else class="bi bi-image image-placeholder" aria-hidden="true"></i>
+          <i
+            v-else
+            class="bi bi-image image-placeholder"
+            aria-hidden="true"
+          ></i>
         </div>
 
         <section class="product-info">
@@ -161,7 +164,7 @@ onBeforeUnmount(() => clearTimeout(cartMessageTimer));
           <dl class="product-specs">
             <div>
               <dt>商品等級</dt>
-              <dd>{{ product.grade || "嚴選" }} 級品</dd>
+              <dd>{{ product.grade || "嚴選" }} 品</dd>
             </div>
             <div>
               <dt>外觀狀況</dt>
@@ -219,6 +222,24 @@ onBeforeUnmount(() => clearTimeout(cartMessageTimer));
           </div>
         </section>
       </article>
+
+      <!-- 商品資料載入成功後，在詳情下方提供統一的二手商品等級判斷標準。 -->
+      <section
+        v-if="product"
+        class="grade-guide"
+        aria-labelledby="grade-guide-title"
+      >
+        <div class="grade-guide-heading">
+          <p class="eyebrow">QUALITY GUIDE</p>
+          <h2 id="grade-guide-title">商品等級說明</h2>
+          <p>選購前可依照外觀狀況與品質描述，了解各商品等級的差異。</p>
+        </div>
+        <img
+          :src="gradeGuideImage"
+          alt="二手商品 S 級、A 級、B 級與 C 級的品質說明表"
+          loading="lazy"
+        />
+      </section>
     </div>
   </main>
 </template>
@@ -343,6 +364,38 @@ onBeforeUnmount(() => clearTimeout(cartMessageTimer));
   margin-bottom: 24px;
   font-size: 36px;
   font-weight: 700;
+}
+
+.grade-guide {
+  margin-top: clamp(56px, 8vw, 96px);
+  padding: clamp(24px, 4vw, 48px);
+  border: 1px solid #e4e8ed;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 18px 50px rgb(27 27 27 / 7%);
+}
+
+.grade-guide-heading {
+  margin-bottom: 24px;
+}
+
+.grade-guide-heading h2 {
+  margin: 0 0 10px;
+  font-size: clamp(26px, 3vw, 36px);
+  font-weight: 700;
+}
+
+.grade-guide-heading > p:last-child {
+  margin: 0;
+  color: var(--muted);
+}
+
+.grade-guide img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid #d8dde3;
+  border-radius: 12px;
 }
 
 .cart-button,
@@ -471,5 +524,14 @@ onBeforeUnmount(() => clearTimeout(cartMessageTimer));
     font-size: 38px;
   }
 
+  .grade-guide {
+    margin-top: 48px;
+    padding: 20px 16px;
+    border-radius: 14px;
+  }
+
+  .grade-guide img {
+    border-radius: 8px;
+  }
 }
 </style>
