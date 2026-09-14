@@ -6,25 +6,12 @@ import { useFetchAdminInfoStore } from '@/stores/admin';
 
 const adminName = ref('')
 const password = ref('')
-const checkPassword = ref('')
 
 
 const router = useRouter()
 const errorMsg = ref('')
 
 const fetchAdminInfoStore =useFetchAdminInfoStore()
-
-const checkSamePassword = () => { //確認密碼是前端防呆，跟後端沒關係
-    if (password.value === '' || checkPassword.value === '') {
-        errorMsg.value = '請輸入密碼或確認密碼'
-    }else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(password.value)) {
-        errorMsg.value = '密碼需至少8碼，並包含大小寫英文字母及數字'
-    } else if (password.value !== checkPassword.value) {
-        errorMsg.value = '確認密碼必須與密碼相符'
-    }  else {
-        errorMsg.value = ''
-    }
-}
 
 const adminLogin = async () => {
     errorMsg.value = ''
@@ -53,6 +40,13 @@ const createSuperAdmin = async () => {
     })
 }
 
+//demo/測試用：一鍵填入跟「建立總管理員」頁一鍵輸入資料同一組帳密，方便建立後直接登入測試
+const fillFormWithFakeData = () => {
+    adminName.value = '阿狗'
+    password.value = 'Test1234'
+    errorMsg.value = ''
+}
+
 </script>
 
 <template>
@@ -65,25 +59,27 @@ const createSuperAdmin = async () => {
                     <p class="text-muted small mb-0">管理員登入</p>
                 </div>
 
+                <!-- demo/測試用：一鍵填入跟建立總管理員一鍵輸入資料同一組帳密 -->
+                <div class="d-flex justify-content-end mb-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @click="fillFormWithFakeData()">
+                        一鍵輸入資料
+                    </button>
+                </div>
+
                 <form @submit.prevent="adminLogin">
                     <div class="mb-3">
                         <label class="form-label fw-semibold">帳號</label>
-                        <input type="text" class="form-control" v-model="adminName" placeholder="請輸入登入帳號">
+                        <input type="text" class="form-control" v-model="adminName" placeholder="請輸入登入帳號" @input="errorMsg = ''">
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">密碼</label>
-                        <input type="password" class="form-control" v-model="password" placeholder="請輸入登入密碼" @input="checkSamePassword()">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">確認密碼</label>
-                        <input type="password" class="form-control" v-model="checkPassword" placeholder="請再次輸入登入密碼" @input="checkSamePassword()">
+                        <input type="password" class="form-control" v-model="password" placeholder="請輸入登入密碼" @input="errorMsg = ''">
                     </div>
 
                     <p v-if="errorMsg" class="text-danger small mb-3">{{ errorMsg }}</p>
 
                     <div class="d-grid">
-                        <button v-if="errorMsg" type="submit" class="btn btn-primary-brand fw-semibold py-2" disabled>請輸入正確登入帳號密碼</button>
-                        <button v-if="errorMsg == ''" type="submit" class="btn btn-primary-brand fw-semibold py-2">登入</button>
+                        <button type="submit" class="btn btn-primary-brand fw-semibold py-2">登入</button>
                     </div>
                 </form>
 
