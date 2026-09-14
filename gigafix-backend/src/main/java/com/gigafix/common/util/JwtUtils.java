@@ -46,6 +46,18 @@ public class JwtUtils {
 				.build();
 	}
 
+	// 用來清掉失效的token cookie：簽章合法但裡面的memberId查無此人時（帳號被刪、或資料庫重建但瀏覽器還留著舊cookie）
+	// maxAge設0讓瀏覽器收到後立刻把這個cookie刪除，其餘屬性要跟createTokenCookie一致，不然瀏覽器可能當成不同的cookie沒蓋掉
+	public ResponseCookie createExpiredTokenCookie() {
+		return ResponseCookie.from("token", "")
+				.httpOnly(true)
+				.secure(true)
+				.sameSite("None")
+				.path("/")
+				.maxAge(0)
+				.build();
+	}
+
 	// 驗證使用者傳來的 JWT 是不是合法的
 	public boolean validateToken(String token) {
 		try {

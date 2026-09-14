@@ -176,6 +176,20 @@ const openRegisterModal = () => {
   showRegisterModal.value = true;
 };
 
+//==一鍵輸入資料相關(demo/測試用，快速把註冊表單填滿假資料；OTP仍須真的收信才能填寫，這裡不會動它)==
+const fillRegisterFormWithFakeData = () => {
+  regEmail.value = "yu870201@gmail.com"; //固定用真實信箱才能實際收到OTP驗證信
+  regPassword.value = "Test1234";
+  regRealName.value = "蔡承翰";
+  regNickName.value = `阿豬`;
+  regPhone.value = "0912345678";
+  regAddressCity.value = "新竹縣";
+  regAddressDistrict.value = "新豐鄉";
+  regAddressDetail.value = "康樂路一段200巷7號";
+  regGender.value = "MALE";
+  checkRegisterError();
+};
+
 //==OTP拆格輸入相關==
 //每一格輸入時觸發：過濾成只留最後一碼數字(防止中文輸入法/一次貼上多字元)，同步組回regOtp字串，成功打一碼就自動跳下一格
 const onOtpDigitInput = (index, event) => {
@@ -552,6 +566,12 @@ const goToCart = () => {
   <!-- 註冊的彈窗 -->
   <LoginRegisterModal v-model="showRegisterModal" :showBackdrop="false">
     <template #title>會員註冊</template>
+    <!-- demo/測試用：一鍵把下面除了OTP以外的欄位都填上假資料，OTP仍須真的收信才能填寫 -->
+    <div class="d-flex justify-content-end mb-2">
+      <button type="button" class="btn btn-outline-secondary btn-sm" @click="fillRegisterFormWithFakeData()">
+        一鍵輸入資料
+      </button>
+    </div>
     <label class="form-label">Email</label>
     <input
       type="email"
