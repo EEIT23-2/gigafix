@@ -31,9 +31,14 @@ const router = createRouter({
   routes: [
     {
       path: "/",
-      name: "home",
       component: ClientLayout, //待寫
       children: [
+        {
+          // 空字串代表父層網址「/」本身；內容會顯示在 ClientLayout 的 RouterView 內。
+          path: "",
+          name: "home",
+          component: () => import("@/views/HomePageView.vue"),
+        },
         ...cartClient,
         ...forumClient,
         ...productClient,

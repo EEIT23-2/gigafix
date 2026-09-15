@@ -217,6 +217,34 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
         return toResponse(savedApplyForm);
     }
 
+    /*
+     * 回收單狀態流程的 Service 實作區。
+     *
+     * 這個類別透過 implements RecycleApplicationService 實作狀態操作介面。
+     * 下方標示 @Override 的方法都對應到 RecycleApplicationService 宣告的功能，
+     * Controller 只需要依賴介面，不必知道資料庫、快取或寄信的實作細節。
+     *
+     * 本段流程使用的主要介面與元件：
+     * 1. RecycleApplicationDao：繼承 Spring Data JPA 的
+     *    JpaRepository<RecycleApplication, Long>，提供查詢、儲存及悲觀寫入鎖。
+     * 2. ProductDao：繼承 JpaRepository<Product, Long>，
+     *    回收完成時建立可販售的商品庫存。
+     * 3. CacheManager 與 Cache：Spring Cache 介面，
+     *    用來保存五分鐘有效且只能成功使用一次的 OTP。
+     * 4. RecycleApplicationNotificationService：負責回收通知郵件，
+     *    其內部再使用 Spring 的 JavaMailSender 介面寄信。
+     * 5. @Transactional：套用在本 Service 類別，
+     *    讓狀態、回收單及商品庫存異動在同一交易中提交或回滾。
+     *
+     * 主要狀態順序為：APPLIED → INSPECTING → WIPING → COMPLETED；
+     * APPLIED、INSPECTING 或 WAITING_FOR_AGREEMENT 階段可以取消為 CANCELLED。
+     */
+
+    /**
+     * 實作 {@link RecycleApplicationService#markAsInspecting(Long)}。
+     * 使用 {@link RecycleApplicationDao} 的 JpaRepository 查詢與儲存功能，
+     * 將已預約交件（APPLIED）的回收單更新為現場檢測中（INSPECTING）。
+     */
     @Override
     public RecycleResponse markAsInspecting(Long applyId) {
         RecycleApplication applyForm = recycleApplicationDao.findById(applyId).orElse(null);
@@ -238,6 +266,12 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
         return toResponse(updatedApplyForm);
     }
 
+    /**
+     * 實作 {@link RecycleApplicationService#sendAgreementOtp(Long)}。
+     * 先透過 {@link RecycleApplicationDao} 讀取回收單並檢查狀態與估價，
+     * 再由 {@link RecycleApplicationNotificationService} 寄信，最後透過
+     * {@link CacheManager} 取得的 {@link Cache} 保存 OTP 與錯誤嘗試次數。
+     */
     @Override
     public boolean sendAgreementOtp(Long applyId) {
         RecycleApplication applyForm = recycleApplicationDao.findById(applyId).orElse(null);
@@ -261,6 +295,11 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
         return true;
     }
 
+    /**
+     * 實作 {@link RecycleApplicationService#confirmAgreement(Long, Long, RecycleAgreementRequest)}。
+     * 使用 Repository 方法同時比對回收單與會員 ID，避免會員操作別人的資料；
+     * OTP 與 Canvas PNG 簽名驗證成功後，保存簽名並將狀態推進至 WIPING。
+     */
     @Override
     public RecycleResponse confirmAgreement(
             Long memberId,
@@ -292,6 +331,12 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
         return toResponse(recycleApplicationDao.save(applyForm));
     }
 
+    /**
+     * 實作 {@link RecycleApplicationService#completeRecycle(Long)}。
+     * {@link RecycleApplicationDao#findByIdForUpdate(Long)} 使用 JPA 悲觀寫入鎖，
+     * 避免同一張回收單被同時結案而重複建立庫存；接著透過
+     * {@link ProductDao} 新增商品，最後寄送完成回收通知。
+     */
     @Override
     public RecycleResponse completeRecycle(Long applyId) {
         RecycleApplication applyForm = recycleApplicationDao
@@ -321,6 +366,10 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
         return toResponse(completedApplication);
     }
 
+    /**
+     * 實作後台取消介面 {@link RecycleApplicationService#cancelRecycle(Long)}。
+     * 透過悲觀寫入鎖取得回收單，再交由共用方法檢查可取消狀態並更新資料。
+     */
     @Override
     public RecycleResponse cancelRecycle(Long applyId) {
         RecycleApplication applyForm = recycleApplicationDao
@@ -329,6 +378,10 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
         return applyForm == null ? null : cancelApplication(applyForm);
     }
 
+    /**
+     * 實作會員取消介面 {@link RecycleApplicationService#cancelMemberRecycle(Long, Long)}。
+     * Repository 查詢會同時限制會員 ID 並鎖定資料，確保會員只能取消自己的回收單。
+     */
     @Override
     public RecycleResponse cancelMemberRecycle(Long memberId, Long applyId) {
         RecycleApplication applyForm = recycleApplicationDao
@@ -337,7 +390,11 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
         return applyForm == null ? null : cancelApplication(applyForm);
     }
 
-    /** APPLIED、INSPECTING 或待同意階段可取消；開始清除資料後不可逆轉。 */
+    /**
+     * 後台與會員取消功能共用的狀態轉換實作。
+     * APPLIED、INSPECTING 或 WAITING_FOR_AGREEMENT 可以轉為 CANCELLED；
+     * 開始清除資料後不可逆轉，同時會利用 {@link Cache} 移除尚未使用的 OTP。
+     */
     private RecycleResponse cancelApplication(RecycleApplication applyForm) {
         RecycleStatus currentStatus = applyForm.getRecycleStatus();
         if (currentStatus != RecycleStatus.APPLIED
