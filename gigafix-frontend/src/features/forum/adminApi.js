@@ -2,7 +2,9 @@ import axios from 'axios'
 
 // 後台專用的 forum API：不帶 memberId（admin 端點本身不吃 memberId），
 // 走跟 forum/api.js 一樣的 /api proxy，開發時同源不會觸發 CORS
-const http = axios.create()
+// 直接沿用全域的axios實例(不用axios.create()另開一個)，這樣stores/admin.js裝的
+// session過期攔截器才會對這裡的請求也生效，否則axios.create()產生的是獨立實例，不會繼承全域攔截器
+const http = axios
 
 // ---------------- 文章（後台） ----------------
 
