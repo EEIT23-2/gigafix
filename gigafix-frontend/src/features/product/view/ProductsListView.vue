@@ -7,7 +7,7 @@ import {
   deleteAllProducts,
   deleteProduct,
   exportProducts,
-  getProducts,
+  getAdminProducts,
   importProducts,
 } from "../api";
 import { useProductStore } from "../store";
@@ -150,7 +150,7 @@ async function fetchProducts(targetPage = 0) {
 
   try {
     // api.js 已直接 return response.data，所以 data 就是 Page<Product>。
-    const data = await getProducts(buildQueryParams(targetPage));
+    const data = await getAdminProducts(buildQueryParams(targetPage));
     products.value = data.content ?? [];
     page.value = data.number ?? 0;
     size.value = data.size ?? size.value;
@@ -254,7 +254,7 @@ async function handleDelete(product) {
   }
 }
 
-// 呼叫後端 POST /api/products/import，匯入後端預先設定的 JSON 資料來源。
+// 呼叫後端 POST /api/admin/products/import，匯入後端預先設定的 JSON 資料來源。
 async function handleImport() {
   const confirmed = window.confirm(
     "確定要從後端設定的 JSON 資料來源匯入商品嗎？",
@@ -285,7 +285,7 @@ async function handleImport() {
   }
 }
 
-// 呼叫 GET /api/products/export，將後端回傳的 Blob 下載成 JSON 檔。
+// 呼叫 GET /api/admin/products/export，將後端回傳的 Blob 下載成 JSON 檔。
 async function handleExport() {
   exporting.value = true;
   errorMessage.value = "";
@@ -329,7 +329,7 @@ function closeDeleteAllConfirm() {
   showDeleteAllConfirm.value = false;
 }
 
-// 使用者在警告區再次確認後，才呼叫 DELETE /api/products。
+// 使用者在警告區再次確認後，才呼叫 DELETE /api/admin/products。
 async function handleDeleteAll() {
   deletingAll.value = true;
   errorMessage.value = "";

@@ -2,7 +2,7 @@
 import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 // 所有商品 HTTP 請求統一透過 product/api.js。
-import { getProduct, updateProduct } from "../api";
+import { getAdminProduct, updateProduct } from "../api";
 import ProductForm from "../components/ProductForm.vue";
 
 const route = useRoute();
@@ -27,7 +27,7 @@ async function fetchProduct() {
 
   try {
     // api.js 已經 return response.data，因此可直接取得 Product。
-    product.value = await getProduct(productId);
+    product.value = await getAdminProduct(productId);
   } catch (error) {
     console.error(error);
 

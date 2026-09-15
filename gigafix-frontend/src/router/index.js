@@ -39,6 +39,11 @@ const router = createRouter({
           name: "home",
           component: () => import("@/views/HomePageView.vue"),
         },
+        {
+          path: "about-gigafix",
+          name: "about-gigafix",
+          component: () => import("@/views/AboutGigafix.vue"),
+        },
         ...cartClient,
         ...forumClient,
         ...productClient,
