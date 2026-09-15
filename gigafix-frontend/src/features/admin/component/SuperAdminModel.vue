@@ -4,6 +4,9 @@ import { ref, computed, onMounted } from 'vue';
 import BaseModal from './BaseModal.vue';
 import { getRoleLabel } from '../util/roleMap.js';
 import { formatDateTime } from '../util/timeMap.js';
+import { useFetchAdminInfoStore } from '@/stores/admin';
+
+const fetchAdminInfoStore = useFetchAdminInfoStore()
 
 const allAdmins = ref([])
 const errorMsg = ref('')
@@ -29,7 +32,10 @@ const showRestPasswordModal = ref(false)
 const updateAdminPassword =ref('')
 const updatePasswordErrorMsg =ref('')
 //====取得所有的管理者====
+// GET /api/admin/account 只有ROLE_SUPER_ADMIN能打，這裡先判斷角色才發request，
+// 不要每次都靠父層(ManagerInfoView.vue)的v-if擋，避免這個元件之後被其他地方重用時漏掉這層防護
 const fetchAllAdmin = async () => {
+    if (fetchAdminInfoStore.adminInfo?.role !== 'ROLE_SUPER_ADMIN') return
     errorMsg.value = ''
     try {
         const rep = await axios.get("/api/admin/account")
