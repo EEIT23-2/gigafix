@@ -9,6 +9,7 @@ import {
   getRecycleApplications,
 } from "../api";
 import ApplyFormTable from "../components/ApplyFormTable.vue";
+import RecycleChart from "../components/RecycleChart.vue";
 import { useRecycleApplicationStore } from "../store";
 
 const router = useRouter();
@@ -18,6 +19,8 @@ const {
   page,
   size,
   applyId: searchApplyId,
+  // 直接綁定 Pinia state，從詳情或編輯頁返回後可恢復會員 ID 篩選。
+  memberId: searchMemberId,
   productName: searchProductName,
   appearance: searchAppearance,
   category: searchCategory,
@@ -26,7 +29,6 @@ const {
 } = storeToRefs(recycleApplicationStore);
 
 const applications = ref([]);
-const searchMemberId = ref("");
 const totalElements = ref(0);
 const totalPages = ref(0);
 const loading = ref(false);
@@ -38,6 +40,7 @@ const successMessage = ref("");
 const showDeleteConfirm = ref(false);
 const deleteMode = ref("");
 const deleteTarget = ref(null);
+const showRecycleChart = ref(false);
 
 const categoryOptions = [
   { value: "IPHONE", label: "iPhone" },
@@ -170,7 +173,7 @@ function search() {
 }
 
 function resetSearch() {
-  searchMemberId.value = "";
+  // 統一由 store 清除所有篩選、排序及分頁狀態，避免漏掉個別欄位。
   recycleApplicationStore.resetListState();
   fetchApplications(0);
 }
@@ -358,6 +361,15 @@ onMounted(() => fetchApplications(page.value));
         </div>
 
         <div class="d-flex flex-wrap gap-2">
+          <button
+            type="button"
+            class="btn btn-outline-primary d-inline-flex align-items-center gap-2"
+            @click="showRecycleChart = true"
+          >
+            <i class="bi bi-pie-chart-fill" aria-hidden="true"></i>
+            回收單統計
+          </button>
+
           <button
             type="button"
             class="btn btn-outline-secondary"
@@ -646,6 +658,24 @@ onMounted(() => fetchApplications(page.value));
         </section>
       </div>
     </Transition>
+
+    <!-- 點擊背景或關閉按鈕即可收合右側回收單統計抽屜。 -->
+    <Transition name="chart-drawer">
+      <div
+        v-if="showRecycleChart"
+        class="chart-drawer-backdrop"
+        @click.self="showRecycleChart = false"
+      >
+        <aside
+          class="chart-drawer"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="recycle-chart-title"
+        >
+          <RecycleChart @close="showRecycleChart = false" />
+        </aside>
+      </div>
+    </Transition>
   </main>
 </template>
 
@@ -672,6 +702,37 @@ main {
 }
 .page-size-select {
   max-width: 145px;
+}
+.chart-drawer-backdrop {
+  position: fixed;
+  z-index: 2100;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+  background: rgb(18 34 49 / 42%);
+}
+.chart-drawer {
+  width: min(610px, 100%);
+  height: 100%;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: -16px 0 45px rgb(17 38 58 / 22%);
+}
+.chart-drawer-enter-active,
+.chart-drawer-leave-active {
+  transition: background-color 0.25s ease;
+}
+.chart-drawer-enter-active .chart-drawer,
+.chart-drawer-leave-active .chart-drawer {
+  transition: transform 0.25s ease;
+}
+.chart-drawer-enter-from,
+.chart-drawer-leave-to {
+  background: transparent;
+}
+.chart-drawer-enter-from .chart-drawer,
+.chart-drawer-leave-to .chart-drawer {
+  transform: translateX(100%);
 }
 .delete-alert-backdrop {
   position: fixed;

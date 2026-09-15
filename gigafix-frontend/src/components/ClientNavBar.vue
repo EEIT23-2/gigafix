@@ -1,15 +1,12 @@
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue';
-import { RouterLink } from 'vue-router';
-import { useRouter} from 'vue-router';
-import LoginRegisterModal from './LoginRegisterModal.vue';
-import AddressSelect from './AddressSelect.vue';
-import axios from 'axios';
-import { useFetchMemberInfoStore } from '@/stores/member';
-import { storeToRefs } from 'pinia';
-
-
-
+import { ref, computed, watch, nextTick } from "vue";
+import { RouterLink } from "vue-router";
+import { useRouter } from "vue-router";
+import LoginRegisterModal from "./LoginRegisterModal.vue";
+import AddressSelect from "./AddressSelect.vue";
+import axios from "axios";
+import { useFetchMemberInfoStore } from "@/stores/member";
+import { storeToRefs } from "pinia";
 
 //跟登入有關的變數宣告
 const mail = ref("");
@@ -117,44 +114,47 @@ const login = async () => {
 //==Google登入相關==
 //<GoogleLogin>元件登入成功後會呼叫這個callback，response.credential就是Google發的id_token
 //TODO: 在這裡實作拿到id_token之後的邏輯，細節請看對話裡的說明
-const handleGoogleCredential =async (response) => {
+const handleGoogleCredential = async (response) => {
   // response就是使用者的id_token，直接給後端去驗證跟使用
   try {
-      const resp = await axios.post('/api/gigafix/login/google',{
-          idToken: response.credential
-          //response.credential才是真正的id_token字串
-      })
-      await fetchMemberInfoStore.fetchMember(true) //登入成功後強制重抓一次會員資料
-      showloginModal.value = false
-      alert(`${resp.data.nickName}您好~登入成功！`)
-      //如果是從需要登入的功能(例如維修手機)跳出來登入的，登入成功後直接導去該頁面，不用使用者自己再點一次
-      if (afterLoginRedirect.value) {
-        router.push(afterLoginRedirect.value)
-        afterLoginRedirect.value = null
-      }
-  } catch (err) { //回傳4xx,5xx
-      const message = err.response?.data?.message || '請稍後再試'
-      alert(`登入失敗，原因: ${message}`)
+    const resp = await axios.post("/api/gigafix/login/google", {
+      idToken: response.credential,
+      //response.credential才是真正的id_token字串
+    });
+    await fetchMemberInfoStore.fetchMember(true); //登入成功後強制重抓一次會員資料
+    showloginModal.value = false;
+    alert(`${resp.data.nickName}您好~登入成功！`);
+    //如果是從需要登入的功能(例如維修手機)跳出來登入的，登入成功後直接導去該頁面，不用使用者自己再點一次
+    if (afterLoginRedirect.value) {
+      router.push(afterLoginRedirect.value);
+      afterLoginRedirect.value = null;
+    }
+  } catch (err) {
+    //回傳4xx,5xx
+    const message = err.response?.data?.message || "請稍後再試";
+    alert(`登入失敗，原因: ${message}`);
   }
-
-}
+};
 
 //==一鍵註冊登入相關(demo用，不需要填任何資訊，按下去後端會直接生一個假會員讓你登入)==
 const registerOrLoginAFakeMember = async () => {
   try {
-    const resp = await axios.post('/api/gigafix/members/registerOrLoginAFakeMember')
-    await fetchMemberInfoStore.fetchMember(true) //登入成功後強制重抓一次會員資料
-    showloginModal.value = false
-    alert(`${resp.data.nickName}您好~登入成功！`)
+    const resp = await axios.post(
+      "/api/gigafix/members/registerOrLoginAFakeMember",
+    );
+    await fetchMemberInfoStore.fetchMember(true); //登入成功後強制重抓一次會員資料
+    showloginModal.value = false;
+    alert(`${resp.data.nickName}您好~登入成功！`);
     if (afterLoginRedirect.value) {
-      router.push(afterLoginRedirect.value)
-      afterLoginRedirect.value = null
+      router.push(afterLoginRedirect.value);
+      afterLoginRedirect.value = null;
     }
-  } catch (err) { //回傳4xx,5xx
-    const message = err.response?.data?.message || '請稍後再試'
-    alert(`登入失敗，原因: ${message}`)
+  } catch (err) {
+    //回傳4xx,5xx
+    const message = err.response?.data?.message || "請稍後再試";
+    alert(`登入失敗，原因: ${message}`);
   }
-}
+};
 
 //==註冊相關==
 const openRegisterModal = () => {
@@ -174,6 +174,20 @@ const openRegisterModal = () => {
   otpCooldown.value = 0;
   showloginModal.value = false; //關閉登入視窗，改開註冊視窗
   showRegisterModal.value = true;
+};
+
+//==一鍵輸入資料相關(demo/測試用，快速把註冊表單填滿假資料；OTP仍須真的收信才能填寫，這裡不會動它)==
+const fillRegisterFormWithFakeData = () => {
+  regEmail.value = "yu870201@gmail.com"; //固定用真實信箱才能實際收到OTP驗證信
+  regPassword.value = "Test1234";
+  regRealName.value = "蔡承翰";
+  regNickName.value = `阿豬`;
+  regPhone.value = "0912345678";
+  regAddressCity.value = "新竹縣";
+  regAddressDistrict.value = "新豐鄉";
+  regAddressDetail.value = "康樂路一段200巷7號";
+  regGender.value = "MALE";
+  checkRegisterError();
 };
 
 //==OTP拆格輸入相關==
@@ -267,9 +281,13 @@ watch(showRegisterModal, async (isOpen) => {
   if (window.grecaptcha) {
     registerRecaptchaWidgetId = window.grecaptcha.render("register-recaptcha", {
       sitekey: "6Lfxk7MtAAAAAG2cjQ4TIrSIAFHz9_Bco4G0iYrr",
-      callback: () => { captchaCompleted.value = true; }, //使用者勾選成功時觸發
-      "expired-callback": () => { captchaCompleted.value = false; }, //驗證逾時(通常2分鐘)要重設，不然畫面顯示還過關但其實token已經失效
-    })
+      callback: () => {
+        captchaCompleted.value = true;
+      }, //使用者勾選成功時觸發
+      "expired-callback": () => {
+        captchaCompleted.value = false;
+      }, //驗證逾時(通常2分鐘)要重設，不然畫面顯示還過關但其實token已經失效
+    });
   }
 });
 
@@ -280,7 +298,9 @@ const sendRegisterOtp = async () => {
     alert("請先輸入Email，才能寄送驗證碼");
     return;
   }
-  const captchaToken = window.grecaptcha?.getResponse(registerRecaptchaWidgetId);
+  const captchaToken = window.grecaptcha?.getResponse(
+    registerRecaptchaWidgetId,
+  );
   if (!captchaToken) {
     alert("請先完成人機驗證");
     return;
@@ -427,13 +447,27 @@ const goToCart = () => {
           </RouterLink>
 
           <!-- 用使用者是否登入決定要顯示某個標籤 -->
-          <button v-if="!memberInfo" type="button" class="action-item" @click="openLoginModal()">
-            <span class="icon-box"><i class="bi bi-person icon icon-person"></i></span>
+          <button
+            v-if="!memberInfo"
+            type="button"
+            class="action-item"
+            @click="openLoginModal()"
+          >
+            <span class="icon-box"
+              ><i class="bi bi-person icon icon-person"></i
+            ></span>
             <span class="action-text">登入</span>
           </button>
           <!-- 小人icon，連結到member center path -->
-          <RouterLink v-if="memberInfo" class="action-item" active-class="active" to="/member-center">
-            <span class="icon-box"><i class="bi bi-person-fill icon icon-person"></i></span>
+          <RouterLink
+            v-if="memberInfo"
+            class="action-item"
+            active-class="active"
+            to="/member-center"
+          >
+            <span class="icon-box"
+              ><i class="bi bi-person-fill icon icon-person"></i
+            ></span>
             <span class="action-text">{{ memberInfo.nickName }}</span>
           </RouterLink>
           <!-- 購物車按鈕 -->
@@ -471,21 +505,47 @@ const goToCart = () => {
           <ul class="nav-list">
             <router-link class="nav-item">最新活動 ▾</router-link>
             <router-link class="nav-item" to="/mall"
-              >認證二手手機 ▾</router-link
+              >認證二手手機販售</router-link
             >
             <router-link class="nav-item" to="/recycle"
-              >二手機收購/回收 ▾</router-link
+              >二手機收購/回收</router-link
             >
             <div class="dropdown">
-              <a class="nav-item dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">維修手機</a>
+              <a
+                class="nav-item dropdown-toggle"
+                href="#"
+                role="button"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
+                >維修手機</a
+              >
               <ul class="dropdown-menu">
-                <li><a class="dropdown-item" role="button" @click="goToRepairAppointment">預約維修</a></li>
-                <li><router-link class="dropdown-item" to="/repair-price-reference">報價參考</router-link></li>
+                <li>
+                  <a
+                    class="dropdown-item"
+                    role="button"
+                    @click="goToRepairAppointment"
+                    >預約維修</a
+                  >
+                </li>
+                <li>
+                  <router-link
+                    class="dropdown-item"
+                    to="/repair-price-reference"
+                    >報價參考</router-link
+                  >
+                </li>
               </ul>
             </div>
-            <router-link class="nav-item" to="/forum">Gigafix討論區</router-link>
-            <router-link class="nav-item">關於Gigafix</router-link>
-            <router-link class="nav-item" to="/store-locator">據點查詢</router-link>
+            <router-link class="nav-item" to="/forum"
+              >Gigafix討論區</router-link
+            >
+            <router-link class="nav-item" :to="{ name: 'about-gigafix' }"
+              >關於Gigafix</router-link
+            >
+            <router-link class="nav-item" to="/store-locator"
+              >據點查詢</router-link
+            >
           </ul>
         </nav>
       </div>
@@ -496,7 +556,11 @@ const goToCart = () => {
        兩個視窗互切時不會重新觸發，才不會有疊加變深或不夠絲滑的問題 -->
   <Teleport to="body">
     <Transition name="backdrop-fade">
-      <div v-if="anyModalOpen" class="modal-backdrop fade show" @click="closeAllModals()"></div>
+      <div
+        v-if="anyModalOpen"
+        class="modal-backdrop fade show"
+        @click="closeAllModals()"
+      ></div>
     </Transition>
   </Teleport>
 
@@ -510,7 +574,10 @@ const goToCart = () => {
       :value="mail"
       :disabled="loginLoading"
       placeholder="請輸入Email"
-      @input="mail = $event.target.value.replace(/\s/g, ''); checkLoginError()"
+      @input="
+        mail = $event.target.value.replace(/\s/g, '');
+        checkLoginError();
+      "
     />
     <label class="form-label">密碼</label>
     <input
@@ -519,26 +586,34 @@ const goToCart = () => {
       :value="password"
       :disabled="loginLoading"
       placeholder="請輸入密碼"
-      @input="password = $event.target.value.replace(/\s/g, ''); checkLoginError()"
+      @input="
+        password = $event.target.value.replace(/\s/g, '');
+        checkLoginError();
+      "
     />
     <p v-if="loginErrorMsg" class="text-danger form-error-msg">
       {{ loginErrorMsg }}
     </p>
 
     <template #footer>
-      <button class="btn btn-link forgot-password-link" @click="openForgotPasswordModal()">
+      <button
+        class="btn btn-link forgot-password-link"
+        @click="openForgotPasswordModal()"
+      >
         忘記密碼？
       </button>
       <button class="btn btn-secondary" @click="openRegisterModal()">
         註冊
       </button>
-      <span v-if="loginErrorMsg" class="btn btn-primary disabled">請輸入正確資訊</span>
+      <span v-if="loginErrorMsg" class="btn btn-primary disabled"
+        >請輸入正確資訊</span
+      >
       <button v-else class="btn btn-primary" @click="login()">送出</button>
 
       <div class="w-100 d-flex align-items-center gap-2 my-2">
-        <hr class="flex-grow-1 m-0">
+        <hr class="flex-grow-1 m-0" />
         <span class="text-muted small">或</span>
-        <hr class="flex-grow-1 m-0">
+        <hr class="flex-grow-1 m-0" />
       </div>
       <!-- 使用第三方登入的按鈕 -->
       <div class="w-100 d-flex justify-content-center">
@@ -552,25 +627,38 @@ const goToCart = () => {
   <!-- 註冊的彈窗 -->
   <LoginRegisterModal v-model="showRegisterModal" :showBackdrop="false">
     <template #title>會員註冊</template>
+    <!-- demo/測試用：一鍵把下面除了OTP以外的欄位都填上假資料，OTP仍須真的收信才能填寫 -->
+    <div class="d-flex justify-content-end mb-2">
+      <button type="button" class="btn btn-outline-secondary btn-sm" @click="fillRegisterFormWithFakeData()">
+        一鍵輸入資料
+      </button>
+    </div>
     <label class="form-label">Email</label>
     <input
       type="email"
       class="form-control mb-2"
       :value="regEmail"
       placeholder="請輸入Email"
-      @input="regEmail = $event.target.value.replace(/\s/g, ''); checkRegisterError()"
+      @input="
+        regEmail = $event.target.value.replace(/\s/g, '');
+        checkRegisterError();
+      "
     />
     <!-- 左邊(驗證框+提示文字)疊起來一欄，右邊按鈕撐滿這一整欄的高度，通過驗證後直接在旁邊按下去寄送 -->
     <div class="recaptcha-row mb-2">
       <div class="recaptcha-col">
         <div id="register-recaptcha"></div>
-        <span v-if="!captchaCompleted" class="text-muted small">請先完成上方的安全驗證，才能寄送OTP驗證碼</span>
+        <span v-if="!captchaCompleted" class="text-muted small"
+          >請先完成上方的安全驗證，才能寄送OTP驗證碼</span
+        >
       </div>
       <button
         type="button"
         class="btn btn-outline-primary otp-btn"
         @click="sendRegisterOtp()"
-        :disabled="otpSending || otpCooldown > 0 || !regEmail || !captchaCompleted"
+        :disabled="
+          otpSending || otpCooldown > 0 || !regEmail || !captchaCompleted
+        "
       >
         {{
           otpCooldown > 0
@@ -601,9 +689,9 @@ const goToCart = () => {
 
     <!-- 分隔線，區隔「信箱驗證」跟「填寫基本資料」兩個步驟，做法比照登入視窗的「或」分隔線 -->
     <div class="w-100 d-flex align-items-center gap-2 my-2">
-      <hr class="flex-grow-1 m-0">
+      <hr class="flex-grow-1 m-0" />
       <span class="text-muted small">填寫基本資料</span>
-      <hr class="flex-grow-1 m-0">
+      <hr class="flex-grow-1 m-0" />
     </div>
 
     <label class="form-label">密碼</label>
@@ -612,37 +700,74 @@ const goToCart = () => {
       class="form-control mb-2"
       :value="regPassword"
       placeholder="至少8碼，需含大小寫英文字母及數字"
-      @input="regPassword = $event.target.value.replace(/\s/g, ''); checkRegisterError()"
+      @input="
+        regPassword = $event.target.value.replace(/\s/g, '');
+        checkRegisterError();
+      "
     />
     <!-- 真實姓名+暱稱併成一排，縮短表單高度，密碼/手機號碼維持獨立一排避免看起來擁擠 -->
     <div class="row g-2 mb-2">
       <div class="col-6">
         <label class="form-label">真實姓名</label>
-        <input type="text" class="form-control" v-model="regRealName" maxlength="40" placeholder="請輸入真實姓名"
-          @input="checkRegisterError()" />
+        <input
+          type="text"
+          class="form-control"
+          v-model="regRealName"
+          maxlength="40"
+          placeholder="請輸入真實姓名"
+          @input="checkRegisterError()"
+        />
       </div>
       <div class="col-6">
         <label class="form-label">暱稱</label>
-        <input type="text" class="form-control" v-model="regNickName" maxlength="40" placeholder="請輸入暱稱"
-          @input="checkRegisterError()" />
+        <input
+          type="text"
+          class="form-control"
+          v-model="regNickName"
+          maxlength="40"
+          placeholder="請輸入暱稱"
+          @input="checkRegisterError()"
+        />
       </div>
     </div>
     <label class="form-label">手機號碼</label>
-    <input type="text" class="form-control mb-2" v-model="regPhone" placeholder="09xxxxxxxx"
-      @input="checkRegisterError()" />
+    <input
+      type="text"
+      class="form-control mb-2"
+      v-model="regPhone"
+      placeholder="09xxxxxxxx"
+      @input="checkRegisterError()"
+    />
     <label class="form-label">地址</label>
     <div class="mb-2">
-      <AddressSelect v-model:city="regAddressCity" v-model:district="regAddressDistrict"
-        v-model:detail="regAddressDetail" />
+      <AddressSelect
+        v-model:city="regAddressCity"
+        v-model:district="regAddressDistrict"
+        v-model:detail="regAddressDetail"
+      />
     </div>
     <label class="form-label d-block">性別</label>
     <div class="gender-group" role="group" aria-label="性別">
-      <input type="radio" class="btn-check" id="regGenderMale" value="MALE" v-model="regGender" autocomplete="off"
-        @change="checkRegisterError()" />
+      <input
+        type="radio"
+        class="btn-check"
+        id="regGenderMale"
+        value="MALE"
+        v-model="regGender"
+        autocomplete="off"
+        @change="checkRegisterError()"
+      />
       <label class="gender-circle" for="regGenderMale">男</label>
 
-      <input type="radio" class="btn-check" id="regGenderFemale" value="FEMALE" v-model="regGender" autocomplete="off"
-        @change="checkRegisterError()" />
+      <input
+        type="radio"
+        class="btn-check"
+        id="regGenderFemale"
+        value="FEMALE"
+        v-model="regGender"
+        autocomplete="off"
+        @change="checkRegisterError()"
+      />
       <label class="gender-circle" for="regGenderFemale">女</label>
     </div>
     <p v-if="registerErrorMsg" class="text-danger form-error-msg">
@@ -650,7 +775,9 @@ const goToCart = () => {
     </p>
 
     <template #footer>
-      <span v-if="registerErrorMsg" class="btn btn-primary disabled">請輸入正確資訊</span>
+      <span v-if="registerErrorMsg" class="btn btn-primary disabled"
+        >請輸入正確資訊</span
+      >
       <button v-else class="btn btn-primary" @click="register()">送出</button>
     </template>
   </LoginRegisterModal>
@@ -659,17 +786,37 @@ const goToCart = () => {
   <LoginRegisterModal v-model="showForgotPasswordModal" :showBackdrop="false">
     <template #title>忘記密碼</template>
     <label class="form-label">Email</label>
-    <input type="email" class="form-control mb-3" v-model="fpEmail" placeholder="請輸入Email"
-      @input="checkForgotPasswordError()" />
+    <input
+      type="email"
+      class="form-control mb-3"
+      v-model="fpEmail"
+      placeholder="請輸入Email"
+      @input="checkForgotPasswordError()"
+    />
     <label class="form-label">新密碼</label>
-    <input type="password" class="form-control mb-3" v-model="fpNewPassword" placeholder="至少8碼，需含大小寫英文字母及數字"
-      @input="checkForgotPasswordError()" />
+    <input
+      type="password"
+      class="form-control mb-3"
+      v-model="fpNewPassword"
+      placeholder="至少8碼，需含大小寫英文字母及數字"
+      @input="checkForgotPasswordError()"
+    />
     <label class="form-label">OTP驗證碼</label>
     <div class="otp-row mb-3">
-      <input type="text" class="form-control" v-model="fpOtp" maxlength="6" placeholder="請輸入6碼驗證碼"
-        @input="checkForgotPasswordError()" />
-      <button type="button" class="btn btn-outline-primary otp-btn" @click="sendForgotPasswordOtp()"
-        :disabled="fpOtpSending || fpOtpCooldown > 0">
+      <input
+        type="text"
+        class="form-control"
+        v-model="fpOtp"
+        maxlength="6"
+        placeholder="請輸入6碼驗證碼"
+        @input="checkForgotPasswordError()"
+      />
+      <button
+        type="button"
+        class="btn btn-outline-primary otp-btn"
+        @click="sendForgotPasswordOtp()"
+        :disabled="fpOtpSending || fpOtpCooldown > 0"
+      >
         {{
           fpOtpCooldown > 0
             ? `${fpOtpCooldown}秒後重寄`
@@ -682,7 +829,9 @@ const goToCart = () => {
     <p v-if="fpErrorMsg" class="text-danger form-error-msg">{{ fpErrorMsg }}</p>
 
     <template #footer>
-      <span v-if="fpErrorMsg" class="btn btn-primary disabled">請輸入正確資訊</span>
+      <span v-if="fpErrorMsg" class="btn btn-primary disabled"
+        >請輸入正確資訊</span
+      >
       <button v-else class="btn btn-primary" @click="forgotPassword()">
         重設密碼
       </button>
@@ -788,7 +937,6 @@ const goToCart = () => {
   text-decoration: underline;
 }
 
-
 /* footer裡的錯誤提示文字，字級跟旁邊的按鈕(1.05rem)對齊，並去掉<p>預設的margin，
    避免在flex排列的footer裡被撐開高度，導致跟按鈕、其他文字沒有對齊在同一條基準線上 */
 /* 錯誤訊息放在modal-body最底部，但故意讓它「貼著下面的分隔線」而不是貼著上面的輸入框：
@@ -827,7 +975,7 @@ const goToCart = () => {
   background-color: #eef4fb;
 }
 
-.btn-check:checked+.gender-circle {
+.btn-check:checked + .gender-circle {
   background-color: #bcd9f2;
   /* 選取時的淺藍，比header的深藍(#1e3557)淺很多 */
   border-color: #2b77c5;
@@ -917,7 +1065,10 @@ const goToCart = () => {
   border: 2px solid #6d7c92;
   border-radius: 0.6rem;
   padding: 4px 12px;
-  transition: background-color 0.2s ease, color 0.2s ease, transform 0.1s ease;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.1s ease;
 }
 
 .fake-login-btn:hover {
@@ -1022,6 +1173,10 @@ const goToCart = () => {
 }
 
 .nav-item:hover {
+  color: #0b5cab;
+}
+
+.nav-item.router-link-active {
   color: #0b5cab;
 }
 </style>

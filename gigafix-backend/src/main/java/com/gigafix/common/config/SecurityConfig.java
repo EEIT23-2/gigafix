@@ -9,6 +9,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.session.SessionRegistry;
@@ -40,6 +41,7 @@ import tools.jackson.databind.ObjectMapper;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 	private final AdminUserDetailsService adminUserDetailsService;
@@ -53,21 +55,31 @@ public class SecurityConfig {
 	@Order(1)
 	public SecurityFilterChain adminSecurityFilterChain(HttpSecurity httpSecurity) throws Exception {
 		return httpSecurity
-				.securityMatcher("/api/admin/account/**", "/api/adminlogin", "/api/adminlogout") // 只針對某些請求路徑作用，之後要把/manager拿掉改成/admin/**
+				.securityMatcher("/api/admin/**", "/api/adminlogin", "/api/adminlogout") // 只針對某些請求路徑作用，之後要把/manager拿掉改成/admin/**
 				// .cors(null) //因為前端先用vite做反向代理，所以根本不會觸發cros因此先不寫
 				.csrf(csrf -> csrf.disable())
 				.authorizeHttpRequests(requests -> requests
+						// 只有登入/登出，以及「建立第一個總管理員」這個bootstrap用途的端點才是真的公開，
+						// 因為當系統還沒有任何管理員時，不可能先登入才能建立第一個總管理員
 						.requestMatchers("/api/adminlogin", "/api/adminlogout", "/api/admin/account/super-admin")
-						.permitAll() // 不需要登入，但享有Security的保護
+						.permitAll() // 不需要登入，但享有Security的保護；logout本來就該不論session是否還活著都能呼叫(controller自己有處理session=null的情況)
 						.requestMatchers("/api/admin/account/me", "/api/admin/account/me/**")
 						.hasAnyAuthority("ROLE_REPAIR_ADMIN", "ROLE_FORUM_ADMIN", "ROLE_ECOMMERCE_ADMIN",
 								"ROLE_DEPUTY_ADMIN", "ROLE_SUPER_ADMIN")
 						.requestMatchers("/api/admin/account/**").hasAuthority("ROLE_SUPER_ADMIN")
-						.requestMatchers("/api/admin/**").hasAnyAuthority("ROLE_DEPUTY_ADMIN", "ROLE_SUPER_ADMIN")
-				// .requestMatchers("/admin/product/**","/admin/order/**").hasAnyAuthority("ROLE_ECOMMERCE_ADMIN")
-				// .requestMatchers("/admin/forum/**").hasAuthority("ROLE_FORUM_ADMIN")
-				// .requestMatchers("/admin/repair/**").hasAuthority("ROLE_REPAIR_ADMIN")
-				)
+						// 下面這三條「範圍較窄」的規則必須排在/api/admin/**這條「範圍較廣」的規則前面！
+						// authorizeHttpRequests是依宣告順序、第一個match到的規則生效，
+						// 如果/api/admin/**排在前面，會讓/api/admin/order|forum|repair/**全部被它先攔截，
+						// 後面ROLE_ECOMMERCE_ADMIN/ROLE_FORUM_ADMIN/ROLE_REPAIR_ADMIN的規則就永遠檢查不到，
+						// 變成只有DEPUTY_ADMIN、SUPER_ADMIN才能打，一般的版塊管理員反而403
+						// 後台商品管理實際掛在/api/admin/products/**(新增/改/刪/上下架/匯入匯出，見ProductController)，
+						// /api/gigafix/products/**是公開商城瀏覽用的唯讀端點，故意放在MemberPublicApiPaths讓所有人能看，兩者不能混
+						.requestMatchers("/api/admin/products/**", "/api/admin/orders/**")
+						.hasAnyAuthority("ROLE_ECOMMERCE_ADMIN")
+						.requestMatchers("/api/admin/forum/**").hasAuthority("ROLE_FORUM_ADMIN")
+						.requestMatchers("/api/admin/repair/**").hasAuthority("ROLE_REPAIR_ADMIN")
+						// 範圍最廣的規則放最後，接住上面沒攔到的其他/api/admin/**路徑
+						.requestMatchers("/api/admin/**").hasAnyAuthority("ROLE_DEPUTY_ADMIN", "ROLE_SUPER_ADMIN"))
 				.sessionManagement(session -> session // session-based 認證的核心設定
 						.maximumSessions(1) // 可選：限制同一使用者同時只能有一個 session
 						.sessionRegistry(sessionRegistry())// IF_REQUIRED = 預設值，有需要時才建立 session（例如登入成功時)

@@ -429,16 +429,18 @@ public class EcpayPaymentService {
 
         public String processPaymentResult(
                         Map<String, String> callback) {
-                // ============================================
                 // OrderResultURL 是 Client 端付款結果回傳
                 // 這裡只驗證 ECPay 回傳來源
                 // 不負責更新付款狀態
                 // 真正的付款狀態更新以 ReturnURL 為主
-
+                
+                // ============================================
+                // 正式部署後 取消註解
                 // validateCallbackSource(callback);
                 // ============================================
 
-                // 部屬前 本機demo用，實際上應該驗證 ECPay 回傳來源
+                // 部署前 本機demo用，實際上應該驗證 ECPay 回傳來源
+                // 部署後註解
                 processPaymentReturn(callback);
 
                 // 找回 GigaFix 訂單

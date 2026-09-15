@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { getProduct } from "../api";
+import { getAdminProduct } from "../api";
 
 const route = useRoute();
 const router = useRouter();
@@ -43,8 +43,8 @@ async function fetchProduct() {
   errorMessage.value = "";
 
   try {
-    // 這裡會呼叫 GET /api/products/{productId}。
-    product.value = await getProduct(productId);
+    // 後台詳情改走受管理員權限保護的 GET /api/admin/products/{productId}。
+    product.value = await getAdminProduct(productId);
   } catch (error) {
     console.error(error);
     errorMessage.value =

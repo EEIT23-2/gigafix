@@ -7,11 +7,12 @@ import {
   deleteAllProducts,
   deleteProduct,
   exportProducts,
-  getProducts,
+  getAdminProducts,
   importProducts,
 } from "../api";
 import { useProductStore } from "../store";
 import ProductAdvancedFilter from "../components/ProductAdvancedFilter.vue";
+import ProductChart from "../components/ProductChart.vue";
 import ProductTable from "../components/ProductTable.vue";
 
 const router = useRouter();
@@ -46,6 +47,7 @@ const exporting = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
 const showAdvancedFilter = ref(false);
+const showProductChart = ref(false);
 
 const advancedFilterCount = computed(
   () => [modelName.value, color.value, storage.value].filter(Boolean).length,
@@ -55,14 +57,14 @@ const advancedFilterCount = computed(
 const hasActiveFilters = computed(() =>
   Boolean(
     keyword.value ||
-      category.value ||
-      saleStatus.value ||
-      modelName.value ||
-      color.value ||
-      storage.value ||
-      sortOption.value ||
-      (minPrice.value !== null && minPrice.value !== "") ||
-      (maxPrice.value !== null && maxPrice.value !== ""),
+    category.value ||
+    saleStatus.value ||
+    modelName.value ||
+    color.value ||
+    storage.value ||
+    sortOption.value ||
+    (minPrice.value !== null && minPrice.value !== "") ||
+    (maxPrice.value !== null && maxPrice.value !== ""),
   ),
 );
 
@@ -148,7 +150,7 @@ async function fetchProducts(targetPage = 0) {
 
   try {
     // api.js 已直接 return response.data，所以 data 就是 Page<Product>。
-    const data = await getProducts(buildQueryParams(targetPage));
+    const data = await getAdminProducts(buildQueryParams(targetPage));
     products.value = data.content ?? [];
     page.value = data.number ?? 0;
     size.value = data.size ?? size.value;
@@ -252,7 +254,7 @@ async function handleDelete(product) {
   }
 }
 
-// 呼叫後端 POST /api/products/import，匯入後端預先設定的 JSON 資料來源。
+// 呼叫後端 POST /api/admin/products/import，匯入後端預先設定的 JSON 資料來源。
 async function handleImport() {
   const confirmed = window.confirm(
     "確定要從後端設定的 JSON 資料來源匯入商品嗎？",
@@ -283,7 +285,7 @@ async function handleImport() {
   }
 }
 
-// 呼叫 GET /api/products/export，將後端回傳的 Blob 下載成 JSON 檔。
+// 呼叫 GET /api/admin/products/export，將後端回傳的 Blob 下載成 JSON 檔。
 async function handleExport() {
   exporting.value = true;
   errorMessage.value = "";
@@ -327,7 +329,7 @@ function closeDeleteAllConfirm() {
   showDeleteAllConfirm.value = false;
 }
 
-// 使用者在警告區再次確認後，才呼叫 DELETE /api/products。
+// 使用者在警告區再次確認後，才呼叫 DELETE /api/admin/products。
 async function handleDeleteAll() {
   deletingAll.value = true;
   errorMessage.value = "";
@@ -375,6 +377,15 @@ onMounted(() => fetchProducts(page.value));
         </div>
         <div class="d-flex flex-wrap align-items-center gap-2">
           <button
+            class="btn btn-outline-primary d-inline-flex align-items-center gap-2"
+            type="button"
+            @click="showProductChart = true"
+          >
+            <i class="bi bi-bar-chart-fill" aria-hidden="true"></i>
+            商品統計
+          </button>
+
+          <button
             class="btn btn-outline-secondary"
             type="button"
             :disabled="importing || exporting"
@@ -385,7 +396,7 @@ onMounted(() => fetchProducts(page.value));
               class="spinner-border spinner-border-sm me-1"
               aria-hidden="true"
             ></span>
-            {{ importing ? "匯入中..." : "匯入 JSON" }}
+            {{ importing ? "匯入中..." : "快速上架" }}
           </button>
 
           <button
@@ -710,6 +721,24 @@ onMounted(() => fetchProducts(page.value));
         </footer>
       </section>
     </div>
+
+    <!-- 點擊背景或關閉按鈕即可收合右側商品統計抽屜。 -->
+    <Transition name="chart-drawer">
+      <div
+        v-if="showProductChart"
+        class="chart-drawer-backdrop"
+        @click.self="showProductChart = false"
+      >
+        <aside
+          class="chart-drawer"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="product-chart-title"
+        >
+          <ProductChart @close="showProductChart = false" />
+        </aside>
+      </div>
+    </Transition>
   </main>
 </template>
 
@@ -733,6 +762,44 @@ main {
 .price-range {
   max-width: 360px;
 }
+
+.chart-drawer-backdrop {
+  position: fixed;
+  z-index: 1080;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+  background: rgb(18 34 49 / 42%);
+}
+
+.chart-drawer {
+  width: min(560px, 100%);
+  height: 100%;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: -16px 0 45px rgb(17 38 58 / 22%);
+}
+
+.chart-drawer-enter-active,
+.chart-drawer-leave-active {
+  transition: background-color 0.25s ease;
+}
+
+.chart-drawer-enter-active .chart-drawer,
+.chart-drawer-leave-active .chart-drawer {
+  transition: transform 0.25s ease;
+}
+
+.chart-drawer-enter-from,
+.chart-drawer-leave-to {
+  background: transparent;
+}
+
+.chart-drawer-enter-from .chart-drawer,
+.chart-drawer-leave-to .chart-drawer {
+  transform: translateX(100%);
+}
+
 @media (max-width: 767.98px) {
   .filter-select,
   .page-size-select,

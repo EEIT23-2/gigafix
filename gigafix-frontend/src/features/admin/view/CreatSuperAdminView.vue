@@ -22,6 +22,14 @@ const checkSamePassword = () => { //確認密碼是前端防呆，跟後端沒�
     }
 }
 
+//demo/測試用：一鍵把下面的帳號/密碼欄位都填上假資料
+const fillFormWithFakeData = () => {
+    superAdminName.value = `阿狗`
+    superAdminPassword.value = 'Test1234'
+    checkPassword.value = 'Test1234'
+    checkSamePassword()
+}
+
 const createSuperAdmin = async () => {
     console.log('程式被呼叫了')
     try {
@@ -52,6 +60,13 @@ const createSuperAdmin = async () => {
                     <span class="fs-1">😊</span>
                     <h3 class="fw-bold mt-2 mb-0 text-primary-brand">Gigafix ADMIN</h3>
                     <p class="text-muted small mb-0">建立總管理員</p>
+                </div>
+
+                <!-- demo/測試用：一鍵把下面的帳號/密碼欄位都填上假資料 -->
+                <div class="d-flex justify-content-end mb-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @click="fillFormWithFakeData()">
+                        一鍵輸入資料
+                    </button>
                 </div>
 
                 <form @submit.prevent="createSuperAdmin">
