@@ -162,16 +162,25 @@ const hasSelection = ref(false)
 // 只在游標收合（沒有選取範圍）時介入；有選取文字時套色是靠點色票，不需要這裡處理
 function syncStickyColor() {
   if (!editor.value) return
+  // IME 組字（例如注音）進行中如果在這裡多丟一個 transaction，會打斷正在進行的組字，
+  // 導致還沒選字完成的符號被強制送出成文字（實測：打「你好」會變成「ㄋ你好」）。
+  // 組字結束後 compositionend 會觸發一次新的 onUpdate，屆時再正常同步即可，這裡先讓組字跑完
+  if (editor.value.view.composing) return
   const { from, to } = editor.value.state.selection
   if (from !== to) return
 
   const attrs = editor.value.getAttributes('textStyle')
-  if (currentColor.value && attrs.color !== currentColor.value) {
-    editor.value.commands.setColor(currentColor.value)
-  }
-  if (currentBackground.value && attrs.backgroundColor !== currentBackground.value) {
-    editor.value.commands.setBackgroundColor(currentBackground.value)
-  }
+  const colorMismatch = currentColor.value && attrs.color !== currentColor.value
+  const backgroundMismatch = currentBackground.value && attrs.backgroundColor !== currentBackground.value
+  if (!colorMismatch && !backgroundMismatch) return
+
+  // 兩個屬性要在同一個 chain 裡一起設定，不能分兩次各自呼叫 setColor/setBackgroundColor——
+  // 游標收合時 setMark 是拿「目前游標位置既有的樣式」跟新屬性合併，分兩次呼叫的話，
+  // 第二次修的那個屬性會拿「第一次剛設完、還沒套用這次屬性」的樣式去合併，等於白修
+  const chain = editor.value.chain()
+  if (currentColor.value) chain.setColor(currentColor.value)
+  if (currentBackground.value) chain.setBackgroundColor(currentBackground.value)
+  chain.run()
 }
 
 function syncEditorState() {
@@ -219,24 +228,42 @@ function restoreColorSelection(chain) {
   return savedColorSelection ? chain.setTextSelection(savedColorSelection) : chain
 }
 
+// 套色時，如果目標範圍是收合的游標（還沒選字，屬於「筆刷」情境，例如換行後先選色再打字），
+// 文字色跟背景色要在同一個 chain 裡一起明確設定——理由跟 syncStickyColor 一樣：
+// 剛換行的空段落通常什麼樣式都沒有，分開呼叫的話，後設的那個屬性會把先設的那個蓋掉。
+// 有實際選取既有文字時就不受影響，只改這次要改的那個屬性，其餘沿用選取範圍原本的樣式
+function applyColorLikeStyle(attribute, value) {
+  const target = savedColorSelection ?? editor.value.state.selection
+  const chain = restoreColorSelection(editor.value.chain().focus())
+  if (target.from === target.to) {
+    if (currentColor.value) chain.setColor(currentColor.value)
+    if (currentBackground.value) chain.setBackgroundColor(currentBackground.value)
+  } else if (attribute === 'color') {
+    chain.setColor(value)
+  } else {
+    chain.setBackgroundColor(value)
+  }
+  chain.run()
+}
+
 function applyColor(value) {
-  restoreColorSelection(editor.value.chain().focus()).setColor(value).run()
   currentColor.value = value
+  applyColorLikeStyle('color', value)
 }
 
 function clearColor() {
-  restoreColorSelection(editor.value.chain().focus()).setColor(DEFAULT_TEXT_COLOR).run()
   currentColor.value = DEFAULT_TEXT_COLOR
+  applyColorLikeStyle('color', DEFAULT_TEXT_COLOR)
 }
 
 function applyBackground(value) {
-  restoreColorSelection(editor.value.chain().focus()).setBackgroundColor(value).run()
   currentBackground.value = value
+  applyColorLikeStyle('background', value)
 }
 
 function clearBackground() {
-  restoreColorSelection(editor.value.chain().focus()).setBackgroundColor(DEFAULT_BACKGROUND_COLOR).run()
   currentBackground.value = DEFAULT_BACKGROUND_COLOR
+  applyColorLikeStyle('background', DEFAULT_BACKGROUND_COLOR)
 }
 
 function addImage() {
@@ -335,6 +362,12 @@ function applyRandomStyleToInsertedText(transaction, instance) {
   if (insertedSize <= 0) return
 
   const start = to - insertedSize
+
+  // Enter 換行（分段）也會讓 docChanged 為真、insertedSize 算出非 0（段落分割本身佔位），
+  // 但那不是「打字」，沒有插入任何新文字——這時候 start 往前算會跨進「上一段」，
+  // textBetween(start, to) 撈到的其實是換行前那段文字尾端既有的字元，會被誤套上隨機樣式
+  // （實測：文字尾端按 Enter，前一行最後兩個字元會被套色）。用頭尾是否同一段落擋掉這種情況
+  if (transaction.doc.resolve(start).parent !== transaction.doc.resolve(to).parent) return
 
   // 取出剛插入的純文字，用展開運算子拆成一個個 Unicode 字元（避免 emoji 之類的 surrogate pair
   // 字元被切成半個，跟 initial() 用的手法一致），逐一各自套用隨機樣式
