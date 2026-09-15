@@ -59,6 +59,8 @@ export const useRecycleApplicationStore = defineStore(
     const size = ref(10);
     // 保留後台回收單 ID 搜尋條件，從詳情頁返回列表時仍可維持篩選結果。
     const applyId = ref("");
+    // 會員 ID 也必須存放在 Pinia，避免離開列表頁後因元件卸載而清空。
+    const memberId = ref("");
     const productName = ref("");
     const appearance = ref("");
     const category = ref("");
@@ -69,6 +71,7 @@ export const useRecycleApplicationStore = defineStore(
       page.value = 0;
       size.value = 10;
       applyId.value = "";
+      memberId.value = "";
       productName.value = "";
       appearance.value = "";
       category.value = "";
@@ -80,6 +83,7 @@ export const useRecycleApplicationStore = defineStore(
       page,
       size,
       applyId,
+      memberId,
       productName,
       appearance,
       category,

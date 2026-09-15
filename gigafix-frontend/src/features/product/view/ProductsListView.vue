@@ -57,14 +57,14 @@ const advancedFilterCount = computed(
 const hasActiveFilters = computed(() =>
   Boolean(
     keyword.value ||
-      category.value ||
-      saleStatus.value ||
-      modelName.value ||
-      color.value ||
-      storage.value ||
-      sortOption.value ||
-      (minPrice.value !== null && minPrice.value !== "") ||
-      (maxPrice.value !== null && maxPrice.value !== ""),
+    category.value ||
+    saleStatus.value ||
+    modelName.value ||
+    color.value ||
+    storage.value ||
+    sortOption.value ||
+    (minPrice.value !== null && minPrice.value !== "") ||
+    (maxPrice.value !== null && maxPrice.value !== ""),
   ),
 );
 
@@ -396,7 +396,7 @@ onMounted(() => fetchProducts(page.value));
               class="spinner-border spinner-border-sm me-1"
               aria-hidden="true"
             ></span>
-            {{ importing ? "匯入中..." : "匯入 JSON" }}
+            {{ importing ? "匯入中..." : "快速上架" }}
           </button>
 
           <button
