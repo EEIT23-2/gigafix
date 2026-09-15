@@ -42,13 +42,13 @@ public class AdminAccountController {
 	}
 
 	@PostMapping
-	@PreAuthorize("hasRole('ROLE_SUPER_ADMIN')") // 檢查該登入帳號的權限是否為總管理員,'ROLE_SUPER_ADMIN'必須用單引號，不能用雙引號
+	@PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN')") // 檢查該登入帳號的權限是否為總管理員,'ROLE_SUPER_ADMIN'必須用單引號，不能用雙引號
 	public ResponseEntity<AdminInfoDto> creatAdmin(@Valid @RequestBody AdminCreateReq req) {
 		return ResponseEntity.status(HttpStatus.CREATED).body(accountService.createAdmin(req)); // 201
 	}
 
 	@GetMapping
-	@PreAuthorize("hasRole('ROLE_SUPER_ADMIN')")
+	@PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN')")
 	public ResponseEntity<List<AdminInfoDto>> getAll() {
 		return ResponseEntity.ok(accountService.getAllAccounts()); // 200
 	}
@@ -69,7 +69,7 @@ public class AdminAccountController {
 
 	// 總管理員幫某個管理員重設的帳密(被改的人要重新登入才會變)，操作對象的id放路徑，body只帶要改的新密碼
 	@PatchMapping("/{adminId}/password")
-	@PreAuthorize("hasRole('ROLE_SUPER_ADMIN')")
+	@PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN')")
 	public ResponseEntity<AdminInfoDto> resetPassword(@PathVariable Integer adminId,
 			@Valid @RequestBody ResetPasswordReq resetPasswordReq) {
 		return ResponseEntity.ok(accountService.resetPassword(adminId, resetPasswordReq.newPassword()));
@@ -77,7 +77,7 @@ public class AdminAccountController {
 
 	// 總管理員改某個管理員的權限(權限只有總管理員可以改)，操作對象的id放路徑，body只帶要改的角色
 	@PatchMapping("/{adminId}/role")
-	@PreAuthorize("hasRole('ROLE_SUPER_ADMIN')")
+	@PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN')")
 	public ResponseEntity<AdminInfoDto> updateRole(@PathVariable Integer adminId,
 			@Valid @RequestBody UpdateRoleReq updateRoleReq) {
 		return ResponseEntity.ok(accountService.updateRole(adminId, updateRoleReq.role()));
@@ -102,7 +102,7 @@ public class AdminAccountController {
 
 	// 總管理員刪除其他管理員，操作對象的id放路徑，body只帶總管理員自己的密碼做確認
 	@DeleteMapping("/{adminId}")
-	@PreAuthorize("hasRole('ROLE_SUPER_ADMIN')")
+	@PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN')")
 	public ResponseEntity<Void> deleteAdmin(@PathVariable Integer adminId,
 			@Valid @RequestBody DeleteAdminReq deleteAdminReq) {
 		accountService.deleteAccount(adminId, deleteAdminReq.SAPassword());
