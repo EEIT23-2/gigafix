@@ -19,6 +19,7 @@ import CommentSection from '../components/CommentSection.vue'
 import MoreActionsMenu from '../components/MoreActionsMenu.vue'
 import { sanitizeHtml, isHtmlEmpty } from '../htmlContent'
 import RichTextEditor from '../components/RichTextEditor.vue'
+import ReportForm from '../components/ReportForm.vue'
 import ForumLoginModal from '../components/ForumLoginModal.vue'
 import { useForumLoginModalStore } from '../store/loginModal'
 import { pushRecentViewed } from '../utils/recentViewed'
@@ -29,9 +30,6 @@ const route = useRoute()
 const router = useRouter()
 const loginModalStore = useForumLoginModalStore()
 const { memberInfo } = storeToRefs(useFetchMemberInfoStore())
-
-// 對齊後端 CreateReportRequest 的 @Size(max = 250)，欄位是 NVARCHAR(250)，250 是字元數
-const REPORT_MAX_LENGTH = 250
 
 const article = ref(null)
 const loading = ref(true)
@@ -62,8 +60,8 @@ const expandedFloors = ref({})
 
 // 一次只展開一份檢舉表單。null = 沒展開；有值 = 正在檢舉哪一篇
 // （樓層本身也是一筆 article，所以主文章跟樓層可以共用同一組狀態與同一支 reportArticle API）
+// 檢舉原因由 ReportForm 自己持有，送出時才交給 handleReportSubmit
 const reportingArticleId = ref(null)
-const reportReason = ref('')
 const reportSubmitting = ref(false)
 const reportErrorMessage = ref('')
 const reportSuccessMessage = ref('')
@@ -112,16 +110,6 @@ function formatDateTime(value) {
     minute: '2-digit',
     hour12: false,
   })
-}
-
-function autoResize(event) {
-  const el = event.target
-  // 先歸零才量得到內容真正需要的高度；height:auto 時 rows 屬性會決定最小高度，
-  // 所以蓋樓框（rows=3）打第一個字時不會被縮成一行
-  el.style.height = 'auto'
-  // scrollHeight 不含 border，box-sizing: border-box 下直接套用會每次少掉 border 那幾 px
-  const borderHeight = el.offsetHeight - el.clientHeight
-  el.style.height = `${el.scrollHeight + borderHeight}px`
 }
 
 async function load() {
@@ -327,12 +315,11 @@ function toggleReportForm(targetId) {
   reportSuccessMessage.value = ''
   reportSuccessTargetId.value = null
   reportErrorMessage.value = ''
-  reportReason.value = ''
   reportingArticleId.value = reportingArticleId.value === targetId ? null : targetId
 }
 
-async function handleReportSubmit(targetId) {
-  if (!reportReason.value.trim()) return
+async function handleReportSubmit(targetId, reason) {
+  if (!reason.trim()) return
   if (!memberInfo.value) {
     loginModalStore.open(route.fullPath)
     return
@@ -340,9 +327,8 @@ async function handleReportSubmit(targetId) {
   reportSubmitting.value = true
   reportErrorMessage.value = ''
   try {
-    await reportArticle(targetId, reportReason.value)
+    await reportArticle(targetId, reason)
     reportingArticleId.value = null
-    reportReason.value = ''
     reportSuccessMessage.value = '已送出檢舉'
     reportSuccessTargetId.value = targetId
   } catch (error) {
@@ -509,29 +495,13 @@ async function handleDeleteFloor(floorId) {
                   </button>
                 </div>
 
-                <form
+                <ReportForm
                   v-if="reportingArticleId === article.articleId"
-                  class="report-form"
-                  @submit.prevent="handleReportSubmit(article.articleId)"
-                >
-                  <textarea
-                    v-model="reportReason"
-                    rows="1"
-                    :maxlength="REPORT_MAX_LENGTH"
-                    placeholder="請輸入檢舉原因..."
-                    @input="autoResize"
-                  />
-                  <div class="form-footer">
-                    <span class="char-count">{{ reportReason.length }}/{{ REPORT_MAX_LENGTH }}</span>
-                    <button type="button" class="cancel" @click="toggleReportForm(article.articleId)">
-                      取消
-                    </button>
-                    <button type="submit" :disabled="reportSubmitting">
-                      {{ reportSubmitting ? '送出中...' : '送出' }}
-                    </button>
-                  </div>
-                  <p v-if="reportErrorMessage" class="error">{{ reportErrorMessage }}</p>
-                </form>
+                  :submitting="reportSubmitting"
+                  :error-message="reportErrorMessage"
+                  @submit="handleReportSubmit(article.articleId, $event)"
+                  @cancel="toggleReportForm(article.articleId)"
+                />
                 <p v-if="reportSuccessTargetId === article.articleId" class="report-success">
                   {{ reportSuccessMessage }}
                 </p>
@@ -659,29 +629,13 @@ async function handleDeleteFloor(floorId) {
                       </button>
                     </div>
 
-                    <form
+                    <ReportForm
                       v-if="reportingArticleId === floor.articleId"
-                      class="report-form"
-                      @submit.prevent="handleReportSubmit(floor.articleId)"
-                    >
-                      <textarea
-                        v-model="reportReason"
-                        rows="1"
-                        :maxlength="REPORT_MAX_LENGTH"
-                        placeholder="請輸入檢舉原因..."
-                        @input="autoResize"
-                      />
-                      <div class="form-footer">
-                        <span class="char-count">{{ reportReason.length }}/{{ REPORT_MAX_LENGTH }}</span>
-                        <button type="button" class="cancel" @click="toggleReportForm(floor.articleId)">
-                          取消
-                        </button>
-                        <button type="submit" :disabled="reportSubmitting">
-                          {{ reportSubmitting ? '送出中...' : '送出' }}
-                        </button>
-                      </div>
-                      <p v-if="reportErrorMessage" class="error">{{ reportErrorMessage }}</p>
-                    </form>
+                      :submitting="reportSubmitting"
+                      :error-message="reportErrorMessage"
+                      @submit="handleReportSubmit(floor.articleId, $event)"
+                      @cancel="toggleReportForm(floor.articleId)"
+                    />
                     <p v-if="reportSuccessTargetId === floor.articleId" class="report-success">
                       {{ reportSuccessMessage }}
                     </p>
@@ -1246,70 +1200,15 @@ async function handleDeleteFloor(floorId) {
   color: #1d324b;
 }
 
-/* ── 檢舉表單（沿用既有視覺語彙） ── */
+/* ── 檢舉表單 ── */
+/* 表單本身的外觀在 ReportForm.vue；這裡只管它在文章卡片、樓層裡的留白
+   （scoped 樣式選得到子元件的根節點，不需要 :deep） */
 .report-form {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
   margin: 0 24px 16px;
-  padding: 8px;
-  background-color: #fffaf0;
-  border: 1px solid #e8d3a0;
-  border-radius: 0.375rem;
 }
 
 .floor-body .report-form {
   margin: 0;
-}
-
-.report-form textarea {
-  padding: 8px;
-  border: 1px solid #d0d0d0;
-  border-radius: 0.375rem;
-  font-family: inherit;
-  resize: none;
-  overflow: hidden;
-}
-
-.report-form .form-footer {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 8px;
-}
-
-.char-count {
-  font-size: 14px;
-  color: #999999;
-}
-
-/* footer 已經是 flex-end + gap，字數靠 margin-right:auto 吃掉剩餘空間推到最左邊 */
-.report-form .char-count {
-  margin-right: auto;
-}
-
-.report-form .cancel {
-  padding: 4px 12px;
-  font-size: 14px;
-  background: none;
-  border: 1px solid #d0d0d0;
-  border-radius: 0.375rem;
-  cursor: pointer;
-}
-
-.report-form button[type='submit'] {
-  padding: 4px 12px;
-  font-size: 14px;
-  background-color: #2b77c5;
-  color: #ffffff;
-  border: none;
-  border-radius: 0.375rem;
-  cursor: pointer;
-}
-
-.report-form button[type='submit']:disabled {
-  opacity: 0.6;
-  cursor: default;
 }
 
 .report-success {

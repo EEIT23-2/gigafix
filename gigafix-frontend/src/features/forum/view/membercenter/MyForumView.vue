@@ -408,7 +408,12 @@ watch(activeTab, () => {
               @click="goToPublic(article.articleId)"
             >
               <span class="recent-category">{{ article.categoryName }}</span>
-              <span class="recent-name">{{ article.title }}</span>
+              <!-- 被隱藏/下架的文章後端會把 title 遮成 null，直接渲染會是一片空白，
+                   改成顯示後端給的遮蔽原因（寫法比照上面的收藏分頁） -->
+              <span v-if="article.visible" class="recent-name">{{ article.title }}</span>
+              <span v-else class="recent-name recent-name-masked">
+                {{ article.visibilityMessage || '此文章目前無法瀏覽' }}
+              </span>
               <span class="recent-author">{{ article.authorNickName }}</span>
             </div>
 
@@ -651,6 +656,12 @@ watch(activeTab, () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 沿用收藏分頁 .row-title-masked 的視覺語彙：遮蔽提示是灰字斜體，跟真正的標題區分開 */
+.recent-name-masked {
+  color: #888888;
+  font-style: italic;
 }
 
 .recent-author {
