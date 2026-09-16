@@ -5,7 +5,7 @@ import { BarChart } from "echarts/charts";
 import { GridComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import VChart from "vue-echarts";
-import { getProducts } from "../api";
+import { getAdminProducts } from "../api";
 
 use([CanvasRenderer, BarChart, GridComponent, TooltipComponent]);
 
@@ -77,7 +77,7 @@ async function fetchCategoryCounts() {
   try {
     const pages = await Promise.all(
       categoryDefinitions.map((category) =>
-        getProducts({ category: category.value, limit: 1, offset: 0 }),
+        getAdminProducts({ category: category.value, limit: 1, offset: 0 }),
       ),
     );
 

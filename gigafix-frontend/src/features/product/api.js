@@ -17,7 +17,7 @@ const ADMIN_RECYCLE_APPLICATION_URL = "/api/admin/recycle-applications";
  * orderBy、sort、minPrice、maxPrice、limit、offset。
  *
  * 對應：
- * GET /api/products
+ * GET /api/gigafix/products
  */
 export const getProducts = async (params = {}) => {
   const response = await axios.get(PRODUCT_URL, {
@@ -32,11 +32,33 @@ export const getProducts = async (params = {}) => {
  * 依照商品 ID 取得單一商品。
  *
  * 對應：
- * GET /api/products/{productId}
+ * GET /api/gigafix/products/{productId}
  */
 export const getProduct = async (productId) => {
   const response = await axios.get(`${PRODUCT_URL}/${productId}`);
 
+  return response.data;
+};
+
+/**
+ * 後台查詢商品列表。
+ *
+ * 查詢參數與前台 getProducts 相同，但改走受管理員權限保護的路徑。
+ *
+ * GET /api/admin/products
+ */
+export const getAdminProducts = async (params = {}) => {
+  const response = await axios.get(ADMIN_PRODUCT_URL, { params });
+  return response.data;
+};
+
+/**
+ * 後台依照商品 ID 取得單一商品。
+ *
+ * GET /api/admin/products/{productId}
+ */
+export const getAdminProduct = async (productId) => {
+  const response = await axios.get(`${ADMIN_PRODUCT_URL}/${productId}`);
   return response.data;
 };
 
@@ -46,7 +68,7 @@ export const getProduct = async (productId) => {
  * productRequest 是傳給後端 ProductRequest 的物件。
  *
  * 對應：
- * POST /api/products
+ * POST /api/admin/products
  */
 export const createProduct = async (productRequest) => {
   const response = await axios.post(ADMIN_PRODUCT_URL, productRequest);
@@ -57,7 +79,7 @@ export const createProduct = async (productRequest) => {
  * 修改指定商品。
  *
  * 對應：
- * PUT /api/products/{productId}
+ * PUT /api/admin/products/{productId}
  */
 export const updateProduct = async (productId, productRequest) => {
   const response = await axios.put(
@@ -73,7 +95,7 @@ export const updateProduct = async (productId, productRequest) => {
  * 後端成功時回傳 HTTP 204，因此沒有 response body。
  *
  * 對應：
- * DELETE /api/products/{productId}
+ * DELETE /api/admin/products/{productId}
  */
 export const deleteProduct = async (productId) => {
   await axios.delete(`${ADMIN_PRODUCT_URL}/${productId}`);
@@ -85,7 +107,7 @@ export const deleteProduct = async (productId) => {
  * 這是危險操作，View 呼叫前應顯示確認視窗。
  *
  * 對應：
- * DELETE /api/products
+ * DELETE /api/admin/products
  */
 export const deleteAllProducts = async () => {
   await axios.delete(ADMIN_PRODUCT_URL);
@@ -97,7 +119,7 @@ export const deleteAllProducts = async () => {
  * 依照目前 Controller，這支 API 不需要 request body。
  *
  * 對應：
- * POST /api/products/import
+ * POST /api/admin/products/import
  */
 export const importProducts = async () => {
   const response = await axios.post(`${ADMIN_PRODUCT_URL}/import`);
@@ -111,7 +133,7 @@ export const importProducts = async () => {
  * 才能讓瀏覽器建立下載檔案。
  *
  * 對應：
- * GET /api/products/export
+ * GET /api/admin/products/export
  */
 export const exportProducts = async () => {
   const response = await axios.get(`${ADMIN_PRODUCT_URL}/export`, {
@@ -125,7 +147,7 @@ export const exportProducts = async () => {
  * 將商品設為「已保留」。
  *
  * 對應：
- * PUT /api/products/{productId}/reserve
+ * PUT /api/admin/products/{productId}/reserve
  */
 export const reserveProduct = async (productId) => {
   const response = await axios.put(`${ADMIN_PRODUCT_URL}/${productId}/reserve`);
@@ -136,7 +158,7 @@ export const reserveProduct = async (productId) => {
  * 解除商品保留，恢復可販售狀態。
  *
  * 對應：
- * PUT /api/products/{productId}/release
+ * PUT /api/admin/products/{productId}/release
  */
 export const releaseProduct = async (productId) => {
   const response = await axios.put(`${ADMIN_PRODUCT_URL}/${productId}/release`);
@@ -147,7 +169,7 @@ export const releaseProduct = async (productId) => {
  * 將商品設為「已售出」。
  *
  * 對應：
- * PUT /api/products/{productId}/sell
+ * PUT /api/admin/products/{productId}/sell
  */
 export const sellProduct = async (productId) => {
   const response = await axios.put(`${ADMIN_PRODUCT_URL}/${productId}/sell`);
