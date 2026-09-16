@@ -54,6 +54,7 @@ public class RepairsService {
 	private final StoresRepository sRepos;
 	private final MemberRepository mRepos;
 	private final RepairTechniciansRepository rtRepos;
+	private final RepairNotificationService notificationService;
 
 	
 	private RepairsResponse toResponse(Repairs r) {
@@ -146,8 +147,10 @@ public class RepairsService {
 				.build();
 		
 		// repairStatus / estimatedCost / finalCost 有 @Builder.Default，不用手動設
-		
-		return toResponse(rRepos.save(repair));
+
+		Repairs saved = rRepos.save(repair);
+		notificationService.sendBookingConfirmed(saved);
+		return toResponse(saved);
 	}
 	
 //	修改
@@ -349,7 +352,9 @@ public class RepairsService {
 	    r.setRepairStatus(RepairStatus.QUOTED);
 	    r.setApprovalStatus(ApprovalStatus.PENDING);
 
-	    return toResponse(rRepos.save(r));
+	    Repairs saved = rRepos.save(r);
+	    notificationService.sendQuoteReady(saved);
+	    return toResponse(saved);
 	}
 	
 	
@@ -462,9 +467,11 @@ public class RepairsService {
 
 		r.setRepairStatus(RepairStatus.AWAITING_PICKUP);
 
-		return toResponse(rRepos.save(r));
+		Repairs saved = rRepos.save(r);
+		notificationService.sendPickupReady(saved);
+		return toResponse(saved);
 	}
-	
+
 //	客戶預約後未送修（沒到店/沒寄件）：repairStatus 待估價->未送修
 	public RepairsResponse undelivered(Long id, Integer technicianId) {
 		Repairs r = rRepos.findById(id)
@@ -622,7 +629,9 @@ public class RepairsService {
 		r.setFinalCost(finalCost != null ? finalCost : 0);
 		r.setRepairStatus(RepairStatus.AWAITING_PICKUP);
 
-		return toResponse(rRepos.save(r));
+		Repairs saved = rRepos.save(r);
+		notificationService.sendPickupReady(saved);
+		return toResponse(saved);
 	}
 
 	
