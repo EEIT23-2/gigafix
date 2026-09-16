@@ -54,8 +54,8 @@ public class ReportController {
 	}
 
 	// 查詢檢舉列表（後台用）
-	// TODO: 角色系統做好後要加 moderator/admin 權限檢查，目前任何呼叫者都可以執行
-	@GetMapping("/api/admin/reports")
+	// 權限：路徑收在 /api/admin/forum/** 底下，由 SecurityConfig 要求 ROLE_FORUM_ADMIN
+	@GetMapping("/api/admin/forum/reports")
 	public ResponseEntity<List<ReportResponse>> getReports(
 			@RequestParam(required = false) Report.ReportStatus status) {
 
@@ -65,8 +65,8 @@ public class ReportController {
 	}
 
 	// 單筆檢舉詳情（後台用）
-	// TODO: 角色系統做好後要加 moderator/admin 權限檢查，目前任何呼叫者都可以執行
-	@GetMapping("/api/admin/reports/{reportId}")
+	// 權限：路徑收在 /api/admin/forum/** 底下，由 SecurityConfig 要求 ROLE_FORUM_ADMIN
+	@GetMapping("/api/admin/forum/reports/{reportId}")
 	public ResponseEntity<ReportResponse> getReport(@PathVariable Long reportId) {
 
 		ReportResponse response = reportService.getReport(reportId);
@@ -75,8 +75,8 @@ public class ReportController {
 	}
 
 	// 處理／關閉檢舉
-	// TODO: 角色系統做好後要加 moderator/admin 權限檢查，目前任何呼叫者都可以執行
-	@PatchMapping("/api/admin/reports/{reportId}/status")
+	// 權限：路徑收在 /api/admin/forum/** 底下，由 SecurityConfig 要求 ROLE_FORUM_ADMIN
+	@PatchMapping("/api/admin/forum/reports/{reportId}/status")
 	public ResponseEntity<ReportResponse> updateReportStatus(
 			@PathVariable Long reportId,
 			@Valid @RequestBody UpdateReportStatusRequest request) {

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, onMounted, computed } from 'vue'
+import { ref, watch, onMounted, computed, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import {
@@ -13,6 +13,7 @@ import {
 import MoreActionsMenu from './MoreActionsMenu.vue'
 import { useForumLoginModalStore } from '../store/loginModal'
 import { useFetchMemberInfoStore } from '@/stores/member'
+import { DEMO_COMMENT } from '../demoContent'
 
 const route = useRoute()
 const loginModalStore = useForumLoginModalStore()
@@ -86,10 +87,24 @@ watch(newContent, (value) => {
   }
 })
 
-function autoResize(event) {
-  const el = event.target
+function resizeTextarea(el) {
+  if (!el) return
+  // 先歸零才量得到內容真正需要的高度
   el.style.height = 'auto'
   el.style.height = `${el.scrollHeight}px`
+}
+
+function autoResize(event) {
+  resizeTextarea(event.target)
+}
+
+// demo/測試用：把示範留言填進輸入框，只填不送出。
+// 程式設值不會觸發 @input，所以要自己撐高 textarea，否則文字會被壓在 rows="1" 的高度裡
+async function fillDemoComment() {
+  errorMessage.value = ''
+  newContent.value = DEMO_COMMENT
+  await nextTick()
+  resizeTextarea(textareaRef.value)
 }
 
 function resetTextareaHeight() {
@@ -304,8 +319,14 @@ async function handleReportSubmit(commentId) {
           @input="autoResize"
         />
         <div class="form-footer">
-          <span class="char-count">{{ newContent.length }}/{{ MAX_LENGTH }}</span>
-          <button type="submit" class="submit-btn" :disabled="submitting">送出</button>
+          <!-- demo/測試用：一鍵填入示範留言，只填不送出 -->
+          <button type="button" class="btn btn-outline-secondary btn-sm" @click="fillDemoComment">
+            一鍵輸入資料
+          </button>
+          <div class="footer-actions">
+            <span class="char-count">{{ newContent.length }}/{{ MAX_LENGTH }}</span>
+            <button type="submit" class="submit-btn" :disabled="submitting">送出</button>
+          </div>
         </div>
         <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
       </div>
@@ -480,6 +501,13 @@ async function handleReportSubmit(commentId) {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+/* 字數與送出維持原本靠右並排；左邊留給 demo 用的一鍵輸入按鈕 */
+.footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .char-count {

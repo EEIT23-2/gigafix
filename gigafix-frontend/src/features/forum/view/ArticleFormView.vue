@@ -14,6 +14,7 @@ import {
 import CategorySelect from '../components/CategorySelect.vue'
 import RichTextEditor from '../components/RichTextEditor.vue'
 import { isHtmlEmpty } from '../htmlContent'
+import { DEMO_ARTICLE } from '../demoContent'
 import { useFetchMemberInfoStore } from '@/stores/member'
 import { normalizeTab, backToMemberForum } from '../utils/memberForumNav'
 
@@ -264,6 +265,19 @@ async function handleSubmit() {
   }
 }
 
+// demo/測試用：把示範文章填進表單，只填不送出。
+// 樓層的標題與分類是繼承根文章的（欄位本身就是 disabled），也沒有封面圖，所以只填內文。
+// 分類不用填：建立模式下 handleCategoriesLoaded 已經自動選好第一個分類。
+// 填完之後照常觸發自動存草稿，跟使用者手打的行為一致
+function fillDemoData() {
+  errorMessage.value = ''
+  form.value.content = DEMO_ARTICLE.content
+  if (!isFloor.value) {
+    form.value.title = DEMO_ARTICLE.title
+    form.value.coverImage = DEMO_ARTICLE.coverImage
+  }
+}
+
 // 「查看公開頁面」跟「取消」語意不同，不能共用一支：
 // 前者就是要離開去看前台，後者要回到使用者原本待的地方
 function goToPublicArticle() {
@@ -354,6 +368,13 @@ onBeforeUnmount(() => {
         <span class="status-text">{{ isFloor ? '蓋樓僅提供編輯內文' : '這篇文章目前公開，儲存後改動會立即生效' }}</span>
         <button type="button" class="link-btn" @click="goToPublicArticle">查看公開頁面</button>
         <span class="status-note w-100">注意:若未「儲存變更」離開將會捨棄變更</span>
+      </div>
+
+      <!-- demo/測試用：一鍵把示範內容填進表單，位置與樣式比照專案其他「一鍵輸入資料」按鈕 -->
+      <div class="d-flex justify-content-end mb-2">
+        <button type="button" class="btn btn-outline-secondary btn-sm" @click="fillDemoData">
+          一鍵輸入資料
+        </button>
       </div>
 
       <form class="form-card" @submit.prevent="handleSubmit">

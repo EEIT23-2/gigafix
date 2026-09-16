@@ -22,6 +22,7 @@ import RichTextEditor from '../components/RichTextEditor.vue'
 import ForumLoginModal from '../components/ForumLoginModal.vue'
 import { useForumLoginModalStore } from '../store/loginModal'
 import { pushRecentViewed } from '../utils/recentViewed'
+import { DEMO_FLOOR } from '../demoContent'
 import { TAB_LABELS, normalizeTab, backToMemberForum, fromMemberForum } from '../utils/memberForumNav'
 
 const route = useRoute()
@@ -263,6 +264,13 @@ async function handleCreateFloor() {
   } finally {
     floorSubmitting.value = false
   }
+}
+
+// demo/測試用：把示範內容填進蓋樓框，只填不送出。
+// RichTextEditor 有 watch modelValue，直接指派 floorContent 編輯器畫面就會跟著更新
+function fillDemoFloor() {
+  floorErrorMessage.value = ''
+  floorContent.value = DEMO_FLOOR
 }
 
 // 樓層可否編輯：與後端 updateFloor 的守衛一對一（隱藏／強制隱藏都還能編輯，只有關閉/下架不行）。
@@ -708,6 +716,10 @@ async function handleDeleteFloor(floorId) {
                   <div class="floor-form-main">
                     <RichTextEditor v-model="floorContent" placeholder="回覆這篇文章（蓋樓）..." />
                     <div class="form-footer">
+                      <!-- demo/測試用：一鍵填入示範回覆，只填不送出 -->
+                      <button type="button" class="btn btn-outline-secondary btn-sm" @click="fillDemoFloor">
+                        一鍵輸入資料
+                      </button>
                       <button type="submit" class="submit-btn" :disabled="floorSubmitting">
                         {{ floorSubmitting ? '送出中...' : '送出' }}
                       </button>
@@ -985,6 +997,14 @@ async function handleDeleteFloor(floorId) {
   line-height: 1.8;
   color: #333333;
   white-space: pre-wrap;
+  overflow-wrap: anywhere; /* 內文貼了超長網址時不要把卡片推寬 */
+}
+
+/* 內文是 v-html 塞進來的，scoped 樣式碰不到它的子節點，圖片要用 :deep 才管得到；
+   沒有這條的話，編輯器插入的原尺寸大圖會直接撐破文章卡片 */
+.op-content :deep(img) {
+  max-width: 100%;
+  height: auto;
 }
 
 .op-actions {
@@ -1067,6 +1087,12 @@ async function handleDeleteFloor(floorId) {
   line-height: 1.75;
   color: #333333;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.floor-content :deep(img) {
+  max-width: 100%;
+  height: auto;
 }
 
 /* 被隱藏/下架的樓層，沿用留言遮蔽的視覺語彙（灰底虛線） */
@@ -1168,6 +1194,12 @@ async function handleDeleteFloor(floorId) {
 .floor-form .form-footer {
   display: flex;
   justify-content: flex-end;
+  /* demo 用的一鍵輸入按鈕靠左，送出仍然靠右 */
+  gap: 8px;
+}
+
+.floor-form .form-footer .btn-outline-secondary {
+  margin-right: auto;
 }
 
 .submit-btn {

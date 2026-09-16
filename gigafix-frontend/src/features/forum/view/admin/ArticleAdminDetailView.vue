@@ -190,6 +190,12 @@ onMounted(fetchArticle)
   line-height: 1.7;
   white-space: pre-wrap;
 }
+
+/* v-html 的子節點吃不到 scoped 樣式，圖片寬度要用 :deep 才限制得住 */
+.content :deep(img) {
+  max-width: 100%;
+  height: auto;
+}
 .detail-list dt,
 .detail-list dd {
   padding-top: 0.6rem;
