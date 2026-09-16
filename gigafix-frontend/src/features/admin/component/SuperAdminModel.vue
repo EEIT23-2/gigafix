@@ -229,6 +229,7 @@ onMounted(() => {
                         <th>名稱</th>
                         <th>角色</th>
                         <th>建立時間</th>
+                        <th class="text-center">上線狀態</th>
                         <th class="text-center">操作</th>
                     </tr>
                 </thead>
@@ -240,6 +241,13 @@ onMounted(() => {
                             <span class="badge bg-danger">{{ getRoleLabel(superAdmin.role) }}</span>
                         </td>
                         <td>{{ formatDateTime(superAdmin.createDateTime) }}</td>
+                        <td class="text-center">
+                            <span
+                                class="status-dot"
+                                :class="superAdmin.online ? 'status-dot-online' : 'status-dot-offline'"
+                                :title="superAdmin.online ? '在線上' : '未上線'"
+                            ></span>
+                        </td>
                         <td></td>
                     </tr>
 
@@ -250,6 +258,13 @@ onMounted(() => {
                             <span class="badge bg-danger">{{ getRoleLabel(admin.role) }}</span>
                         </td>
                         <td>{{ formatDateTime(admin.createDateTime) }}</td>
+                        <td class="text-center">
+                            <span
+                                class="status-dot"
+                                :class="admin.online ? 'status-dot-online' : 'status-dot-offline'"
+                                :title="admin.online ? '在線上' : '未上線'"
+                            ></span>
+                        </td>
                         <td>
                             <div class="d-flex gap-2 justify-content-center">
                                 <button class="btn btn-sm btn-outline-warning square-btn" title="修改該管理員角色" @click="openUpdateRoleModal(admin)">
@@ -375,5 +390,20 @@ onMounted(() => {
 .rotate-45 {
   transform: rotate(45deg);
   display: inline-block; /* 確保旋轉正常運作 */
+}
+
+.status-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.status-dot-online {
+    background-color: #28a745;
+}
+
+.status-dot-offline {
+    background-color: #adb5bd;
 }
 </style>

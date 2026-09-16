@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.gigafix.admin.dto.AdminCreateReq;
 import com.gigafix.admin.dto.AdminInfoDto;
+import com.gigafix.admin.dto.AdminListItemDto;
 import com.gigafix.admin.dto.SuperAdminSetupReq;
 import com.gigafix.admin.dto.UpdateOwnPasswordReq;
 import com.gigafix.admin.entity.AdminAccount;
@@ -88,10 +89,16 @@ public class AdminAccountService {
                 .getId();
     }
 
-	//查全部
-    public List<AdminInfoDto> getAllAccounts() {
+	//查全部,附上每個管理員目前是否在線上
+    public List<AdminListItemDto> getAllAccounts() {
         return adminRepository.findAll().stream()
-                .map(account -> toResp(account))
+                .map(account -> AdminListItemDto.builder()
+                        .adminId(account.getId())
+                        .adminName(account.getName())
+                        .role(account.getRole())
+                        .createDateTime(account.getCreateTime())
+                        .online(isOnline(account.getName()))
+                        .build())
                 .toList();
     }
 	
@@ -169,6 +176,13 @@ public class AdminAccountService {
                 .build();
     }
     
+    //查該帳號目前有沒有還沒過期的session,用來判斷管理員列表上的在線狀態
+    private boolean isOnline(String name) {
+        return sessionRegistry.getAllPrincipals().stream()
+                .filter(principal -> principal instanceof AdminUserDetails userDetails && userDetails.getName().equals(name))
+                .anyMatch(principal -> !sessionRegistry.getAllSessions(principal, false).isEmpty());
+    }
+
     //強制踢人其他管理員下線，只有總管理員操作改其他管理員資訊和刪除帳號時會觸發
     private void forceLogout(String name) {
     	//下面這個方法不只服務spring security可能還服務其他的安全框架(OAuth2、未使用框架String)，因此回傳值是object
