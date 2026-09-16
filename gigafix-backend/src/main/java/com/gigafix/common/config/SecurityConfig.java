@@ -74,7 +74,8 @@ public class SecurityConfig {
 						// 變成只有DEPUTY_ADMIN、SUPER_ADMIN才能打，一般的版塊管理員反而403
 						// 後台商品管理實際掛在/api/admin/products/**(新增/改/刪/上下架/匯入匯出，見ProductController)，
 						// /api/gigafix/products/**是公開商城瀏覽用的唯讀端點，故意放在MemberPublicApiPaths讓所有人能看，兩者不能混
-						.requestMatchers("/api/admin/products/**", "/api/admin/orders/**")
+						.requestMatchers("/api/admin/products/**", "/api/admin/orders/**",
+								"/api/admin/recycle-applications/**")
 						.hasAnyAuthority("ROLE_ECOMMERCE_ADMIN")
 						.requestMatchers("/api/admin/forum/**").hasAuthority("ROLE_FORUM_ADMIN")
 						.requestMatchers("/api/admin/repair/**").hasAuthority("ROLE_REPAIR_ADMIN")
