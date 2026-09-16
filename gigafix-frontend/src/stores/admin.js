@@ -44,16 +44,20 @@ export const useFetchAdminInfoStore = defineStore('adminInfo', {
                     const url = error.config?.url || ''
                     // /api/adminlogin的401是帳號密碼錯(登入頁自己的catch已經處理)，/api/adminlogout現在是
                     // permitAll不會因session過期而401，兩者都不屬於「session過期」，只攔截真正需要登入才能打的/api/admin/**
-                    if (status === 403 && url.startsWith('/api/admin/') && !isHandlingForbidden
-                        && router.currentRoute.value.name !== 'manager') {
-                        isHandlingForbidden = true
-                        router.push({ name: 'manager' }).finally(() => {
-                            isHandlingForbidden = false
-                        }).then(() => {
-                            alert('你的權限不足') // 先導頁再跳提示，跟原本頁面切乾淨後才提示，避免使用者還在舊頁面上看到彈窗
-                        })
+                    if (status === 403 && url.startsWith('/api/admin/')) {
+                        // 「要不要吞掉這個錯誤」跟「要不要真的跳提示、導頁」分開判斷：
+                        // 同一頁面常常會同時打好幾支API，全部一起403，這幾個request的錯誤都要吞掉，
+                        // 只是負責跳提示、導頁的只需要第一個來做，避免重複跳好幾次alert、導頁好幾次
+                        if (!isHandlingForbidden && router.currentRoute.value.name !== 'manager') {
+                            isHandlingForbidden = true
+                            router.push({ name: 'manager' }).finally(() => {
+                                isHandlingForbidden = false
+                            }).then(() => {
+                                alert('你的權限不足') // 先導頁再跳提示，跟原本頁面切乾淨後才提示，避免使用者還在舊頁面上看到彈窗
+                            })
+                        }
                         return new Promise(() => {}) // 故意不resolve/reject，讓原本呼叫端的.then()/.catch()都不會再執行，
-                        // 這樣舊頁面裡「HTTP 403」那種fallback文字就不會被設進去，不會在導頁前那一瞬間閃一下
+                        // 這樣舊頁面裡的alert/fallback文字就不會被設進去，不管是不是第一個收到403的request都一樣要吞掉
                     }
 
                     if (status === 401 && url.startsWith('/api/admin/') && !isHandlingSessionExpired) {

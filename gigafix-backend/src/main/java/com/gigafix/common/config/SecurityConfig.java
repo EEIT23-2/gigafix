@@ -68,17 +68,13 @@ public class SecurityConfig {
 								"ROLE_DEPUTY_ADMIN", "ROLE_SUPER_ADMIN")
 						.requestMatchers("/api/admin/account/**").hasAuthority("ROLE_SUPER_ADMIN")
 						// 下面這三條「範圍較窄」的規則必須排在/api/admin/**這條「範圍較廣」的規則前面！
-						// authorizeHttpRequests是依宣告順序、第一個match到的規則生效，
-						// 如果/api/admin/**排在前面，會讓/api/admin/order|forum|repair/**全部被它先攔截，
-						// 後面ROLE_ECOMMERCE_ADMIN/ROLE_FORUM_ADMIN/ROLE_REPAIR_ADMIN的規則就永遠檢查不到，
-						// 變成只有DEPUTY_ADMIN、SUPER_ADMIN才能打，一般的版塊管理員反而403
-						// 後台商品管理實際掛在/api/admin/products/**(新增/改/刪/上下架/匯入匯出，見ProductController)，
-						// /api/gigafix/products/**是公開商城瀏覽用的唯讀端點，故意放在MemberPublicApiPaths讓所有人能看，兩者不能混
 						.requestMatchers("/api/admin/products/**", "/api/admin/orders/**",
 								"/api/admin/recycle-applications/**")
-						.hasAnyAuthority("ROLE_ECOMMERCE_ADMIN")
-						.requestMatchers("/api/admin/forum/**").hasAuthority("ROLE_FORUM_ADMIN")
-						.requestMatchers("/api/admin/repair/**").hasAuthority("ROLE_REPAIR_ADMIN")
+						.hasAnyAuthority("ROLE_ECOMMERCE_ADMIN", "ROLE_DEPUTY_ADMIN", "ROLE_SUPER_ADMIN")
+						.requestMatchers("/api/admin/forum/**")
+						.hasAnyAuthority("ROLE_FORUM_ADMIN", "ROLE_DEPUTY_ADMIN", "ROLE_SUPER_ADMIN")
+						.requestMatchers("/api/admin/repair/**")
+						.hasAnyAuthority("ROLE_REPAIR_ADMIN", "ROLE_DEPUTY_ADMIN", "ROLE_SUPER_ADMIN")
 						// 範圍最廣的規則放最後，接住上面沒攔到的其他/api/admin/**路徑
 						.requestMatchers("/api/admin/**").hasAnyAuthority("ROLE_DEPUTY_ADMIN", "ROLE_SUPER_ADMIN"))
 				.sessionManagement(session -> session // session-based 認證的核心設定
