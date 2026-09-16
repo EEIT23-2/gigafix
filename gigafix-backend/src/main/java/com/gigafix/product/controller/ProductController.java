@@ -44,6 +44,25 @@ public class    ProductController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
     }
+
+    // 後台查詢商品列表：查詢邏輯與前台相同，但使用 /api/admin/** 路徑交由管理員 Security Filter Chain 驗證
+    @GetMapping("/api/admin/products")
+    public ResponseEntity<Page<Product>> getAdminProducts(ProductQueryParams productQueryParams){
+        Page<Product> pageResult = productService.getProducts(productQueryParams);
+        return ResponseEntity.status(HttpStatus.OK).body(pageResult);
+    }
+
+    // 後台依 ID 查詢商品：回傳內容與前台相同，僅路徑改由 Spring Security 保護
+    @GetMapping("/api/admin/products/{productId}")
+    public ResponseEntity<Product> getAdminProduct(@PathVariable Long productId){
+        Product product = productService.getProductById(productId);
+        if(product != null){
+            return ResponseEntity.status(HttpStatus.OK).body(product);
+        }else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+    }
+
     //id新增商品的路由
     @PostMapping("/api/admin/products")      //@Valid 是為了讓@NotNull生效
     public ResponseEntity<Product> createProduct(@RequestBody @Valid ProductRequest productRequest){

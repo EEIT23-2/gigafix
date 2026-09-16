@@ -14,7 +14,8 @@ public class ExchangeRateUtils {//此類別是jack用來展示串第三方API商
     private RestTemplate restTemplate;
 
     private final String ApiKey = "faf7f9c9db7f09d42c7ddd25";
-    private final String BaseUrl = "https://exchangerate-api.com";
+    // ExchangeRate-API Standard endpoint 格式：/v6/{API_KEY}/latest/{BASE_CURRENCY}
+    private final String BaseUrl = "https://v6.exchangerate-api.com/v6/";
 
     public Map<String,Double> getLatestRatesFromTWD(){
         //字串組合以請求外部網址
@@ -26,7 +27,7 @@ public class ExchangeRateUtils {//此類別是jack用來展示串第三方API商
                 return response.getConversionRate();//若回應不是空值且取得結果為'成功'就回傳轉換幣別之匯率
             }
         } catch (RestClientException e) {
-            System.out.println("呼叫此匯率失敗囉!why?"+e.getMessage());
+            System.out.println("呼叫匯率失敗囉!why?"+e.getMessage());
         }return null;
 
 

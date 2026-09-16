@@ -540,7 +540,9 @@ const goToCart = () => {
             <router-link class="nav-item" to="/forum"
               >Gigafix討論區</router-link
             >
-            <router-link class="nav-item">關於Gigafix</router-link>
+            <router-link class="nav-item" :to="{ name: 'about-gigafix' }"
+              >關於Gigafix</router-link
+            >
             <router-link class="nav-item" to="/store-locator"
               >據點查詢</router-link
             >
@@ -1171,6 +1173,10 @@ const goToCart = () => {
 }
 
 .nav-item:hover {
+  color: #0b5cab;
+}
+
+.nav-item.router-link-active {
   color: #0b5cab;
 }
 </style>
