@@ -503,7 +503,6 @@ const goToCart = () => {
 
           <!-- 選單項目置中 -->
           <ul class="nav-list">
-            <router-link class="nav-item">最新活動 ▾</router-link>
             <router-link class="nav-item" to="/mall"
               >認證二手手機販售</router-link
             >

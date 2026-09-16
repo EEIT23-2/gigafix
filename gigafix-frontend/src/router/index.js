@@ -106,13 +106,18 @@ router.beforeEach(async (to) => {
   if (fetchAdminExcludedPaths.includes(to.path)) {
     return // 排除的路徑直接放行，不觸發抓取使用者資料
   }
+  // adminInfo只有/admin底下的頁面會用到，前台網址不用抓，避免沒登入的訪客逛前台時
+  // 也打了/api/admin/account/me拿到401，被admin.js的全域攔截器誤判成「後台session過期」導去/adminLogin
+  if (!to.path.startsWith('/admin')) {
+    return
+  }
   const fetchAdminInfoStore = useFetchAdminInfoStore()
   if (!fetchAdminInfoStore.fetched) {
     await fetchAdminInfoStore.fetchAdmin() // 真正觸發抓資料的動作
   }
 
   //後台網址沒登入就彈回後台登入頁，避免沒登入卻能停在 /admin 底下看到空白畫面
-  if (to.path.startsWith('/admin') && !fetchAdminInfoStore.adminInfo) {
+  if (!fetchAdminInfoStore.adminInfo) {
     return { name: 'adminLogin' }
   }
 })
