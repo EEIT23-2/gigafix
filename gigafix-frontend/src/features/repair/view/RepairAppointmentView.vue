@@ -1,9 +1,12 @@
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
+import { useRouter } from "vue-router";
 import { useFetchMemberInfoStore } from "@/stores/member";
 import { createAppointment, getBookedSlots, getStores } from "../api";
 import { REPAIR_ITEMS } from "../priceTable";
+
+const router = useRouter();
 
 // 取得目前登入的會員資料，聯絡姓名/電話會預設帶入這裡的值
 const fetchMemberInfoStore = useFetchMemberInfoStore();
@@ -12,7 +15,6 @@ const { memberInfo } = storeToRefs(fetchMemberInfoStore);
 const stores = ref([]);
 const submitting = ref(false);
 const errorMessage = ref("");
-const successMessage = ref("");
 // 選好分店+日期後，去後端查回來的「當天已被預約時段」清單，畫面上要把這些時段設為不可選
 const bookedSlots = ref([]);
 
@@ -207,7 +209,6 @@ watch(
 
 async function handleSubmit() {
   errorMessage.value = "";
-  successMessage.value = "";
 
   const hasError = validateForm();
   if (hasError) {
@@ -216,23 +217,9 @@ async function handleSubmit() {
 
   submitting.value = true;
   try {
-    await createAppointment(form.value);
-    successMessage.value = "預約成功！我們會盡快為您安排。";
-    // 送出成功後，聯絡資訊以外的欄位清空，方便使用者再預約下一支手機
-    form.value = {
-      ...form.value,
-      storeId: "",
-      repairBrand: "Apple",
-      repairModel: "",
-      issueDescription: "",
-      bookingDate: "",
-      timeSlot: "",
-      dropoffType: "",
-    };
-    // 把紅字錯誤歸零，不要殘留上一次的舊訊息
-    fieldErrors.value = Object.fromEntries(
-      Object.keys(requiredFieldMessages).map((field) => [field, ""]),
-    );
+    const created = await createAppointment(form.value);
+    // 送出成功直接導到會員中心的維修單明細頁，讓使用者看到剛建立的這筆維修單狀態
+    router.push({ name: "membercenter-repair-detail", params: { repairId: created.id } });
   } catch (error) {
     console.error(error);
     errorMessage.value = error.response?.data?.message
@@ -265,11 +252,6 @@ onMounted(async () => {
         {{ errorMessage }}
         <button type="button" class="btn-close" @click="errorMessage = ''"></button>
       </div>
-      <div v-if="successMessage" class="alert alert-success alert-dismissible fade show" role="alert">
-        {{ successMessage }}
-        <button type="button" class="btn-close" @click="successMessage = ''"></button>
-      </div>
-
       <form class="card card-body" @submit.prevent="handleSubmit">
         <p class="text-danger small text-end mb-2">*為必填</p>
 
