@@ -1,17 +1,23 @@
 package com.gigafix.repair.service;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import com.gigafix.repair.dto.ImportResult;
 import com.gigafix.repair.dto.StoresRequest;
 import com.gigafix.repair.dto.StoresResponse;
 import com.gigafix.repair.entity.Stores;
 import com.gigafix.repair.exception.DataInUseException;
+import com.gigafix.repair.exception.InvalidFileFormatException;
 import com.gigafix.repair.exception.RepairNotFoundException;
 import com.gigafix.repair.repository.StoresRepository;
+import com.gigafix.repair.util.TableExportImport;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +30,11 @@ public class StoresService {
 
 //2. 宣告為 private final，不用寫 @Autowired
 	private final StoresRepository storesRepos;
-	
+	private final TableExportImport tableIO;
+
+	// 匯出匯入固定用這個欄位順序(跟 StoresResponse 對應)
+	private static final List<String> EXPORT_HEADERS = List.of("id", "name", "address", "phone");
+
 	
 	private StoresResponse toResponse(Stores s) {
 		return StoresResponse.builder()
@@ -97,8 +107,93 @@ public class StoresService {
 //				.map(this::toResponse)
 //                .toList();
 	}
-	
-	
-	
-	
+
+	private LinkedHashMap<String, String> toRow(Stores s) {
+		LinkedHashMap<String, String> row = new LinkedHashMap<>();
+		row.put("id", s.getId() == null ? "" : String.valueOf(s.getId()));
+		row.put("name", s.getName());
+		row.put("address", s.getAddress());
+		row.put("phone", s.getPhone());
+		return row;
+	}
+
+//	匯出：format = json / xml / xlsx
+	public byte[] export(String format) {
+		List<LinkedHashMap<String, String>> rows = new ArrayList<>();
+		for (Stores s : storesRepos.findAll()) {
+			rows.add(toRow(s));
+		}
+		return switch (format) {
+			case "json" -> tableIO.toJson(rows);
+			case "xml" -> tableIO.toXml("stores", "store", rows);
+			case "xlsx" -> tableIO.toExcel(EXPORT_HEADERS, rows);
+			default -> throw new InvalidFileFormatException("不支援的匯出格式: " + format);
+		};
+	}
+
+//	匯入：依id比對，資料庫已存在該id就更新、不存在(含id空白)就新增一筆(id由資料庫重新產生)
+	public ImportResult importFile(MultipartFile file, String format) {
+		List<LinkedHashMap<String, String>> rows;
+		try {
+			rows = switch (format) {
+				case "json" -> tableIO.fromJson(file.getInputStream());
+				case "xml" -> tableIO.fromXml(file.getInputStream(), "store");
+				case "xlsx" -> tableIO.fromExcel(file.getInputStream(), EXPORT_HEADERS);
+				default -> throw new InvalidFileFormatException("不支援的匯入格式: " + format);
+			};
+		} catch (IOException e) {
+			throw new InvalidFileFormatException("無法讀取上傳的檔案", e);
+		}
+
+		int inserted = 0;
+		int updated = 0;
+		List<String> errors = new ArrayList<>();
+		int rowNum = 1; // 第1列是標題列，資料從第2列開始
+		for (LinkedHashMap<String, String> row : rows) {
+			rowNum++;
+			try {
+				String name = blankToNull(row.get("name"));
+				String address = blankToNull(row.get("address"));
+				String phone = blankToNull(row.get("phone"));
+				if (name == null || address == null || phone == null) {
+					throw new IllegalArgumentException("分店名稱、地址、電話都要填寫");
+				}
+
+				Byte id = parseByteOrNull(row.get("id"));
+				Stores store = (id != null) ? storesRepos.findById(id).orElse(null) : null;
+				boolean isUpdate = store != null;
+				if (store == null) {
+					store = new Stores();
+				}
+				store.setName(name);
+				store.setAddress(address);
+				store.setPhone(phone);
+				storesRepos.save(store);
+				if (isUpdate) {
+					updated++;
+				} else {
+					inserted++;
+				}
+			} catch (Exception e) {
+				errors.add("第" + rowNum + "列：" + e.getMessage());
+			}
+		}
+		return ImportResult.builder().inserted(inserted).updated(updated).failed(errors.size()).errors(errors).build();
+	}
+
+	private String blankToNull(String s) {
+		return (s == null || s.isBlank()) ? null : s.trim();
+	}
+
+	private Byte parseByteOrNull(String s) {
+		if (s == null || s.isBlank()) {
+			return null;
+		}
+		try {
+			return Byte.valueOf(s.trim());
+		} catch (NumberFormatException e) {
+			return null;
+		}
+	}
+
 }

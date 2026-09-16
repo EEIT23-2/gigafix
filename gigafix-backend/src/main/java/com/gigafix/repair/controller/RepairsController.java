@@ -30,6 +30,7 @@ import com.gigafix.repair.dto.RepairsResponse;
 import com.gigafix.repair.entity.status.RepairPayStatus;
 import com.gigafix.repair.entity.status.RepairStatus;
 import com.gigafix.repair.service.RepairsService;
+import com.gigafix.repair.util.TableExportImport;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -215,6 +216,20 @@ public class RepairsController {
 	@GetMapping("/stats")
 	public ResponseEntity<RepairStatsResp> getStats() {
 		return ResponseEntity.ok(rServ.getStats());// 200
+	}
+
+	// 匯出：format = json / xml / xlsx，沿用跟查全部一樣的搜尋條件，匯出目前搜尋結果
+	@GetMapping("/export")
+	public ResponseEntity<byte[]> export(
+			@RequestParam String format,
+			@RequestParam(required = false) Long id,
+			@RequestParam(required = false) Long memberId,
+			@RequestParam(required = false) String memberName,
+			@RequestParam(required = false) Integer technicianId,
+			@RequestParam(required = false) String technicianName,
+			@RequestParam(required = false) RepairStatus status) {
+		byte[] data = rServ.export(format, id, memberId, memberName, technicianId, technicianName, status);
+		return ResponseEntity.ok().headers(TableExportImport.buildDownloadHeaders(format, "repairs")).body(data);
 	}
 
 }

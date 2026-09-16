@@ -221,3 +221,72 @@ export const updateStore = async (storeId, storeRequest) => {
 export const deleteStore = async (storeId) => {
   await axios.delete(`${STORES_URL}/${storeId}`);
 };
+
+// ========== 匯出匯入 ==========
+
+// 維修單匯出，format = json / xml / xlsx，params 可以帶跟查詢一樣的篩選條件，
+// 只會匯出符合目前條件的維修單（不帶條件就是全部）
+export const exportRepairs = async (format, params = {}) => {
+  const response = await axios.get(`${REPAIRS_URL}/export`, {
+    params: { ...params, format },
+    responseType: "blob",
+  });
+  return response.data;
+};
+
+// 技師匯出／匯入
+export const exportTechnicians = async (format) => {
+  const response = await axios.get(`${TECHNICIANS_URL}/export`, {
+    params: { format },
+    responseType: "blob",
+  });
+  return response.data;
+};
+
+export const importTechnicians = async (file, format) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await axios.post(`${TECHNICIANS_URL}/import`, formData, {
+    params: { format },
+  });
+  return response.data;
+};
+
+// 分店匯出／匯入
+export const exportStores = async (format) => {
+  const response = await axios.get(`${STORES_URL}/export`, {
+    params: { format },
+    responseType: "blob",
+  });
+  return response.data;
+};
+
+export const importStores = async (file, format) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await axios.post(`${STORES_URL}/import`, formData, {
+    params: { format },
+  });
+  return response.data;
+};
+
+// 把後端回傳的 Blob 觸發瀏覽器下載，三個匯出頁面共用
+export function downloadBlob(blob, filename) {
+  const downloadUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = downloadUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(downloadUrl);
+}
+
+// 依副檔名判斷匯入格式（.xlsx / .json / .xml），選不到就回傳 null
+export function formatFromFileName(fileName) {
+  const ext = fileName.split(".").pop()?.toLowerCase();
+  if (ext === "xlsx") return "xlsx";
+  if (ext === "json") return "json";
+  if (ext === "xml") return "xml";
+  return null;
+}

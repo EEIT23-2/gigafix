@@ -4,10 +4,15 @@ import { Modal } from "bootstrap";
 import {
   createTechnician,
   deleteTechnician,
+  downloadBlob,
+  exportTechnicians,
+  formatFromFileName,
   getStores,
   getTechnicians,
+  importTechnicians,
   updateTechnician,
 } from "../api";
+import { useExportMenu } from "../useExportMenu";
 
 const technicians = ref([]);
 const stores = ref([]);
@@ -15,6 +20,66 @@ const filterStoreId = ref("");
 const loading = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
+
+// ===== 匯出/匯入 =====
+const exportMenu = useExportMenu();
+const exporting = ref(false);
+const importing = ref(false);
+const importFileInput = ref(null);
+
+async function handleExport(format) {
+  exportMenu.close();
+  exporting.value = true;
+  errorMessage.value = "";
+  try {
+    const blob = await exportTechnicians(format);
+    downloadBlob(
+      blob,
+      `technicians-${new Date().toISOString().slice(0, 10)}.${format}`,
+    );
+  } catch (error) {
+    console.error(error);
+    errorMessage.value = error.response
+      ? `匯出失敗：HTTP ${error.response.status}`
+      : "無法連線到後端伺服器";
+  } finally {
+    exporting.value = false;
+  }
+}
+
+function openImportFilePicker() {
+  importFileInput.value.click();
+}
+
+async function handleImportFileChange(event) {
+  const file = event.target.files[0];
+  event.target.value = "";
+  if (!file) return;
+
+  const format = formatFromFileName(file.name);
+  if (!format) {
+    errorMessage.value = "不支援的檔案格式，請選擇 .xlsx、.json 或 .xml 檔";
+    return;
+  }
+
+  importing.value = true;
+  errorMessage.value = "";
+  successMessage.value = "";
+  try {
+    const result = await importTechnicians(file, format);
+    successMessage.value = `匯入完成：新增 ${result.inserted} 筆、更新 ${result.updated} 筆、失敗 ${result.failed} 筆${
+      result.errors?.length ? "（" + result.errors.join("；") + "）" : ""
+    }`;
+    await fetchTechnicians();
+  } catch (error) {
+    console.error(error);
+    errorMessage.value = error.response
+      ? `匯入失敗：HTTP ${error.response.status}`
+      : "無法連線到後端伺服器";
+  } finally {
+    importing.value = false;
+  }
+}
 
 // ===== 新增/修改彈窗 =====
 const modalRef = ref(null);
@@ -132,9 +197,53 @@ onMounted(async () => {
   <main class="container-fluid px-3 px-lg-4 py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h1 class="fw-bold mb-0">技師管理</h1>
-      <button class="btn btn-primary" @click="openCreateModal">
-        ＋ 新增技師
-      </button>
+      <div class="d-flex gap-2">
+        <!-- 匯出：下拉選格式 -->
+        <div class="dropdown" :ref="(el) => (exportMenu.containerRef.value = el)">
+          <button
+            class="btn btn-outline-secondary dropdown-toggle"
+            type="button"
+            :disabled="exporting"
+            @click="exportMenu.toggle"
+          >
+            {{ exporting ? "匯出中..." : "匯出" }}
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end" :class="{ show: exportMenu.open.value }">
+            <li>
+              <button class="dropdown-item" @click="handleExport('xlsx')">
+                Excel
+              </button>
+            </li>
+            <li>
+              <button class="dropdown-item" @click="handleExport('json')">
+                JSON
+              </button>
+            </li>
+            <li>
+              <button class="dropdown-item" @click="handleExport('xml')">
+                XML
+              </button>
+            </li>
+          </ul>
+        </div>
+
+        <!-- 匯入：直接跳檔案選擇，格式從副檔名判斷 -->
+        <button
+          class="btn btn-outline-secondary"
+          type="button"
+          :disabled="importing"
+          @click="openImportFilePicker"
+        >
+          {{ importing ? "匯入中..." : "匯入" }}
+        </button>
+        <input
+          ref="importFileInput"
+          type="file"
+          accept=".xlsx,.json,.xml"
+          class="d-none"
+          @change="handleImportFileChange"
+        />
+      </div>
     </div>
 
     <section class="card mb-4">
@@ -151,6 +260,9 @@ onMounted(async () => {
             {{ s.name }}
           </option>
         </select>
+        <button class="btn btn-primary ms-auto" @click="openCreateModal">
+          ＋ 新增技師
+        </button>
       </div>
     </section>
 
@@ -290,4 +402,10 @@ onMounted(async () => {
   </main>
 </template>
 
-<style scoped></style>
+<style scoped>
+/* 匯出選單不靠 Bootstrap JS(Popper)定位，改用固定的向右對齊 */
+.dropdown-menu {
+  right: 0;
+  left: auto;
+}
+</style>
