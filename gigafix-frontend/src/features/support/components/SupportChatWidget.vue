@@ -1,7 +1,8 @@
 <script setup>
-import { ref, watch, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useFetchMemberInfoStore } from '@/stores/member'
+import { useFloatingBubblesStore } from '@/stores/floatingBubbles'
 import { useSupportChatStore } from '../store/supportChat'
 
 const { memberInfo } = storeToRefs(useFetchMemberInfoStore())
@@ -9,6 +10,26 @@ const store = useSupportChatStore()
 
 const draft = ref('')
 const messageListRef = ref(null)
+
+// 跟 ProductCartDrawer 共用同一份浮動氣泡登記機制，避免兩顆按鈕疊在同一個位置——
+// order 比購物車（10）大，維持「客服疊在購物車上面」的既有安排
+const BUBBLE_ID = 'supportChat'
+const BUBBLE_ORDER = 20
+const floatingBubbles = useFloatingBubblesStore()
+const isVisible = computed(() => !!memberInfo.value && !store.open)
+const stackIndex = computed(() => floatingBubbles.stackIndex(BUBBLE_ID))
+
+watch(
+  isVisible,
+  (visible) => {
+    if (visible) {
+      floatingBubbles.register(BUBBLE_ID, BUBBLE_ORDER)
+    } else {
+      floatingBubbles.unregister(BUBBLE_ID)
+    }
+  },
+  { immediate: true },
+)
 
 const ERROR_MESSAGES = {
   unauthorized: '你的登入狀態已逾時，請重新登入後再繼續對話。',
@@ -26,6 +47,7 @@ watch(
 
 onBeforeUnmount(() => {
   document.body.style.overflow = ''
+  floatingBubbles.unregister(BUBBLE_ID)
 })
 
 // 有新訊息時自動捲到底部，讓使用者不用自己往下滑
@@ -62,6 +84,7 @@ function handleKeydown(event) {
       <button
         v-if="memberInfo && !store.open"
         class="chat-floating-button"
+        :style="{ '--stack-index': stackIndex }"
         type="button"
         aria-label="打開 AI 客服"
         @click="store.openPanel()"
@@ -143,7 +166,8 @@ function handleKeydown(event) {
 .chat-floating-button {
   position: fixed;
   right: 28px;
-  bottom: 28px;
+  /* --stack-index 由 floatingBubbles store 決定，跟其他浮動氣泡（例如購物車）疊在一起時不重疊 */
+  bottom: calc(28px + var(--stack-index, 0) * 70px);
   z-index: 1060;
   display: inline-flex;
   align-items: center;
@@ -395,26 +419,5 @@ function handleKeydown(event) {
 .trigger-fade-leave-to {
   opacity: 0;
   transform: translateY(10px);
-}
-
-@media (max-width: 575.98px) {
-  .chat-floating-button {
-    right: 16px;
-    bottom: 16px;
-    width: 50px;
-    height: 50px;
-    font-size: 21px;
-  }
-
-  .drawer-header,
-  .composer {
-    padding-right: 16px;
-    padding-left: 16px;
-  }
-
-  .message-list {
-    padding-right: 16px;
-    padding-left: 16px;
-  }
 }
 </style>
