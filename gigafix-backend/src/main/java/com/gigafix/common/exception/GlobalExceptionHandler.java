@@ -11,6 +11,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import com.gigafix.admin.exception.AdminAccountException;
 import com.gigafix.common.dto.ErrorResp;
@@ -84,6 +85,15 @@ public class GlobalExceptionHandler {
 				.body(ErrorResp.builder()
 						.errorCode("AUTH_FAILED")
 						.message("帳號或密碼錯誤")
+						.build());
+	}
+
+	@ExceptionHandler(MaxUploadSizeExceededException.class) // 上傳檔案超過application.properties設定的大小上限時拋出
+	public ResponseEntity<ErrorResp> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException e) {
+		return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE)
+				.body(ErrorResp.builder()
+						.errorCode("FILE_TOO_LARGE")
+						.message("圖片檔案過大，請上傳10MB以內的圖片")
 						.build());
 	}
 

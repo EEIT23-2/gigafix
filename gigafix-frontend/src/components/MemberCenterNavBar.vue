@@ -93,10 +93,9 @@ const logout = async () => {
   width: 260px;
   min-height: 100%;
   background-color: #ffffff;
-  border-left: 1px solid #eaeaea;
+  border-right: 1px solid #eaeaea;
   padding: 28px 0;
   flex-shrink: 0;
-  margin-left: auto; /* 讓父層是 flex 時，自動被推到最右邊 */
 }
 
 .sidebar-header {

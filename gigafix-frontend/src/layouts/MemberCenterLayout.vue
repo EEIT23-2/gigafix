@@ -6,10 +6,10 @@ import MemberCenterNavBar from '@/components/MemberCenterNavBar.vue';
 
 <template>
   <div class="member-center-wrapper">
+    <MemberCenterNavBar />
     <main class="member-center-main">
       <RouterView />
     </main>
-    <MemberCenterNavBar />
   </div>
 </template>
 
@@ -22,6 +22,6 @@ import MemberCenterNavBar from '@/components/MemberCenterNavBar.vue';
 
 .member-center-main {
   flex: 1;
-  padding: 32px 24px 32px 40px; /* 上 右 下 左，左邊留適當間距即可，不用太大 */
+  padding: 32px 40px 32px 24px; /* 上 右 下 左，navbar換到左邊了，改成右邊留適當間距即可 */
 }
 </style>

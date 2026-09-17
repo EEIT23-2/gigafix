@@ -26,7 +26,8 @@ const avatarLoadError = ref(false)
 
 //修改頭像彈窗的狀態
 const showAvatarModal = ref(false)
-const editAvatarUrl = ref('')
+const selectedAvatarFile = ref(null)
+const avatarPreviewUrl = ref('') //選好檔案後用URL.createObjectURL產生的本地預覽圖網址
 const avatarSubmitting = ref(false)
 const avatarErrorMsg = ref('')
 
@@ -76,20 +77,44 @@ const onAvatarError = () => {
   avatarLoadError.value = true
 }
 
-//開啟彈窗前，把表單值同步成目前的頭像網址，避免帶著上次殘留的輸入值
+//開啟彈窗前重置檔案選擇狀態，避免帶著上次殘留的選擇
 const openAvatarModal = () => {
-  editAvatarUrl.value = memberInfo.value.profileImageUrl ?? ''
-  checkAvatarError()
+  selectedAvatarFile.value = null
+  avatarPreviewUrl.value = ''
+  avatarErrorMsg.value = '請選擇圖片檔案'
   showAvatarModal.value = true
 }
 
-//送出修改頭像表單
+//選擇檔案後檢查格式(僅接受jpg/png，跟後端magic number驗證的範圍對齊)，並產生本地預覽圖
+const onAvatarFileChange = (event) => {
+  const file = event.target.files[0]
+  if (avatarPreviewUrl.value) {
+    URL.revokeObjectURL(avatarPreviewUrl.value) //釋放上一張預覽圖，避免記憶體一直累積
+  }
+  if (!file) {
+    selectedAvatarFile.value = null
+    avatarPreviewUrl.value = ''
+    avatarErrorMsg.value = '請選擇圖片檔案'
+    return
+  }
+  if (!['image/jpeg', 'image/png'].includes(file.type)) {
+    selectedAvatarFile.value = null
+    avatarPreviewUrl.value = ''
+    avatarErrorMsg.value = '僅支援.jpg或.png檔案'
+    return
+  }
+  selectedAvatarFile.value = file
+  avatarPreviewUrl.value = URL.createObjectURL(file)
+  avatarErrorMsg.value = ''
+}
+
+//送出修改頭像表單，改成上傳檔案，用FormData帶檔案內容(不要手動設定Content-Type，讓瀏覽器自動帶multipart/form-data的boundary)
 const submitAvatar = async () => {
   avatarSubmitting.value = true
   try {
-    await axios.patch('/api/gigafix/members/me/profileImage', {
-      profileImageUrl: editAvatarUrl.value
-    })
+    const formData = new FormData()
+    formData.append('file', selectedAvatarFile.value)
+    await axios.patch('/api/gigafix/members/me/profileImage', formData)
     await fetchMemberInfoStore.fetchMember(true) //強制重抓最新資料，讓這頁跟上方導覽列同步更新
     showAvatarModal.value = false
     alert('頭像修改成功！')
@@ -98,17 +123,6 @@ const submitAvatar = async () => {
     alert(`修改失敗，原因: ${message}`)
   } finally {
     avatarSubmitting.value = false
-  }
-}
-
-//每次欄位變動就重新檢查一次，跟後端Bean Validation的規則對齊(需為http(s)開頭的網址)，不符合就不讓使用者送出
-const checkAvatarError = () => {
-  if (!editAvatarUrl.value.trim()) {
-    avatarErrorMsg.value = '頭像網址不可為空'
-  } else if (!/^https?:\/\/.+/.test(editAvatarUrl.value)) {
-    avatarErrorMsg.value = '頭像格式錯誤，需為http(s)開頭的網址'
-  } else {
-    avatarErrorMsg.value = ''
   }
 }
 
@@ -271,65 +285,66 @@ const checkDeleteError = () => {
     <p v-else-if="!memberInfo" class="info-state">目前無法取得會員資料，請稍後再試。</p>
 
     <div v-else class="info-card">
-      <div class="info-card-header">
-        <div class="header-left">
-          <div class="avatar-circle">
-            <img
-              v-if="memberInfo.profileImageUrl && !avatarLoadError"
-              :src="memberInfo.profileImageUrl"
-              alt="會員頭像"
-              class="avatar-img"
-              @error="onAvatarError"
-            >
-            <i v-else class="bi bi-person-fill"></i>
-          </div>
-          <p class="info-nickname">{{ memberInfo.nickName }}</p>
-        </div>
-
-        <div class="header-actions">
-          <button type="button" class="action-btn edit-btn" @click="openEditModal()">
-            <i class="bi bi-pencil-square"></i>
-            修改個人資料
-          </button>
-          <button type="button" class="avatar-edit-link" @click="openAvatarModal()">
-            <i class="bi bi-camera"></i>
-            更改頭像
-          </button>
-        </div>
+      <div class="info-card-avatar">
+        <img
+          v-if="memberInfo.profileImageUrl && !avatarLoadError"
+          :src="memberInfo.profileImageUrl"
+          alt="會員頭像"
+          class="info-card-avatar-img"
+          @error="onAvatarError"
+        >
+        <i v-else class="bi bi-person-fill"></i>
       </div>
 
-      <dl class="info-list">
-        <div class="info-row">
-          <dt class="info-label"><i class="bi bi-person"></i>真實姓名</dt>
-          <dd class="info-value">{{ memberInfo.realName }}</dd>
-        </div>
-        <div class="info-row">
-          <dt class="info-label"><i class="bi bi-envelope"></i>Email</dt>
-          <dd class="info-value">{{ memberInfo.email }}</dd>
-        </div>
-        <div class="info-row">
-          <dt class="info-label"><i class="bi bi-telephone"></i>手機號碼</dt>
-          <dd class="info-value">{{ memberInfo.phone }}</dd>
-        </div>
-        <div class="info-row">
-          <dt class="info-label"><i class="bi bi-geo-alt"></i>地址</dt>
-          <dd class="info-value">{{ memberInfo.address }}</dd>
-        </div>
-        <div class="info-row">
-          <dt class="info-label"><i class="bi bi-gender-ambiguous"></i>性別</dt>
-          <dd class="info-value">{{ genderLabel(memberInfo.gender) }}</dd>
-        </div>
-      </dl>
+      <div class="info-card-body">
+        <div class="info-card-header">
+          <p class="info-nickname">{{ memberInfo.nickName }}</p>
 
-      <div class="card-actions">
-        <button type="button" class="action-btn password-btn" @click="openPasswordModal()">
-          <i class="bi bi-shield-lock"></i>
-          修改密碼
-        </button>
-        <button type="button" class="action-btn delete-btn" @click="openDeleteModal()">
-          <i class="bi bi-trash3"></i>
-          刪除使用者
-        </button>
+          <div class="header-actions">
+            <button type="button" class="action-btn edit-btn" @click="openEditModal()">
+              <i class="bi bi-pencil-square"></i>
+              修改個人資料
+            </button>
+            <button type="button" class="avatar-edit-link" @click="openAvatarModal()">
+              <i class="bi bi-camera"></i>
+              更改頭像
+            </button>
+          </div>
+        </div>
+
+        <dl class="info-list">
+          <div class="info-row">
+            <dt class="info-label"><i class="bi bi-person"></i>真實姓名</dt>
+            <dd class="info-value">{{ memberInfo.realName }}</dd>
+          </div>
+          <div class="info-row">
+            <dt class="info-label"><i class="bi bi-envelope"></i>Email</dt>
+            <dd class="info-value">{{ memberInfo.email }}</dd>
+          </div>
+          <div class="info-row">
+            <dt class="info-label"><i class="bi bi-telephone"></i>手機號碼</dt>
+            <dd class="info-value">{{ memberInfo.phone }}</dd>
+          </div>
+          <div class="info-row">
+            <dt class="info-label"><i class="bi bi-geo-alt"></i>地址</dt>
+            <dd class="info-value">{{ memberInfo.address }}</dd>
+          </div>
+          <div class="info-row">
+            <dt class="info-label"><i class="bi bi-gender-ambiguous"></i>性別</dt>
+            <dd class="info-value">{{ genderLabel(memberInfo.gender) }}</dd>
+          </div>
+        </dl>
+
+        <div class="card-actions">
+          <button type="button" class="action-btn password-btn" @click="openPasswordModal()">
+            <i class="bi bi-shield-lock"></i>
+            修改密碼
+          </button>
+          <button type="button" class="action-btn delete-btn" @click="openDeleteModal()">
+            <i class="bi bi-trash3"></i>
+            刪除使用者
+          </button>
+        </div>
       </div>
     </div>
 
@@ -337,20 +352,20 @@ const checkDeleteError = () => {
     <BaseModal v-model="showAvatarModal">
       <template #title>更改頭像</template>
 
-      <label class="form-label">頭像網址</label>
-      <input type="text" class="form-control mb-2" v-model="editAvatarUrl" placeholder="https://..." :disabled="avatarSubmitting" @input="checkAvatarError()">
-      <p class="form-hint">貼上圖片的網址，需為http(s)開頭</p>
+      <label class="form-label">選擇圖片檔案</label>
+      <input type="file" class="form-control mb-2" accept="image/png,image/jpeg" :disabled="avatarSubmitting" @change="onAvatarFileChange">
+      <p class="form-hint">僅支援.jpg或.png檔案</p>
 
-      <div v-if="editAvatarUrl && avatarErrorMsg === ''" class="avatar-preview">
-        <img :src="editAvatarUrl" alt="頭像預覽">
+      <div v-if="avatarPreviewUrl" class="avatar-preview">
+        <img :src="avatarPreviewUrl" alt="頭像預覽">
       </div>
 
       <template #footer>
         <p v-if="avatarErrorMsg" class="text-danger small mb-3">{{ avatarErrorMsg }}</p>
         <button class="btn btn-secondary" @click="showAvatarModal = false" :disabled="avatarSubmitting">取消</button>
-        <button v-if="avatarErrorMsg" type="button" class="btn btn-primary" disabled>請輸入正確網址</button>
+        <button v-if="avatarErrorMsg" type="button" class="btn btn-primary" disabled>請選擇正確圖片</button>
         <button v-if="avatarErrorMsg == ''" class="btn btn-primary" @click="submitAvatar()" :disabled="avatarSubmitting">
-          {{ avatarSubmitting ? '送出中...' : '送出' }}
+          {{ avatarSubmitting ? '上傳中...' : '送出' }}
         </button>
       </template>
     </BaseModal>
@@ -455,7 +470,33 @@ const checkDeleteError = () => {
   background-color: #ffffff;
   border: 1px solid #eaeaea;
   border-radius: 12px;
-  padding: 36px 40px;
+  display: flex;
+  align-items: stretch; /* 讓左側圖片跟著右側內容的高度撐滿 */
+  overflow: hidden; /* 圖片才會跟著卡片一起被裁成圓角 */
+}
+
+.info-card-avatar {
+  flex: 0 0 480px; /* 固定寬度，不跟著圖片比例變動，避免直式照片把整張卡片撐得過高 */
+  background-color: #eef4fb;
+  color: #2b77c5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 72px;
+  overflow: hidden;
+}
+
+.info-card-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* 用裁切填滿固定大小的框，卡片高度只由右側文字內容決定 */
+  display: block;
+}
+
+.info-card-body {
+  flex: 1;
+  min-width: 0;
+  padding: 48px 56px;
 }
 
 .info-card-header {
@@ -469,37 +510,11 @@ const checkDeleteError = () => {
   flex-wrap: wrap;
 }
 
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
 .header-actions {
   display: flex;
   flex-direction: column;
   align-items: stretch; /* 讓兩個按鈕寬度都撐滿容器，跟著較寬的那個對齊 */
   gap: 10px;
-}
-
-.avatar-circle {
-  width: 96px;
-  height: 96px;
-  border-radius: 14px; /* 方形頭像，保留一點圓角跟其他卡片的視覺風格一致 */
-  background-color: #eef4fb;
-  color: #2b77c5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 48px;
-  flex-shrink: 0;
-  overflow: hidden;
-}
-
-.avatar-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .info-nickname {
@@ -610,7 +625,7 @@ const checkDeleteError = () => {
   display: flex;
   align-items: baseline;
   gap: 16px;
-  padding: 18px 0;
+  padding: 26px 0;
 }
 
 .info-row + .info-row {
