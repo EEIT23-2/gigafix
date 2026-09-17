@@ -1,6 +1,7 @@
 package com.gigafix.repair.controller;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.gigafix.repair.dto.ImportPreview;
 import com.gigafix.repair.dto.ImportResult;
 import com.gigafix.repair.dto.StoresRequest;
 import com.gigafix.repair.dto.StoresResponse;
@@ -72,11 +74,17 @@ public class StoresController {
 		return ResponseEntity.ok().headers(TableExportImport.buildDownloadHeaders(format, "stores")).body(data);
 	}
 
-//	匯入：依id比對，存在就更新、不存在就新增
-	@PostMapping("/import")
-	public ResponseEntity<ImportResult> importFile(
+//	匯入預覽：只解析、比對，不寫入資料庫
+	@PostMapping("/import/preview")
+	public ResponseEntity<ImportPreview> previewImport(
 			@RequestParam String format, @RequestParam("file") MultipartFile file) {
-		return ResponseEntity.ok(storesServ.importFile(file, format));
+		return ResponseEntity.ok(storesServ.previewImport(file, format));
+	}
+
+//	確認匯入：把預覽時拿到的資料原封不動送回來，這裡才真的寫入資料庫
+	@PostMapping("/import/confirm")
+	public ResponseEntity<ImportResult> confirmImport(@RequestBody List<Map<String, String>> rows) {
+		return ResponseEntity.ok(storesServ.confirmImport(rows));
 	}
 
 }

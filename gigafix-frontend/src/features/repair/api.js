@@ -243,12 +243,24 @@ export const exportTechnicians = async (format) => {
   return response.data;
 };
 
-export const importTechnicians = async (file, format) => {
+// 匯入預覽：只解析、比對，不寫入資料庫，回傳每一列會新增/更新/沒變動/錯誤的判定結果
+export const previewImportTechnicians = async (file, format) => {
   const formData = new FormData();
   formData.append("file", file);
-  const response = await axios.post(`${TECHNICIANS_URL}/import`, formData, {
-    params: { format },
-  });
+  const response = await axios.post(
+    `${TECHNICIANS_URL}/import/preview`,
+    formData,
+    { params: { format } },
+  );
+  return response.data;
+};
+
+// 確認匯入：把預覽時拿到的 rows(每筆的 data)原封不動送回來，這裡才真的寫入資料庫
+export const confirmImportTechnicians = async (rows) => {
+  const response = await axios.post(
+    `${TECHNICIANS_URL}/import/confirm`,
+    rows,
+  );
   return response.data;
 };
 
@@ -261,12 +273,19 @@ export const exportStores = async (format) => {
   return response.data;
 };
 
-export const importStores = async (file, format) => {
+// 匯入預覽：只解析、比對，不寫入資料庫，回傳每一列會新增/更新/沒變動/錯誤的判定結果
+export const previewImportStores = async (file, format) => {
   const formData = new FormData();
   formData.append("file", file);
-  const response = await axios.post(`${STORES_URL}/import`, formData, {
+  const response = await axios.post(`${STORES_URL}/import/preview`, formData, {
     params: { format },
   });
+  return response.data;
+};
+
+// 確認匯入：把預覽時拿到的 rows(每筆的 data)原封不動送回來，這裡才真的寫入資料庫
+export const confirmImportStores = async (rows) => {
+  const response = await axios.post(`${STORES_URL}/import/confirm`, rows);
   return response.data;
 };
 

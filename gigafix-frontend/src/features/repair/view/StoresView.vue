@@ -2,16 +2,18 @@
 import { onMounted, ref } from "vue";
 import { Modal } from "bootstrap";
 import {
+  confirmImportStores,
   createStore,
   deleteStore,
   downloadBlob,
   exportStores,
   formatFromFileName,
   getStores,
-  importStores,
+  previewImportStores,
   updateStore,
 } from "../api";
 import { useExportMenu } from "../useExportMenu";
+import ImportPreviewModal from "../components/ImportPreviewModal.vue";
 
 const stores = ref([]);
 const loading = ref(false);
@@ -45,6 +47,10 @@ function openImportFilePicker() {
   importFileInput.value.click();
 }
 
+const previewModalRef = ref(null);
+const importPreview = ref(null);
+const confirmingImport = ref(false);
+
 async function handleImportFileChange(event) {
   const file = event.target.files[0];
   event.target.value = ""; // 清空，這樣同一個檔案要重選也會觸發change
@@ -58,12 +64,32 @@ async function handleImportFileChange(event) {
 
   importing.value = true;
   errorMessage.value = "";
+  try {
+    importPreview.value = await previewImportStores(file, format);
+    previewModalRef.value.show();
+  } catch (error) {
+    console.error(error);
+    errorMessage.value = error.response
+      ? `匯入預覽失敗：HTTP ${error.response.status}`
+      : "無法連線到後端伺服器";
+  } finally {
+    importing.value = false;
+  }
+}
+
+async function handleConfirmImport() {
+  confirmingImport.value = true;
+  errorMessage.value = "";
   successMessage.value = "";
   try {
-    const result = await importStores(file, format);
+    const rows = importPreview.value.rows
+      .filter((r) => r.action === "INSERT" || r.action === "UPDATE")
+      .map((r) => r.data);
+    const result = await confirmImportStores(rows);
     successMessage.value = `匯入完成：新增 ${result.inserted} 筆、更新 ${result.updated} 筆、失敗 ${result.failed} 筆${
       result.errors?.length ? "（" + result.errors.join("；") + "）" : ""
     }`;
+    previewModalRef.value.hide();
     await fetchStores();
   } catch (error) {
     console.error(error);
@@ -71,7 +97,7 @@ async function handleImportFileChange(event) {
       ? `匯入失敗：HTTP ${error.response.status}`
       : "無法連線到後端伺服器";
   } finally {
-    importing.value = false;
+    confirmingImport.value = false;
   }
 }
 
@@ -364,6 +390,14 @@ onMounted(async () => {
         </div>
       </div>
     </div>
+
+    <!-- 匯入預覽視窗 -->
+    <ImportPreviewModal
+      ref="previewModalRef"
+      :preview="importPreview"
+      :confirming="confirmingImport"
+      @confirm="handleConfirmImport"
+    />
   </main>
 </template>
 

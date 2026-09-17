@@ -4,11 +4,15 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.gigafix.repair.dto.ImportPreview;
+import com.gigafix.repair.dto.ImportPreviewRow;
 import com.gigafix.repair.dto.ImportResult;
 import com.gigafix.repair.dto.StoresRequest;
 import com.gigafix.repair.dto.StoresResponse;
@@ -17,6 +21,7 @@ import com.gigafix.repair.exception.DataInUseException;
 import com.gigafix.repair.exception.InvalidFileFormatException;
 import com.gigafix.repair.exception.RepairNotFoundException;
 import com.gigafix.repair.repository.StoresRepository;
+import com.gigafix.repair.util.ExcelExportOptions;
 import com.gigafix.repair.util.TableExportImport;
 
 import jakarta.transaction.Transactional;
@@ -126,16 +131,18 @@ public class StoresService {
 		return switch (format) {
 			case "json" -> tableIO.toJson(rows);
 			case "xml" -> tableIO.toXml("stores", "store", rows);
-			case "xlsx" -> tableIO.toExcel(EXPORT_HEADERS, rows);
+			case "xlsx" -> tableIO.toExcel(EXPORT_HEADERS, rows, ExcelExportOptions.builder()
+					.textColumns(Set.of("phone"))
+					.lockedColumn("id")
+					.extraBlankRows(20)
+					.build());
 			default -> throw new InvalidFileFormatException("不支援的匯出格式: " + format);
 		};
 	}
 
-//	匯入：依id比對，資料庫已存在該id就更新、不存在(含id空白)就新增一筆(id由資料庫重新產生)
-	public ImportResult importFile(MultipartFile file, String format) {
-		List<LinkedHashMap<String, String>> rows;
+	private List<Map<String, String>> parseRows(MultipartFile file, String format) {
 		try {
-			rows = switch (format) {
+			return switch (format) {
 				case "json" -> tableIO.fromJson(file.getInputStream());
 				case "xml" -> tableIO.fromXml(file.getInputStream(), "store");
 				case "xlsx" -> tableIO.fromExcel(file.getInputStream(), EXPORT_HEADERS);
@@ -144,38 +151,114 @@ public class StoresService {
 		} catch (IOException e) {
 			throw new InvalidFileFormatException("無法讀取上傳的檔案", e);
 		}
+	}
 
+	private String rowLabel(Map<String, String> row, int position) {
+		String rawId = row.get("id");
+		return (rawId != null && !rawId.isBlank()) ? "id" + rawId.trim() : "第" + position + "筆(新增)";
+	}
+
+//	判斷單一列資料「會新增/會更新(附差異)/沒有變動/錯誤」，不寫入資料庫，預覽跟確認匯入共用同一份邏輯
+	private ImportPreviewRow evaluateRow(Map<String, String> row, String rowLabel) {
+		// 使用者原始填的內容，就算驗證失敗也要回傳，讓前端預覽時看得出來是哪一筆(而不是只有一個編號)
+		Map<String, String> rawEcho = new LinkedHashMap<>();
+		rawEcho.put("id", row.get("id") == null ? "" : row.get("id").trim());
+		rawEcho.put("name", row.get("name") == null ? "" : row.get("name").trim());
+		rawEcho.put("address", row.get("address") == null ? "" : row.get("address").trim());
+		rawEcho.put("phone", row.get("phone") == null ? "" : row.get("phone").trim());
+
+		String name = blankToNull(row.get("name"));
+		String address = blankToNull(row.get("address"));
+		String phone = blankToNull(row.get("phone"));
+		if (name == null || address == null || phone == null) {
+			return ImportPreviewRow.builder().rowLabel(rowLabel).action("ERROR")
+					.error("分店名稱、地址、電話都要填寫").data(rawEcho).build();
+		}
+
+		Map<String, String> data = new LinkedHashMap<>();
+		data.put("id", row.get("id") == null ? "" : row.get("id").trim());
+		data.put("name", name);
+		data.put("address", address);
+		data.put("phone", phone);
+
+		Byte id = parseByteOrNull(row.get("id"));
+		Stores existing = (id != null) ? storesRepos.findById(id).orElse(null) : null;
+		if (existing == null) {
+			return ImportPreviewRow.builder().rowLabel(rowLabel).action("INSERT").data(data).build();
+		}
+
+		List<String> changes = new ArrayList<>();
+		if (!name.equals(existing.getName())) {
+			changes.add("分店名稱：" + existing.getName() + " → " + name);
+		}
+		if (!address.equals(existing.getAddress())) {
+			changes.add("地址：" + existing.getAddress() + " → " + address);
+		}
+		if (!phone.equals(existing.getPhone())) {
+			changes.add("電話：" + existing.getPhone() + " → " + phone);
+		}
+		if (changes.isEmpty()) {
+			return ImportPreviewRow.builder().rowLabel(rowLabel).action("UNCHANGED").data(data).build();
+		}
+		return ImportPreviewRow.builder().rowLabel(rowLabel).action("UPDATE").data(data).changes(changes).build();
+	}
+
+//	匯入預覽：只解析、比對，不寫入資料庫
+	public ImportPreview previewImport(MultipartFile file, String format) {
+		List<Map<String, String>> rows = parseRows(file, format);
+		List<ImportPreviewRow> result = new ArrayList<>();
+		int position = 0;
+		for (Map<String, String> row : rows) {
+			position++;
+			result.add(evaluateRow(row, rowLabel(row, position)));
+		}
+		return ImportPreview.builder()
+				.rows(result)
+				.insertCount((int) result.stream().filter(r -> "INSERT".equals(r.getAction())).count())
+				.updateCount((int) result.stream().filter(r -> "UPDATE".equals(r.getAction())).count())
+				.unchangedCount((int) result.stream().filter(r -> "UNCHANGED".equals(r.getAction())).count())
+				.errorCount((int) result.stream().filter(r -> "ERROR".equals(r.getAction())).count())
+				.build();
+	}
+
+//	確認匯入：前端把預覽時拿到的資料原封不動送回來，這裡重新驗證一次(資料庫可能在預覽後被別人動過)才真的寫入
+	public ImportResult confirmImport(List<Map<String, String>> rows) {
 		int inserted = 0;
 		int updated = 0;
 		List<String> errors = new ArrayList<>();
-		int rowNum = 1; // 第1列是標題列，資料從第2列開始
-		for (LinkedHashMap<String, String> row : rows) {
-			rowNum++;
+		int position = 0;
+		for (Map<String, String> row : rows) {
+			position++;
+			String label = rowLabel(row, position);
 			try {
-				String name = blankToNull(row.get("name"));
-				String address = blankToNull(row.get("address"));
-				String phone = blankToNull(row.get("phone"));
-				if (name == null || address == null || phone == null) {
-					throw new IllegalArgumentException("分店名稱、地址、電話都要填寫");
-				}
-
-				Byte id = parseByteOrNull(row.get("id"));
-				Stores store = (id != null) ? storesRepos.findById(id).orElse(null) : null;
-				boolean isUpdate = store != null;
-				if (store == null) {
-					store = new Stores();
-				}
-				store.setName(name);
-				store.setAddress(address);
-				store.setPhone(phone);
-				storesRepos.save(store);
-				if (isUpdate) {
-					updated++;
-				} else {
-					inserted++;
+				ImportPreviewRow evaluated = evaluateRow(row, label);
+				switch (evaluated.getAction()) {
+					case "ERROR" -> throw new IllegalArgumentException(evaluated.getError());
+					case "UNCHANGED" -> {
+						// 資料沒變，不用寫回資料庫
+					}
+					case "INSERT" -> {
+						Stores store = new Stores();
+						store.setName(evaluated.getData().get("name"));
+						store.setAddress(evaluated.getData().get("address"));
+						store.setPhone(evaluated.getData().get("phone"));
+						storesRepos.save(store);
+						inserted++;
+					}
+					case "UPDATE" -> {
+						Byte id = parseByteOrNull(evaluated.getData().get("id"));
+						Stores store = storesRepos.findById(id)
+								.orElseThrow(() -> new IllegalArgumentException("這筆分店已經被刪除，請重新匯入"));
+						store.setName(evaluated.getData().get("name"));
+						store.setAddress(evaluated.getData().get("address"));
+						store.setPhone(evaluated.getData().get("phone"));
+						storesRepos.save(store);
+						updated++;
+					}
+					default -> throw new IllegalStateException("未知的匯入動作: " + evaluated.getAction());
 				}
 			} catch (Exception e) {
-				errors.add("第" + rowNum + "列：" + e.getMessage());
+				errors.add(label + "：" + e.getMessage());
 			}
 		}
 		return ImportResult.builder().inserted(inserted).updated(updated).failed(errors.size()).errors(errors).build();
