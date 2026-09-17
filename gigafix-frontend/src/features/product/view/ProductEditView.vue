@@ -44,8 +44,8 @@ async function fetchProduct() {
 }
 
 // 第一次按下「儲存修改」只暫存內容並顯示確認 Alert。
-function requestUpdate(productRequest) {
-  pendingProductRequest.value = productRequest;
+function requestUpdate(submission) {
+  pendingProductRequest.value = submission;
   showSaveConfirm.value = true;
   errorMessage.value = "";
 }
@@ -64,7 +64,8 @@ async function confirmUpdate() {
   errorMessage.value = "";
 
   try {
-    await updateProduct(productId, pendingProductRequest.value);
+    const { productRequest, imageFile } = pendingProductRequest.value;
+    await updateProduct(productId, productRequest, imageFile);
 
     showSaveConfirm.value = false;
     pendingProductRequest.value = null;

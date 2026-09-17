@@ -11,7 +11,6 @@ public class ProductRequest {
     @NotNull
     private ProductCategory category;  //之後要用enum列舉分類:手機 手錶 ipad 之後型別要改成 ProductCategory 暫用String代替
 
-    private String imageUrl; //圖檔連結
     @NotNull
     private String description; //商品備註
     @NotNull
@@ -45,14 +44,6 @@ public class ProductRequest {
 
     public void setCategory(ProductCategory category) {
         this.category = category;
-    }
-
-    public String getImageUrl() {
-        return imageUrl;
-    }
-
-    public void setImageUrl(String imageUrl) {
-        this.imageUrl = imageUrl;
     }
 
     public String getAppearance() {

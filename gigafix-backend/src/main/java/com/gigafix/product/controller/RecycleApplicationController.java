@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import com.gigafix.common.util.SecurityUtils;
 import org.springframework.security.core.Authentication;
 
@@ -216,18 +217,25 @@ public class RecycleApplicationController {
         }
     }
 
-        @PutMapping("/api/admin/recycle-applications/{applyId}")
+        @PutMapping(value = "/api/admin/recycle-applications/{applyId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
         public ResponseEntity<RecycleResponse> updateApplyForm(@PathVariable Long applyId,
-                                                     @RequestBody @Valid RecycleRequest recycleRequest){
+                                                     @RequestPart("application") @Valid RecycleRequest recycleRequest,
+                                                     @RequestPart(value = "file", required = false) MultipartFile imageFile)
+                throws IOException {
             RecycleResponse applyForm = recycleApplicationService.getApplyFormById(applyId);
             if (applyForm ==null){   //先檢查是否有此id再做修改
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }//若找不到 回傳404給前端
 
-            recycleApplicationService.updateApplyForm(applyId,recycleRequest);
-            RecycleResponse updatedApplyForm = recycleApplicationService.getApplyFormById(applyId);
-
-            return ResponseEntity.status(HttpStatus.OK).body(updatedApplyForm);
+            try {
+                // 回收單基本資料與本機圖片分開傳送，Service 負責取得 Cloudinary 網址。
+                recycleApplicationService.updateApplyForm(applyId, recycleRequest, imageFile);
+                RecycleResponse updatedApplyForm = recycleApplicationService.getApplyFormById(applyId);
+                return ResponseEntity.status(HttpStatus.OK).body(updatedApplyForm);
+            } catch (IllegalStateException exception) {
+                // 已完成的回收單屬於結案紀錄，以 409 表示目前狀態不允許編輯。
+                return ResponseEntity.status(HttpStatus.CONFLICT).build();
+            }
         }
 
     //刪除一筆回收單

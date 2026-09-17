@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,6 +35,7 @@ import com.gigafix.repair.entity.status.PickupType;
 import com.gigafix.repair.entity.status.RepairPay;
 import com.gigafix.repair.entity.status.RepairPayStatus;
 import com.gigafix.repair.entity.status.RepairStatus;
+import com.gigafix.repair.exception.InvalidFileFormatException;
 import com.gigafix.repair.exception.InvalidRepairStatusException;
 import com.gigafix.repair.exception.NotEligibleException;
 import com.gigafix.repair.exception.RepairNotFoundException;
@@ -41,6 +43,7 @@ import com.gigafix.repair.exception.TimeConflictException;
 import com.gigafix.repair.repository.RepairTechniciansRepository;
 import com.gigafix.repair.repository.RepairsRepository;
 import com.gigafix.repair.repository.StoresRepository;
+import com.gigafix.repair.util.TableExportImport;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -54,8 +57,10 @@ public class RepairsService {
 	private final StoresRepository sRepos;
 	private final MemberRepository mRepos;
 	private final RepairTechniciansRepository rtRepos;
+	private final RepairNotificationService notificationService;
+	private final TableExportImport tableIO;
 
-	
+
 	private RepairsResponse toResponse(Repairs r) {
 		return RepairsResponse.builder()
 				.id(r.getId())
@@ -146,8 +151,10 @@ public class RepairsService {
 				.build();
 		
 		// repairStatus / estimatedCost / finalCost 有 @Builder.Default，不用手動設
-		
-		return toResponse(rRepos.save(repair));
+
+		Repairs saved = rRepos.save(repair);
+		notificationService.sendBookingConfirmed(saved);
+		return toResponse(saved);
 	}
 	
 //	修改
@@ -189,6 +196,16 @@ public class RepairsService {
 	public RepairsResponse selectById(Long id) {
 		Repairs repair =  rRepos.findById(id)
 				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
+		return toResponse(repair);
+	}
+
+	// 會員中心「維修進度」明細用：只能查自己的維修單，避免用網址猜id查到別人的單
+	public RepairsResponse selectByIdForMember(Long id, Long memberId) {
+		Repairs repair =  rRepos.findById(id)
+				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
+		if (!repair.getMember().getId().equals(memberId)) {
+			throw new NotEligibleException("此維修單不是你的，無法查看");
+		}
 		return toResponse(repair);
 	}
 	
@@ -349,7 +366,9 @@ public class RepairsService {
 	    r.setRepairStatus(RepairStatus.QUOTED);
 	    r.setApprovalStatus(ApprovalStatus.PENDING);
 
-	    return toResponse(rRepos.save(r));
+	    Repairs saved = rRepos.save(r);
+	    notificationService.sendQuoteReady(saved);
+	    return toResponse(saved);
 	}
 	
 	
@@ -462,9 +481,11 @@ public class RepairsService {
 
 		r.setRepairStatus(RepairStatus.AWAITING_PICKUP);
 
-		return toResponse(rRepos.save(r));
+		Repairs saved = rRepos.save(r);
+		notificationService.sendPickupReady(saved);
+		return toResponse(saved);
 	}
-	
+
 //	客戶預約後未送修（沒到店/沒寄件）：repairStatus 待估價->未送修
 	public RepairsResponse undelivered(Long id, Integer technicianId) {
 		Repairs r = rRepos.findById(id)
@@ -622,7 +643,9 @@ public class RepairsService {
 		r.setFinalCost(finalCost != null ? finalCost : 0);
 		r.setRepairStatus(RepairStatus.AWAITING_PICKUP);
 
-		return toResponse(rRepos.save(r));
+		Repairs saved = rRepos.save(r);
+		notificationService.sendPickupReady(saved);
+		return toResponse(saved);
 	}
 
 	
@@ -753,5 +776,67 @@ public class RepairsService {
 
 	private double round2(double v) {
 		return Math.round(v * 100) / 100.0;
+	}
+
+	private LinkedHashMap<String, String> toRow(RepairsResponse r) {
+		LinkedHashMap<String, String> row = new LinkedHashMap<>();
+		row.put("id", str(r.getId()));
+		row.put("memberId", str(r.getMemberId()));
+		row.put("memberName", str(r.getMemberName()));
+		row.put("repairBrand", str(r.getRepairBrand()));
+		row.put("repairModel", str(r.getRepairModel()));
+		row.put("issueDescription", str(r.getIssueDescription()));
+		row.put("bookingDate", str(r.getBookingDate()));
+		row.put("timeSlot", str(r.getTimeSlot()));
+		row.put("repairStatus", str(r.getRepairStatus()));
+		row.put("storeName", str(r.getStoreName()));
+		row.put("dropoffType", str(r.getDropoffType()));
+		row.put("contactName", str(r.getContactName()));
+		row.put("contactPhone", str(r.getContactPhone()));
+		row.put("technicianId", str(r.getTechnicianId()));
+		row.put("technicianName", str(r.getTechnicianName()));
+		row.put("serialNumber", str(r.getSerialNumber()));
+		row.put("inspectionResult", str(r.getInspectionResult()));
+		row.put("repairItems", str(r.getRepairItems()));
+		row.put("estimatedCost", str(r.getEstimatedCost()));
+		row.put("approvalStatus", str(r.getApprovalStatus()));
+		row.put("finalCost", str(r.getFinalCost()));
+		row.put("repairPay", str(r.getRepairPay()));
+		row.put("repairPayStatus", str(r.getRepairPayStatus()));
+		row.put("pickupType", str(r.getPickupType()));
+		row.put("recipientName", str(r.getRecipientName()));
+		row.put("recipientPhone", str(r.getRecipientPhone()));
+		row.put("recipientAddress", str(r.getRecipientAddress()));
+		row.put("repairCreatedTime", str(r.getRepairCreatedTime()));
+		row.put("repairUpdatedTime", str(r.getRepairUpdatedTime()));
+		return row;
+	}
+
+	private String str(Object value) {
+		return value == null ? "" : value.toString();
+	}
+
+	private static final List<String> EXPORT_HEADERS = List.of(
+			"id", "memberId", "memberName", "repairBrand", "repairModel", "issueDescription",
+			"bookingDate", "timeSlot", "repairStatus", "storeName", "dropoffType", "contactName",
+			"contactPhone", "technicianId", "technicianName", "serialNumber", "inspectionResult",
+			"repairItems", "estimatedCost", "approvalStatus", "finalCost", "repairPay",
+			"repairPayStatus", "pickupType", "recipientName", "recipientPhone", "recipientAddress",
+			"repairCreatedTime", "repairUpdatedTime");
+
+//	匯出：format = json / xml / xlsx，沿用查詢條件，匯出的是目前搜尋結果(不填條件就是全部)
+	public byte[] export(String format, Long id, Long memberId, String memberName,
+			Integer technicianId, String technicianName, RepairStatus status) {
+		List<RepairsResponse> list = search(id, memberId, memberName, technicianId, technicianName, status);
+		List<LinkedHashMap<String, String>> rows = new ArrayList<>();
+		for (RepairsResponse r : list) {
+			rows.add(toRow(r));
+		}
+		return switch (format) {
+			case "json" -> tableIO.toJson(rows);
+			case "xml" -> tableIO.toXml("repairs", "repair", rows);
+			case "xlsx" -> tableIO.toExcel(EXPORT_HEADERS, rows);
+			default -> throw new InvalidFileFormatException("不支援的匯出格式: " + format);
+		};
 	}
 }

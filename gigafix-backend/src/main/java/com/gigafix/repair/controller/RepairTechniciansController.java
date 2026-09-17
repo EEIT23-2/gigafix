@@ -1,6 +1,7 @@
 package com.gigafix.repair.controller;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,15 +15,20 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.springframework.web.multipart.MultipartFile;
+
+import com.gigafix.repair.dto.ImportPreview;
+import com.gigafix.repair.dto.ImportResult;
 import com.gigafix.repair.dto.RepairTechniciansRequest;
 import com.gigafix.repair.dto.RepairTechniciansResponse;
 import com.gigafix.repair.service.RepairTechniciansService;
+import com.gigafix.repair.util.TableExportImport;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController //(Controller + ResponseBody)
-@RequestMapping("/api/repairtechnicians")
+@RequestMapping("/api/admin/repair/technicians")
 @RequiredArgsConstructor
 public class RepairTechniciansController {
 	
@@ -64,5 +70,25 @@ public class RepairTechniciansController {
     		return ResponseEntity.ok(rtServ.selectByStore(storeId));//200
     	}
         return ResponseEntity.ok(rtServ.selectAll());//200
+    }
+
+    // 匯出：format = json / xml / xlsx
+    @GetMapping("/export")
+    public ResponseEntity<byte[]> export(@RequestParam String format) {
+        byte[] data = rtServ.export(format);
+        return ResponseEntity.ok().headers(TableExportImport.buildDownloadHeaders(format, "technicians")).body(data);
+    }
+
+    // 匯入預覽：只解析、比對，不寫入資料庫
+    @PostMapping("/import/preview")
+    public ResponseEntity<ImportPreview> previewImport(
+            @RequestParam String format, @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(rtServ.previewImport(file, format));
+    }
+
+    // 確認匯入：把預覽時拿到的資料原封不動送回來，這裡才真的寫入資料庫
+    @PostMapping("/import/confirm")
+    public ResponseEntity<ImportResult> confirmImport(@RequestBody List<Map<String, String>> rows) {
+        return ResponseEntity.ok(rtServ.confirmImport(rows));
     }
 }

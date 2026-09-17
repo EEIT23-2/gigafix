@@ -212,6 +212,9 @@ function goToDetail(application) {
 }
 
 function goToEdit(application) {
+  // 除了停用按鈕，再於導頁處防守，避免其他元件誤觸發編輯事件。
+  if (application.recycleStatus === "COMPLETED") return;
+
   router.push({
     name: "admin-applyForms-edit",
     params: { applyId: application.applyId },
