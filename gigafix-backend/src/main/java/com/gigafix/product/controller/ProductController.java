@@ -134,6 +134,21 @@ public class    ProductController {
         //預設下載到Downloads資料夾
     }
 
+    // 將全部商品匯出為 Excel (.xlsx) 檔。
+    @GetMapping("/api/admin/products/export/excel")
+    public ResponseEntity<byte[]> exportProductsExcel() throws IOException {
+        byte[] excelBytes = productService.exportProductsExcel();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=products.xlsx");
+        headers.add(
+                HttpHeaders.CONTENT_TYPE,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        );
+
+        return ResponseEntity.ok().headers(headers).body(excelBytes);
+    }
+
 
     //----以下 api for 訂單管理者呼叫作做 結帳狀態防呆檢查機制-----
 

@@ -9,7 +9,9 @@ import com.gigafix.product.constant.ProductSaleStatus;
 import com.gigafix.product.dto.ProductQueryParams;
 import com.gigafix.product.dto.ProductRequest;
 import com.gigafix.product.entity.Product;
+import com.gigafix.product.entity.RecycleApplication;
 import com.gigafix.product.repository.ProductDao;
+import com.gigafix.product.repository.RecycleApplicationDao;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.domain.Page;
@@ -21,12 +23,25 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.IndexedColors;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,8 +49,12 @@ import java.util.Optional;
 @Transactional
 @Service
 public class ProductServiceImpl implements ProductService   {
+    private static final DateTimeFormatter EXCEL_DATE_TIME_FORMAT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     @Autowired
     private ProductDao productDao;
+    @Autowired
+    private RecycleApplicationDao recycleApplicationDao;
     @Autowired //注入jackson 反序列化需要的介面
     private ObjectMapper objectMapper;
     @Autowired //注入改匯率工具
@@ -56,6 +75,7 @@ public class ProductServiceImpl implements ProductService   {
         String sortParam = Utils.blankToNull(productQueryParams.getSort());
         Integer minPrice = productQueryParams.getMinPrice();
         Integer maxPrice = productQueryParams.getMaxPrice();
+        Long recycleApplyId = productQueryParams.getRecycleApplyId();
         Integer limit = productQueryParams.getLimit();
         Integer offset = productQueryParams.getOffset();
 
@@ -82,28 +102,59 @@ public class ProductServiceImpl implements ProductService   {
         //結合為Pageable物件  參數為 頁數 ,pagesize, 排序
         Pageable pageable = PageRequest.of(page,limit,sort);
         //封裝商品列表
-        Page<Product> productList = productDao.findByConditions(category,saleStatus,search,modelName,color,storage,minPrice,maxPrice,pageable);
+        Page<Product> productList = productDao.findByConditions(
+                category, saleStatus, search, modelName, color, storage,
+                recycleApplyId, minPrice, maxPrice, pageable
+        );
+
+        // 批次取得本頁商品的來源回收單，避免逐筆查詢造成 N+1 問題。
+        List<Long> productIds = new ArrayList<>();
+        for (Product product : productList.getContent()) {
+            productIds.add(product.getProductId());
+        }
+
+        Map<Long, Long> recycleApplyIds = new HashMap<>();
+        if (!productIds.isEmpty()) {
+            List<RecycleApplication> sourceApplications =
+                    recycleApplicationDao.findAllByProductIdIn(productIds);
+            for (RecycleApplication application : sourceApplications) {
+                recycleApplyIds.put(
+                        application.getProduct().getProductId(),
+                        application.getApplyId()
+                );
+            }
+        }
         //呼叫api獲取最新匯率
         Map<String, Double> rates = exchangeRateUtils.getLatestRatesFromTWD();
         //以下兩段為防段往機制  三元運算設定預設安全匯率
         final double usdRate = (rates != null) ? rates.getOrDefault("USD", 0.031) : 0.031;
         final double jpyRate = (rates != null) ? rates.getOrDefault("JPY", 4.65) : 4.65;
-        //使用 page.map() 為分頁的48筆商品注入外幣價格
-        return productList.map(product -> {
+        // 直接更新本頁 Entity 的 transient 顯示欄位，避免使用 lambda 轉換整個 Page。
+        for (Product product : productList.getContent()) {
             if (product.getPrice() != null) {
                 product.setPriceUSD(product.getPrice() * usdRate);
                 product.setPriceJPY(product.getPrice() * jpyRate);
             }
-            return product;
-            //這邊的lambda是 org.springframework.core.convert.converter.Converter<S, T>
-            //S為傳入,T為傳出 把一個只有台幣價格的商品，轉換成一個擁有美金、日幣價格的商品
-        });
+            product.setRecycleApplyId(recycleApplyIds.get(product.getProductId()));
+        }
+        return productList;
     }
 
     //實作以id查詢商品
     @Override
     public Product getProductById(Long productId) {
-        return productDao.findById(productId).orElse(null);
+        Product product = productDao.findById(productId).orElse(null);
+        if (product == null) {
+            return null;
+        }
+
+        // recycleApplyId 是 API 顯示欄位，來源仍以回收單表的關聯為準。
+        Optional<RecycleApplication> sourceApplication =
+                recycleApplicationDao.findByProduct_ProductId(productId);
+        if (sourceApplication.isPresent()) {
+            product.setRecycleApplyId(sourceApplication.get().getApplyId());
+        }
+        return product;
     }
 
     //實作新增商品
@@ -194,12 +245,14 @@ public class ProductServiceImpl implements ProductService   {
     //實作刪除單筆商品
     @Override
     public void deleteProductById(Long productId) {
+        recycleApplicationDao.clearProductReference(productId);
         productDao.deleteById(productId);
 
     }
     //實作刪除所有商品
     @Override
     public void deleteAllProducts() {
+        recycleApplicationDao.clearAllProductReferences();
         productDao.deleteAll();
     }
 
@@ -231,6 +284,79 @@ public class ProductServiceImpl implements ProductService   {
         //將物件列表轉換為漂亮的 JSON 字串，並轉成 byte 陣列
         return objectMapper.writerWithDefaultPrettyPrinter()
                 .writeValueAsBytes(products);
+    }
+
+    // 將全部商品轉成 Office Open XML 格式，讓前端可以直接下載 .xlsx 檔。
+    @Override
+    public byte[] exportProductsExcel() throws IOException {
+        List<Product> products = productDao.findAll(Sort.by("createdTime").descending());
+        String[] headers = {
+                "商品 ID", "商品名稱", "類別", "圖片網址", "商品描述", "外觀狀況",
+                "等級", "價格", "販售狀態", "建立時間", "最後修改時間"
+        };
+        int[] columnWidths = {12, 24, 14, 45, 40, 30, 12, 14, 16, 22, 22};
+
+        try (Workbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("商品資料");
+            sheet.createFreezePane(0, 1);
+
+            CellStyle headerStyle = createExcelHeaderStyle(workbook);
+            Row headerRow = sheet.createRow(0);
+            for (int index = 0; index < headers.length; index++) {
+                Cell cell = headerRow.createCell(index);
+                cell.setCellValue(headers[index]);
+                cell.setCellStyle(headerStyle);
+                sheet.setColumnWidth(index, columnWidths[index] * 256);
+            }
+
+            for (int index = 0; index < products.size(); index++) {
+                Product product = products.get(index);
+                Row row = sheet.createRow(index + 1);
+                setNumberCell(row, 0, product.getProductId());
+                setTextCell(row, 1, product.getProductName());
+                setTextCell(row, 2, product.getCategory() == null ? null : product.getCategory().name());
+                setTextCell(row, 3, product.getImageUrl());
+                setTextCell(row, 4, product.getDescription());
+                setTextCell(row, 5, product.getAppearance());
+                setTextCell(row, 6, product.getGrade());
+                setNumberCell(row, 7, product.getPrice());
+                setTextCell(row, 8, product.getSaleStatus() == null ? null : product.getSaleStatus().name());
+                setTextCell(row, 9, formatExcelDateTime(product.getCreatedTime()));
+                setTextCell(row, 10, formatExcelDateTime(product.getLastModifiedTime()));
+            }
+
+            workbook.write(outputStream);
+            return outputStream.toByteArray();
+        }
+    }
+
+    // Excel 標題列使用粗體與底色，方便使用者閱讀欄位。
+    private CellStyle createExcelHeaderStyle(Workbook workbook) {
+        Font font = workbook.createFont();
+        font.setBold(true);
+        font.setColor(IndexedColors.WHITE.getIndex());
+
+        CellStyle style = workbook.createCellStyle();
+        style.setFont(font);
+        style.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        return style;
+    }
+
+    private void setTextCell(Row row, int columnIndex, String value) {
+        row.createCell(columnIndex).setCellValue(value == null ? "" : value);
+    }
+
+    private void setNumberCell(Row row, int columnIndex, Number value) {
+        Cell cell = row.createCell(columnIndex);
+        if (value != null) {
+            cell.setCellValue(value.doubleValue());
+        }
+    }
+
+    private String formatExcelDateTime(LocalDateTime value) {
+        return value == null ? "" : value.format(EXCEL_DATE_TIME_FORMAT);
     }
 
 
@@ -302,4 +428,3 @@ public class ProductServiceImpl implements ProductService   {
 
 
 }
-

@@ -11,6 +11,7 @@ export const useProductStore = defineStore("product", () => {
   const keyword = ref("");
   const category = ref("");
   const saleStatus = ref("");
+  const recycleApplyId = ref("");
   const modelName = ref("");
   const color = ref("");
   const storage = ref("");
@@ -26,6 +27,7 @@ export const useProductStore = defineStore("product", () => {
     keyword.value = "";
     category.value = "";
     saleStatus.value = "";
+    recycleApplyId.value = "";
     modelName.value = "";
     color.value = "";
     storage.value = "";
@@ -41,6 +43,7 @@ export const useProductStore = defineStore("product", () => {
     keyword,
     category,
     saleStatus,
+    recycleApplyId,
     modelName,
     color,
     storage,

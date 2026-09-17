@@ -69,4 +69,7 @@ public interface RecycleApplicationService {
 
     //匯出全部回收單 JSON
     byte[] exportApplyForms() throws IOException;
+
+    //匯出全部回收單 Excel
+    byte[] exportApplyFormsExcel() throws IOException;
 }

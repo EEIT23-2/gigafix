@@ -9,9 +9,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface RecycleApplicationDao extends JpaRepository<RecycleApplication,Long> {
@@ -52,4 +54,20 @@ public interface RecycleApplicationDao extends JpaRepository<RecycleApplication,
             @Param("applyId") Long applyId,
             @Param("memberId") Long memberId
     );
+
+    // 一次查出商品列表的來源回收單，避免每個商品各自發出一次 SQL。
+    @Query("SELECT r FROM RecycleApplication r JOIN FETCH r.product p " +
+            "WHERE p.productId IN :productIds")
+    List<RecycleApplication> findAllByProductIdIn(@Param("productIds") List<Long> productIds);
+
+    Optional<RecycleApplication> findByProduct_ProductId(Long productId);
+
+    // 商品刪除前解除來源關聯，歷史回收單仍會保留。
+    @Modifying
+    @Query("UPDATE RecycleApplication r SET r.product = NULL WHERE r.product.productId = :productId")
+    void clearProductReference(@Param("productId") Long productId);
+
+    @Modifying
+    @Query("UPDATE RecycleApplication r SET r.product = NULL WHERE r.product IS NOT NULL")
+    void clearAllProductReferences();
 }
