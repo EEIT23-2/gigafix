@@ -14,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -64,23 +65,29 @@ public class    ProductController {
     }
 
     //id新增商品的路由
-    @PostMapping("/api/admin/products")      //@Valid 是為了讓@NotNull生效
-    public ResponseEntity<Product> createProduct(@RequestBody @Valid ProductRequest productRequest){
-        Long productId  = productService.createProduct(productRequest);
+    @PostMapping(value = "/api/admin/products", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Product> createProduct(
+            @RequestPart("product") @Valid ProductRequest productRequest,
+            @RequestPart(value = "file", required = false) MultipartFile imageFile
+    ) throws IOException {
+        // JSON 商品資料與本機圖片分開接收，圖片網址由 Service 上傳 Cloudinary 後產生。
+        Long productId = productService.createProduct(productRequest, imageFile);
         Product product = productService.getProductById(productId);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(product);
     }
     //修改商品
-    @PutMapping("/api/admin/products/{productId}")
+    @PutMapping(value = "/api/admin/products/{productId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Product> updateProduct(@PathVariable Long productId,
-                                                 @RequestBody @Valid ProductRequest productRequest){
+                                                 @RequestPart("product") @Valid ProductRequest productRequest,
+                                                 @RequestPart(value = "file", required = false) MultipartFile imageFile)
+            throws IOException {
         Product product = productService.getProductById(productId);
         if (product ==null){   //先檢查是否有此id再做修改
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }//若找不到 回傳404給前端
 
-        productService.updateProduct(productId,productRequest);
+        productService.updateProduct(productId, productRequest, imageFile);
         Product updatedProduct = productService.getProductById(productId);
 
         return ResponseEntity.status(HttpStatus.OK).body(updatedProduct);

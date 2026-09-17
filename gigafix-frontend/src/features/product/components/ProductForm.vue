@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, watch } from "vue";
+import { onBeforeUnmount, reactive, ref, watch } from "vue";
 
 const props = defineProps({
   // 編輯頁可傳入既有商品；新增頁不傳時使用空白預設值。
@@ -19,8 +19,18 @@ const form = reactive({
   description: "",
   price: null,
   sale_status: "AVAILABLE",
-  image_url: "",
 });
+
+const imageFile = ref(null);
+const imagePreviewUrl = ref("");
+let localPreviewUrl = "";
+
+function revokeLocalPreview() {
+  if (localPreviewUrl) {
+    URL.revokeObjectURL(localPreviewUrl);
+    localPreviewUrl = "";
+  }
+}
 
 // 新增頁載入預設值；未來編輯頁傳入商品時，也能共用此表單。
 watch(
@@ -34,28 +44,42 @@ watch(
     form.price = product?.price ?? null;
     form.sale_status =
       product?.sale_status ?? product?.saleStatus ?? "AVAILABLE";
-    form.image_url = product?.image_url ?? product?.imageUrl ?? "";
+    imageFile.value = null;
+    revokeLocalPreview();
+    // 編輯頁先顯示資料庫內既有的 Cloudinary 圖片。
+    imagePreviewUrl.value = product?.image_url ?? product?.imageUrl ?? "";
   },
   { immediate: true },
 );
 
 function submitForm() {
-  // ProductRequest 使用 Java camelCase，因此送往後端時轉成同名欄位。
+  // View 會把 DTO 與 File 交給 api.js 組成 multipart/form-data。
   emit("submit", {
-    productName: form.product_name,
-    category: form.category,
-    grade: form.grade,
-    appearance: form.appearance,
-    description: form.description,
-    price: form.price,
-    saleStatus: form.sale_status,
-    imageUrl: form.image_url,
+    productRequest: {
+      productName: form.product_name,
+      category: form.category,
+      grade: form.grade,
+      appearance: form.appearance,
+      description: form.description,
+      price: form.price,
+      saleStatus: form.sale_status,
+    },
+    imageFile: imageFile.value,
   });
 }
 
-function clearBrokenPreview(event) {
-  event.target.style.display = "none";
+function handleImageChange(event) {
+  const selectedFile = event.target.files?.[0] ?? null;
+  imageFile.value = selectedFile;
+  revokeLocalPreview();
+
+  if (selectedFile) {
+    localPreviewUrl = URL.createObjectURL(selectedFile);
+    imagePreviewUrl.value = localPreviewUrl;
+  }
 }
+
+onBeforeUnmount(revokeLocalPreview);
 </script>
 
 <template>
@@ -194,7 +218,7 @@ function clearBrokenPreview(event) {
         </div>
       </div>
 
-      <!-- 圖片網址與預覽 -->
+      <!-- 本機圖片選擇與預覽 -->
       <div class="col-12 col-lg-4">
         <section class="card form-card rounded-3">
           <div class="card-body p-4">
@@ -207,28 +231,28 @@ function clearBrokenPreview(event) {
               產品圖片
             </h2>
 
-            <label class="form-label" for="image_url">圖片網址</label>
+            <label class="form-label" for="image_file">選擇圖片</label>
             <input
-              id="image_url"
-              v-model.trim="form.image_url"
+              id="image_file"
               class="form-control"
-              type="url"
-              placeholder="https://example.com/product.jpg"
+              type="file"
+              accept="image/*"
+              :required="!imagePreviewUrl"
+              @change="handleImageChange"
             />
             <div class="form-text mb-3">
-              目前後端使用 JSON Request，因此這裡填入圖片網址。
+              圖片會由後端上傳至 Cloudinary；編輯時未選新檔會保留原圖。
             </div>
 
             <div
               class="upload-zone rounded-3 d-flex align-items-center justify-content-center text-center p-3"
             >
               <img
-                v-if="form.image_url"
-                :key="form.image_url"
-                :src="form.image_url"
+                v-if="imagePreviewUrl"
+                :key="imagePreviewUrl"
+                :src="imagePreviewUrl"
                 alt="商品圖片預覽"
                 class="image-preview rounded-2"
-                @error="clearBrokenPreview"
               />
               <div v-else class="text-secondary py-5">
                 <span
@@ -236,7 +260,7 @@ function clearBrokenPreview(event) {
                   aria-hidden="true"
                   >image</span
                 >
-                輸入圖片網址後會顯示預覽
+                選擇本機圖片後會顯示預覽
               </div>
             </div>
           </div>

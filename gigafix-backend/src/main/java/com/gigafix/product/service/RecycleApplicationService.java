@@ -7,6 +7,7 @@ import com.gigafix.product.dto.RecycleRequest;
 import com.gigafix.product.dto.RecycleResponse;
 import com.gigafix.product.entity.RecycleApplication;
 import org.springframework.data.domain.Page;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
@@ -59,7 +60,7 @@ public interface RecycleApplicationService {
     RecycleResponse cancelMemberRecycle(Long memberId, Long applyId);
 
     //修改回收單
-    void updateApplyForm(Long applyId,RecycleRequest recycleRequest);
+    void updateApplyForm(Long applyId, RecycleRequest recycleRequest, MultipartFile imageFile) throws IOException;
     //刪除單筆回收單
     boolean deleteApplyFormById(Long applyId);
 

@@ -1,5 +1,7 @@
 package com.gigafix.product.service;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import com.gigafix.common.config.CacheConfig;
 import com.gigafix.member.entity.Member;
 import com.gigafix.member.exception.MemberNotFoundException;
@@ -27,6 +29,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.databind.ObjectMapper;
 
 import javax.imageio.ImageIO;
@@ -37,6 +40,7 @@ import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -64,6 +68,8 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
     private RecycleApplicationNotificationService recycleApplicationNotificationService;
     @Autowired
     private CacheManager cacheManager;
+    @Autowired
+    private Cloudinary cloudinary;
 
     //實作查詢回收單列表
 
@@ -188,7 +194,8 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
         applyForm.setProductName(recycleRequest.getProductName());
         applyForm.setCategory(recycleRequest.getCategory());
         applyForm.setAppearance(recycleRequest.getAppearance());
-        applyForm.setImageUrl(recycleRequest.getImageUrl());
+        // 會員新增回收單時不接受照片，照片僅能由後台編輯時補上。
+        applyForm.setImageUrl(null);
         applyForm.setDescription(recycleRequest.getDescription());
         applyForm.setEstimatedPrice(recycleRequest.getEstimatedPrice());
 
@@ -564,14 +571,21 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
 
 
     @Override
-    public void updateApplyForm(Long applyId, RecycleRequest recycleRequest) {
+    public void updateApplyForm(Long applyId, RecycleRequest recycleRequest, MultipartFile imageFile) throws IOException {
         Optional<RecycleApplication> applyForm = recycleApplicationDao.findById(applyId);
         if(applyForm.isPresent()){
             RecycleApplication gotApplyForm = applyForm.get();
+            // COMPLETED 已建立對應商品庫存，禁止再修改以免回收紀錄與商品資料不一致。
+            if (gotApplyForm.getRecycleStatus() == RecycleStatus.COMPLETED) {
+                throw new IllegalStateException("回收完成的申請不可再編輯");
+            }
             gotApplyForm.setProductName(recycleRequest.getProductName());
             gotApplyForm.setCategory(recycleRequest.getCategory());
             gotApplyForm.setAppearance(recycleRequest.getAppearance());
-            gotApplyForm.setImageUrl(recycleRequest.getImageUrl());
+            // 後台有選新檔案時才上傳並更新網址，否則保留原本的 Cloudinary 圖片。
+            if (imageFile != null && !imageFile.isEmpty()) {
+                gotApplyForm.setImageUrl(uploadImage(imageFile));
+            }
             gotApplyForm.setDescription(recycleRequest.getDescription());
             gotApplyForm.setEstimatedPrice(recycleRequest.getEstimatedPrice());
 
@@ -581,6 +595,15 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
             return;
         }
 
+    }
+
+    /** 將後台選取的回收商品圖片上傳到獨立資料夾並回傳 HTTPS 網址。 */
+    private String uploadImage(MultipartFile imageFile) throws IOException {
+        Map<?, ?> uploadResult = cloudinary.uploader().upload(
+                imageFile.getBytes(),
+                ObjectUtils.asMap("folder", "gigafix/recycle-applications", "resource_type", "image")
+        );
+        return (String) uploadResult.get("secure_url");
     }
 
     //實作刪除一筆回收單

@@ -188,8 +188,13 @@ function formatDateTime(dateTime) {
               <button
                 type="button"
                 class="btn btn-sm btn-outline-primary"
-                title="編輯"
+                :title="
+                  application.recycleStatus === 'COMPLETED'
+                    ? '回收完成後不可再編輯'
+                    : '編輯'
+                "
                 aria-label="編輯"
+                :disabled="application.recycleStatus === 'COMPLETED'"
                 @click="emit('edit', application)"
               >
                 <i class="bi bi-pencil-square"></i>

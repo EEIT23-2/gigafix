@@ -22,6 +22,9 @@ const errorMessage = ref("");
 const initialFormSnapshot = ref("");
 const formLoaded = ref(false);
 const allowNavigation = ref(false);
+const editingLocked = ref(false);
+const imageFile = ref(null);
+const localImagePreviewUrl = ref("");
 
 const categoryOptions = [
   { value: "IPHONE", label: "iPhone" },
@@ -31,19 +34,47 @@ const categoryOptions = [
 
 const isDirty = computed(() => {
   if (!formLoaded.value) return false;
-  return JSON.stringify(form.value) !== initialFormSnapshot.value;
+  return (
+    JSON.stringify(form.value) !== initialFormSnapshot.value ||
+    imageFile.value !== null
+  );
 });
+
+// 新檔案優先預覽；未選檔案時仍顯示後端既有的 Cloudinary 圖片。
+const imagePreviewUrl = computed(
+  () => localImagePreviewUrl.value || form.value.imageUrl,
+);
 
 function getAppearance(data) {
   return data?.appearance ?? data?.appreance ?? "";
 }
 
+function handleImageChange(event) {
+  imageFile.value = event.target.files?.[0] ?? null;
+
+  if (localImagePreviewUrl.value) {
+    URL.revokeObjectURL(localImagePreviewUrl.value);
+    localImagePreviewUrl.value = "";
+  }
+
+  if (imageFile.value) {
+    localImagePreviewUrl.value = URL.createObjectURL(imageFile.value);
+  }
+}
+
 async function fetchApplication() {
   loading.value = true;
   errorMessage.value = "";
+  editingLocked.value = false;
 
   try {
     const data = await getRecycleApplication(route.params.applyId);
+
+    // 防止使用者直接輸入編輯網址進入已結案的回收單。
+    if (data.recycleStatus === "COMPLETED") {
+      editingLocked.value = true;
+      return;
+    }
 
     form.value = {
       memberId: data.memberId,
@@ -78,6 +109,8 @@ function goToDetail() {
 }
 
 async function handleSubmit() {
+  if (editingLocked.value) return;
+
   saving.value = true;
   errorMessage.value = "";
 
@@ -86,13 +119,16 @@ async function handleSubmit() {
     productName: form.value.productName.trim(),
     category: form.value.category,
     appearance: form.value.appearance.trim(),
-    imageUrl: form.value.imageUrl.trim() || null,
     description: form.value.description.trim() || null,
     estimatedPrice: Number(form.value.estimatedPrice),
   };
 
   try {
-    await updateRecycleApplication(route.params.applyId, request);
+    await updateRecycleApplication(
+      route.params.applyId,
+      request,
+      imageFile.value,
+    );
 
     // 儲存成功後允許直接離開，不顯示未儲存警告。
     allowNavigation.value = true;
@@ -104,9 +140,12 @@ async function handleSubmit() {
     });
   } catch (error) {
     console.error(error);
-    errorMessage.value = error.response
-      ? `更新回收申請失敗（HTTP ${error.response.status}）`
-      : "無法連線至伺服器";
+    errorMessage.value =
+      error.response?.status === 409
+        ? "這筆回收單已完成，不能再編輯。"
+        : error.response
+          ? `更新回收申請失敗（HTTP ${error.response.status}）`
+          : "無法連線至伺服器";
   } finally {
     saving.value = false;
   }
@@ -134,6 +173,9 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener("beforeunload", handleBeforeUnload);
+  if (localImagePreviewUrl.value) {
+    URL.revokeObjectURL(localImagePreviewUrl.value);
+  }
 });
 </script>
 
@@ -175,6 +217,17 @@ onBeforeUnmount(() => {
       <section v-if="loading" class="card border-0 shadow-sm text-center py-5">
         <div class="spinner-border text-primary mx-auto" role="status"></div>
         <div class="text-secondary mt-2">正在載入編輯資料...</div>
+      </section>
+
+      <section
+        v-else-if="editingLocked"
+        class="alert alert-warning d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3"
+        role="alert"
+      >
+        <span>這筆回收單已完成，為保持結案紀錄與商品庫存一致，不能再編輯。</span>
+        <button type="button" class="btn btn-outline-dark" @click="goToDetail">
+          返回申請明細
+        </button>
       </section>
 
       <form
@@ -241,14 +294,17 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="col-md-6">
-              <label for="imageUrl" class="form-label">圖片網址</label>
+              <label for="imageFile" class="form-label">更換商品圖片</label>
               <input
-                id="imageUrl"
-                v-model.trim="form.imageUrl"
-                type="url"
+                id="imageFile"
+                type="file"
                 class="form-control"
-                placeholder="https://..."
+                accept="image/*"
+                @change="handleImageChange"
               />
+              <div class="form-text">
+                圖片會上傳至 Cloudinary；未選新檔時保留目前圖片。
+              </div>
             </div>
 
             <div class="col-md-6">
@@ -266,11 +322,11 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
-            <div v-if="form.imageUrl" class="col-12">
+            <div v-if="imagePreviewUrl" class="col-12">
               <label class="form-label">圖片預覽</label>
               <div>
                 <img
-                  :src="form.imageUrl"
+                  :src="imagePreviewUrl"
                   :alt="form.productName"
                   class="image-preview"
                 />

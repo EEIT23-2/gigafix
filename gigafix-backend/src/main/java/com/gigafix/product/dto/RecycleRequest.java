@@ -22,8 +22,6 @@ public class RecycleRequest {
     @NotBlank(message = "商品外觀不可為空")
     private String appearance;
 
-    private String imageUrl;
-
     private String description;
 
     @PositiveOrZero(message = "預估價格不可小於 0")

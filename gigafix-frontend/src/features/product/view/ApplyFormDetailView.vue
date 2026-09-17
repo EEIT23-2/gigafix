@@ -309,6 +309,10 @@ function goBack() {
 }
 
 function goToEdit() {
+  if (!application.value || application.value.recycleStatus === "COMPLETED") {
+    return;
+  }
+
   router.push({
     name: "admin-applyForms-edit",
     params: { applyId: route.params.applyId },
@@ -407,6 +411,12 @@ onBeforeUnmount(() => {
           <button
             type="button"
             class="btn btn-outline-primary"
+            :disabled="application.recycleStatus === 'COMPLETED'"
+            :title="
+              application.recycleStatus === 'COMPLETED'
+                ? '回收完成後不可再編輯'
+                : '編輯回收單'
+            "
             @click="goToEdit"
           >
             <i class="bi bi-pencil-square me-1"></i>

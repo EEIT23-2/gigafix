@@ -15,7 +15,6 @@ const form = reactive({
   productName: "",
   category: "",
   appearance: "",
-  imageUrl: "",
   description: "",
   estimatedPrice: null,
   storeId: "",
@@ -51,8 +50,6 @@ const fillDemoData = () => {
     productName: "iPhone 16 Plus 256GB",
     category: "IPHONE",
     appearance: "95成新",
-    imageUrl:
-      "https://media.karousell.com/media/photos/products/2024/11/15/iphone_16_plus_256g__1731707667_36ad03f4_progressive.jpg",
     description: "功能正常，外觀保存良好，螢幕與機身僅有輕微使用痕跡。",
     estimatedPrice: 25000,
     // 門市資料載入完成時自動選第一間；沒有門市資料時維持暫不指定。
@@ -69,7 +66,6 @@ const submitApplication = async () => {
     productName: form.productName.trim(),
     category: form.category,
     appearance: form.appearance.trim(),
-    imageUrl: compactOptionalText(form.imageUrl),
     description: compactOptionalText(form.description),
     estimatedPrice:
       form.estimatedPrice === null || form.estimatedPrice === ""
@@ -206,15 +202,6 @@ onMounted(loadStores);
                 {{ store.name }}
               </option>
             </select>
-          </label>
-
-          <label class="field-group field-image-url">
-            <span>裝置圖片網址</span>
-            <input
-              v-model="form.imageUrl"
-              type="url"
-              placeholder="https://example.com/device.jpg"
-            />
           </label>
 
           <label class="field-group field-description">
@@ -362,8 +349,7 @@ onMounted(loadStores);
 }
 
 .field-product-name,
-.field-appearance,
-.field-image-url {
+.field-appearance {
   grid-column: span 7;
 }
 
