@@ -16,6 +16,7 @@ import com.gigafix.admin.exception.AdminAccountException;
 import com.gigafix.common.dto.ErrorResp;
 import com.gigafix.common.dto.FieldErrorDetail;
 import com.gigafix.member.exception.MemberException;
+import com.gigafix.support.exception.SupportChatException;
 
 @ControllerAdvice
 @Order(Ordered.LOWEST_PRECEDENCE)
@@ -70,6 +71,16 @@ public class GlobalExceptionHandler {
 
 	@ExceptionHandler(AdminAccountException.class)
 	public ResponseEntity<ErrorResp> handleAdminAccountException(AdminAccountException e) {
+		return ResponseEntity
+				.status(e.getHttpStatus())
+				.body(ErrorResp.builder()
+						.errorCode(e.getErrorCode())
+						.message(e.getMessage())
+						.build());
+	}
+
+	@ExceptionHandler(SupportChatException.class)
+	public ResponseEntity<ErrorResp> handleSupportChatException(SupportChatException e) {
 		return ResponseEntity
 				.status(e.getHttpStatus())
 				.body(ErrorResp.builder()
