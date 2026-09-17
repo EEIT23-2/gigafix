@@ -5,7 +5,7 @@ import { Modal } from "bootstrap";
 import {
   closeRepair,
   completeRepair,
-  getRepair,
+  getAdminRepair,
   markNotified,
   markUndelivered,
   notifyRejected,
@@ -435,7 +435,7 @@ async function fetchRepair() {
   loading.value = true;
   errorMessage.value = "";
   try {
-    const data = await getRepair(props.repairId);
+    const data = await getAdminRepair(props.repairId);
     repair.value = data;
     loadQuoteForm(data);
     loadInspectionResultForm(data);

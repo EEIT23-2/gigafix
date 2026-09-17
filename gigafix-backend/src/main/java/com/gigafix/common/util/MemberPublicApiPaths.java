@@ -38,6 +38,10 @@ public final class MemberPublicApiPaths {
 			"/api/articles",
 			"/api/articles/**",
 			"/api/categories",
-			"/api/categories/**"
+			"/api/categories/**",
+
+			// repair 分店查詢（店家地圖查詢、預約選店都會共用到），不需要登入
+			"/api/gigafix/stores",
+			"/api/gigafix/stores/**"
 	};
 }

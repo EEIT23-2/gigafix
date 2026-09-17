@@ -1,7 +1,14 @@
 <script setup>
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { assignRepair, getTechnicians, searchRepairs } from "../api";
+import {
+  assignRepair,
+  downloadBlob,
+  exportRepairs,
+  getTechnicians,
+  searchRepairs,
+} from "../api";
+import { useExportMenu } from "../useExportMenu";
 
 const router = useRouter();
 
@@ -110,6 +117,27 @@ async function fetchRepairs() {
   }
 }
 
+// ===== 匯出：沿用目前的搜尋條件，只匯出符合條件的維修單 =====
+const exportMenu = useExportMenu();
+const exporting = ref(false);
+
+async function handleExport(format) {
+  exportMenu.close();
+  exporting.value = true;
+  errorMessage.value = "";
+  try {
+    const blob = await exportRepairs(format, buildParams());
+    downloadBlob(blob, `repairs-${new Date().toISOString().slice(0, 10)}.${format}`);
+  } catch (error) {
+    console.error(error);
+    errorMessage.value = error.response
+      ? `匯出失敗：HTTP ${error.response.status}`
+      : "無法連線到後端伺服器";
+  } finally {
+    exporting.value = false;
+  }
+}
+
 function resetSearch() {
   searchId.value = "";
   searchMemberId.value = "";
@@ -132,7 +160,37 @@ onMounted(() => {
 
 <template>
   <main class="container-fluid px-3 px-lg-4 py-4">
-    <h1 class="fw-bold mb-4">維修單管理</h1>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h1 class="fw-bold mb-0">維修單管理</h1>
+      <!-- 匯出：下拉選格式，沿用下方目前的搜尋條件 -->
+      <div class="dropdown" :ref="(el) => (exportMenu.containerRef.value = el)">
+        <button
+          class="btn btn-outline-secondary dropdown-toggle"
+          type="button"
+          :disabled="exporting"
+          @click="exportMenu.toggle"
+        >
+          {{ exporting ? "匯出中..." : "匯出" }}
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end" :class="{ show: exportMenu.open.value }">
+          <li>
+            <button class="dropdown-item" @click="handleExport('xlsx')">
+              Excel
+            </button>
+          </li>
+          <li>
+            <button class="dropdown-item" @click="handleExport('json')">
+              JSON
+            </button>
+          </li>
+          <li>
+            <button class="dropdown-item" @click="handleExport('xml')">
+              XML
+            </button>
+          </li>
+        </ul>
+      </div>
+    </div>
 
     <section class="card mb-4">
       <div class="card-body d-flex flex-wrap gap-3">
@@ -257,5 +315,10 @@ onMounted(() => {
 }
 tbody tr {
   cursor: pointer;
+}
+/* 匯出選單不靠 Bootstrap JS(Popper)定位，改用固定的向右對齊 */
+.dropdown-menu {
+  right: 0;
+  left: auto;
 }
 </style>

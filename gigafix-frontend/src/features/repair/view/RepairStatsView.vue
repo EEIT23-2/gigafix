@@ -1,8 +1,8 @@
 <script setup>
 // 後台維修單統計：全部9種repairStatus的筆數與佔比（圓餅圖，含已結案/已取消/未送檢），
 // 拒絕維修(approvalStatus=REJECTED,不論是否結案)/結案的數字卡片，已結案單建立到結案的耗時分布（長條圖），
-// 以及各分店/技師的維修單量與結案率比較（表格，依單量由多到少排序）
-// 資料來自 GET /api/repairs/stats，結案耗時是用 repairUpdatedTime-repairCreatedTime 近似值（後端沒有獨立的結案時間欄位）
+// 以及各分店/技師的維修單量與結案率比較（單軸堆疊長條圖：已結案/未結案疊加，依單量由多到少排序）
+// 資料來自 GET /api/admin/repair/repairs/stats，結案耗時是用 repairUpdatedTime-repairCreatedTime 近似值（後端沒有獨立的結案時間欄位）
 import { computed, onMounted, ref } from "vue";
 import { use } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
@@ -16,6 +16,9 @@ use([CanvasRenderer, PieChart, BarChart, GridComponent, TooltipComponent, Legend
 const loading = ref(true);
 const errorMessage = ref("");
 const stats = ref(null);
+
+// 強制拉高canvas的實際解析度，避免瀏覽器縮放/非整數dpr時圖表文字模糊
+const chartInitOptions = { devicePixelRatio: Math.max(window.devicePixelRatio || 1, 2) };
 
 // 狀態的中文顯示跟顏色，跟 RepairsListView 用同一套中文對照，顏色則為了圓餅圖易區分而各自不同
 const STATUS_LABELS = {
@@ -48,8 +51,9 @@ const statusPieOption = ref({
     {
       type: "pie",
       radius: ["45%", "70%"],
-      avoidLabelOverlap: false,
+      avoidLabelOverlap: true,
       label: { formatter: "{b}\n{d}%" },
+      labelLine: { length: 8, length2: 8 },
       data: [],
     },
   ],
@@ -57,9 +61,10 @@ const statusPieOption = ref({
 
 const durationBarOption = ref({
   tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
-  grid: { left: 48, right: 24, top: 24, bottom: 32 },
-  xAxis: { type: "category", data: [] },
-  yAxis: { type: "value", minInterval: 1, name: "筆數" },
+  // yAxis的name預設畫在軸的最上方(grid.top以上的空間)，top留太少會被畫布上緣裁掉
+  grid: { left: 60, right: 24, top: 48, bottom: 40 },
+  xAxis: { type: "category", data: [], axisLabel: { interval: 0 } },
+  yAxis: { type: "value", minInterval: 1, name: "筆數", nameGap: 16 },
   series: [
     {
       type: "bar",
@@ -76,6 +81,75 @@ const sortedStoreStats = computed(() =>
 );
 const sortedTechnicianStats = computed(() =>
   stats.value ? [...stats.value.technicianStats].sort((a, b) => b.totalCount - a.totalCount) : [],
+);
+
+// 橫式單軸堆疊長條圖：長條總長度=維修單量，內部分成「已結案」(綠)/「未結案」(灰)兩段，每段色塊裡直接標百分比。
+// 只有整條長條的兩端(最左、最右)要是圓角，中間兩段交接處要是直角接在一起，這樣兩段合起來才會是一條完整的長橢圓、
+// 不會變成兩個獨立膠囊中間斷開；如果某一段筆數是0(那一段整條都空的)，圓角就要換給剩下那一整段的兩端都用
+const BAR_RADIUS = 10;
+function buildStackedBarOption(items, nameOf) {
+  return {
+    tooltip: {
+      trigger: "axis",
+      axisPointer: { type: "shadow" },
+      formatter: (params) => {
+        const item = items[params[0].dataIndex];
+        return `${nameOf(item)}<br/>維修單量：${item.totalCount} 筆<br/>已結案：${item.closedCount} 筆<br/>結案率：${item.closedRate}%`;
+      },
+    },
+    legend: { top: 0 },
+    grid: { left: 90, right: 40, top: 40, bottom: 24 },
+    xAxis: { type: "value", name: "筆數", nameGap: 12, minInterval: 1 },
+    yAxis: { type: "category", data: items.map(nameOf), inverse: true },
+    series: [
+      {
+        type: "bar",
+        name: "已結案",
+        stack: "total",
+        data: items.map((i) => {
+          const openCount = i.totalCount - i.closedCount;
+          // 左邊永遠是圓角(整條長橢圓的左端)；右邊只有在「未結案」那段是空的、自己是唯一一段時才圓角，否則跟右邊那段接直角
+          const radius = openCount === 0 ? BAR_RADIUS : [BAR_RADIUS, 0, 0, BAR_RADIUS];
+          return { value: i.closedCount, itemStyle: { borderRadius: radius } };
+        }),
+        itemStyle: { color: "#20c997" },
+        label: {
+          show: true,
+          position: "inside",
+          color: "#fff",
+          fontSize: 11,
+          formatter: (params) => (items[params.dataIndex].closedCount > 0 ? `${items[params.dataIndex].closedRate}%` : ""),
+        },
+      },
+      {
+        type: "bar",
+        name: "未結案",
+        stack: "total",
+        data: items.map((i) => {
+          const openCount = i.totalCount - i.closedCount;
+          // 右邊永遠是圓角(整條長橢圓的右端)；左邊只有在「已結案」那段是空的、自己是唯一一段時才圓角，否則跟左邊那段接直角
+          const radius = i.closedCount === 0 ? BAR_RADIUS : [0, BAR_RADIUS, BAR_RADIUS, 0];
+          return { value: openCount, itemStyle: { borderRadius: radius } };
+        }),
+        itemStyle: { color: "#adb5bd" },
+        label: {
+          show: true,
+          position: "inside",
+          color: "#495057",
+          fontSize: 11,
+          formatter: (params) => {
+            const item = items[params.dataIndex];
+            const openCount = item.totalCount - item.closedCount;
+            return openCount > 0 ? `${Math.round((100 - item.closedRate) * 100) / 100}%` : "";
+          },
+        },
+      },
+    ],
+  };
+}
+const storeComboOption = computed(() => buildStackedBarOption(sortedStoreStats.value, (s) => s.storeName));
+const technicianComboOption = computed(() =>
+  buildStackedBarOption(sortedTechnicianStats.value, (t) => t.technicianName),
 );
 
 function formatHours(hours) {
@@ -166,117 +240,94 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="row g-3">
+      <!-- 維修單狀態分布(左) / 結案耗時分布(右) 並排一排；各分店/各技師各自獨立佔一整排 -->
+      <div class="row g-3 mb-3 align-items-start">
         <div class="col-lg-5">
-          <section class="card shadow-sm h-100">
+          <section class="card shadow-sm">
             <div class="card-header py-3">
               <h6 class="m-0 fw-bold">維修單狀態分布</h6>
             </div>
             <div class="card-body">
-              <v-chart class="chart" :option="statusPieOption" autoresize />
-              <ul class="list-unstyled status-legend mt-3 mb-0 small">
-                <li
-                  v-for="b in stats.statusBreakdown"
-                  :key="b.status"
-                  class="d-flex align-items-center gap-2 py-1"
-                >
-                  <span
-                    class="dot"
-                    :style="{ backgroundColor: STATUS_COLORS[b.status] }"
-                  ></span>
-                  <span class="flex-grow-1">{{ STATUS_LABELS[b.status] ?? b.status }}</span>
-                  <span class="text-secondary">{{ b.count }} 筆（{{ b.percentage }}%）</span>
-                </li>
-              </ul>
+              <v-chart class="chart" :option="statusPieOption" :init-options="chartInitOptions" autoresize />
+              <div class="d-flex gap-4 mt-3">
+                <ul class="list-unstyled status-legend mb-0 small flex-fill">
+                  <li
+                    v-for="b in stats.statusBreakdown.slice(0, 5)"
+                    :key="b.status"
+                    class="d-flex align-items-center gap-2 py-1"
+                  >
+                    <span class="dot" :style="{ backgroundColor: STATUS_COLORS[b.status] }"></span>
+                    <span class="flex-grow-1">{{ STATUS_LABELS[b.status] ?? b.status }}</span>
+                    <span class="text-secondary">{{ b.count }} 筆（{{ b.percentage }}%）</span>
+                  </li>
+                </ul>
+                <ul class="list-unstyled status-legend mb-0 small flex-fill">
+                  <li
+                    v-for="b in stats.statusBreakdown.slice(5)"
+                    :key="b.status"
+                    class="d-flex align-items-center gap-2 py-1"
+                  >
+                    <span class="dot" :style="{ backgroundColor: STATUS_COLORS[b.status] }"></span>
+                    <span class="flex-grow-1">{{ STATUS_LABELS[b.status] ?? b.status }}</span>
+                    <span class="text-secondary">{{ b.count }} 筆（{{ b.percentage }}%）</span>
+                  </li>
+                </ul>
+              </div>
             </div>
           </section>
         </div>
         <div class="col-lg-7">
-          <section class="card shadow-sm h-100">
+          <section class="card shadow-sm">
             <div class="card-header py-3">
               <h6 class="m-0 fw-bold">已結案單：建立到結案耗時分布</h6>
-              <p class="text-secondary small mb-0 mt-1">
-                以最後一次更新時間近似結案時間，僅供參考
-              </p>
+              <p class="text-secondary small mb-0 mt-1">以最後一次更新時間近似結案時間，僅供參考</p>
             </div>
             <div class="card-body">
               <v-chart
                 v-if="stats.closedCount > 0"
                 class="chart"
                 :option="durationBarOption"
+                :init-options="chartInitOptions"
                 autoresize
               />
-              <p v-else class="text-secondary text-center py-5 mb-0">
-                目前還沒有已結案的維修單
-              </p>
+              <p v-else class="text-secondary text-center py-5 mb-0">目前還沒有已結案的維修單</p>
             </div>
           </section>
         </div>
       </div>
 
-      <div class="row g-3 mt-1">
-        <div class="col-lg-6">
-          <section class="card shadow-sm h-100">
-            <div class="card-header py-3">
-              <h6 class="m-0 fw-bold">各分店維修單量與結案率</h6>
-            </div>
-            <div class="card-body p-0">
-              <table class="table table-sm mb-0 align-middle">
-                <thead class="table-light">
-                  <tr>
-                    <th>分店</th>
-                    <th class="text-end">維修單量</th>
-                    <th class="text-end">已結案</th>
-                    <th class="text-end">結案率</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="s in sortedStoreStats" :key="s.storeId">
-                    <td>{{ s.storeName }}</td>
-                    <td class="text-end">{{ s.totalCount }}</td>
-                    <td class="text-end">{{ s.closedCount }}</td>
-                    <td class="text-end">{{ s.closedRate }}%</td>
-                  </tr>
-                  <tr v-if="sortedStoreStats.length === 0">
-                    <td colspan="4" class="text-center text-secondary py-4">目前沒有資料</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
+      <section class="card shadow-sm mb-3">
+        <div class="card-header py-3">
+          <h6 class="m-0 fw-bold">各分店維修單量與結案率</h6>
         </div>
-        <div class="col-lg-6">
-          <section class="card shadow-sm h-100">
-            <div class="card-header py-3">
-              <h6 class="m-0 fw-bold">各技師維修單量與結案率</h6>
-              <p class="text-secondary small mb-0 mt-1">尚未被認領的維修單不計入任何技師</p>
-            </div>
-            <div class="card-body p-0">
-              <table class="table table-sm mb-0 align-middle">
-                <thead class="table-light">
-                  <tr>
-                    <th>技師</th>
-                    <th class="text-end">維修單量</th>
-                    <th class="text-end">已結案</th>
-                    <th class="text-end">結案率</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="t in sortedTechnicianStats" :key="t.technicianId">
-                    <td>{{ t.technicianName }}（id:{{ t.technicianId }}）</td>
-                    <td class="text-end">{{ t.totalCount }}</td>
-                    <td class="text-end">{{ t.closedCount }}</td>
-                    <td class="text-end">{{ t.closedRate }}%</td>
-                  </tr>
-                  <tr v-if="sortedTechnicianStats.length === 0">
-                    <td colspan="4" class="text-center text-secondary py-4">目前沒有資料</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
+        <div class="card-body">
+          <v-chart
+            v-if="sortedStoreStats.length > 0"
+            class="chart"
+            :option="storeComboOption"
+            :init-options="chartInitOptions"
+            autoresize
+          />
+          <p v-else class="text-secondary text-center py-5 mb-0">目前沒有資料</p>
         </div>
-      </div>
+      </section>
+
+      <section class="card shadow-sm mb-3">
+        <div class="card-header py-3">
+          <h6 class="m-0 fw-bold">各技師維修單量與結案率</h6>
+          <p class="text-secondary small mb-0 mt-1">尚未被認領的維修單不計入任何技師</p>
+        </div>
+        <div class="card-body">
+          <v-chart
+            v-if="sortedTechnicianStats.length > 0"
+            class="chart"
+            :option="technicianComboOption"
+            :init-options="chartInitOptions"
+            autoresize
+          />
+          <p v-else class="text-secondary text-center py-5 mb-0">目前沒有資料</p>
+        </div>
+      </section>
     </template>
   </main>
 </template>
