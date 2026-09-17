@@ -9,6 +9,21 @@ const ADMIN_PRODUCT_URL = "/api/admin/products";
 const RECYCLE_APPLICATION_URL = "/api/gigafix/members/me/recycle-applications";
 const ADMIN_RECYCLE_APPLICATION_URL = "/api/admin/recycle-applications";
 
+// 將結構化資料包成 JSON part，讓 Spring 的 @RequestPart 能同時接收 DTO 與圖片檔。
+const createMultipartBody = (partName, payload, imageFile) => {
+  const formData = new FormData();
+  formData.append(
+    partName,
+    new Blob([JSON.stringify(payload)], { type: "application/json" }),
+  );
+
+  if (imageFile) {
+    formData.append("file", imageFile);
+  }
+
+  return formData;
+};
+
 /**
  * 查詢商品列表。
  *
@@ -70,8 +85,10 @@ export const getAdminProduct = async (productId) => {
  * 對應：
  * POST /api/admin/products
  */
-export const createProduct = async (productRequest) => {
-  const response = await axios.post(ADMIN_PRODUCT_URL, productRequest);
+export const createProduct = async (productRequest, imageFile) => {
+  const formData = createMultipartBody("product", productRequest, imageFile);
+  // 不手動設定 Content-Type，瀏覽器會替 FormData 補上正確的 boundary。
+  const response = await axios.post(ADMIN_PRODUCT_URL, formData);
   return response.data;
 };
 
@@ -81,10 +98,11 @@ export const createProduct = async (productRequest) => {
  * 對應：
  * PUT /api/admin/products/{productId}
  */
-export const updateProduct = async (productId, productRequest) => {
+export const updateProduct = async (productId, productRequest, imageFile) => {
+  const formData = createMultipartBody("product", productRequest, imageFile);
   const response = await axios.put(
     `${ADMIN_PRODUCT_URL}/${productId}`,
-    productRequest,
+    formData,
   );
   return response.data;
 };
@@ -313,10 +331,19 @@ export const completeRecycleApplication = async (applyId) => {
  *
  * PUT /api/admin/recycle-applications/{applyId}
  */
-export const updateRecycleApplication = async (applyId, recycleRequest) => {
+export const updateRecycleApplication = async (
+  applyId,
+  recycleRequest,
+  imageFile,
+) => {
+  const formData = createMultipartBody(
+    "application",
+    recycleRequest,
+    imageFile,
+  );
   const response = await axios.put(
     `${ADMIN_RECYCLE_APPLICATION_URL}/${applyId}`,
-    recycleRequest,
+    formData,
   );
 
   return response.data;

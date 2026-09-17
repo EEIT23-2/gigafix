@@ -4,6 +4,7 @@ import com.gigafix.product.dto.ProductQueryParams;
 import com.gigafix.product.dto.ProductRequest;
 import com.gigafix.product.entity.Product;
 import org.springframework.data.domain.Page;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
@@ -15,9 +16,9 @@ public interface ProductService {
     //以id查詢商品
     Product getProductById(Long productId);
     //新增商品
-    Long createProduct(ProductRequest productRequest);
+    Long createProduct(ProductRequest productRequest, MultipartFile imageFile);
     //修改商品 沒有回傳值
-    void updateProduct(Long productId , ProductRequest productRequest);
+    void updateProduct(Long productId, ProductRequest productRequest, MultipartFile imageFile);
     //刪除商品 沒有回傳值
     void deleteProductById(Long productId);
 

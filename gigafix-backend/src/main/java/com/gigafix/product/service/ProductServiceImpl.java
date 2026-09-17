@@ -1,5 +1,7 @@
 package com.gigafix.product.service;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import com.gigafix.common.util.ExchangeRateUtils;
 import com.gigafix.product.Utils;
 import com.gigafix.product.constant.ProductCategory;
@@ -16,6 +18,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
@@ -35,6 +40,8 @@ public class ProductServiceImpl implements ProductService   {
     private ObjectMapper objectMapper;
     @Autowired //注入改匯率工具
     private ExchangeRateUtils exchangeRateUtils;
+    @Autowired
+    private Cloudinary cloudinary;
 
     //實作查詢全部商品列表
     @Override
@@ -101,11 +108,12 @@ public class ProductServiceImpl implements ProductService   {
 
     //實作新增商品
     @Override
-    public Long createProduct(ProductRequest productRequest) {
+    public Long createProduct(ProductRequest productRequest, MultipartFile imageFile) {
         Product product = new Product();
         product.setProductName(productRequest.getProductName());
         product.setCategory(productRequest.getCategory());
-        product.setImageUrl(productRequest.getImageUrl());
+        // 圖片由後端上傳至 Cloudinary，前端不再直接提供可寫入資料庫的網址。
+        product.setImageUrl(uploadImage(imageFile, "gigafix/products"));
         product.setDescription(productRequest.getDescription());
         product.setAppearance(productRequest.getAppearance());
         product.setGrade(productRequest.getGrade());
@@ -123,14 +131,17 @@ public class ProductServiceImpl implements ProductService   {
     }
     //實作修改商品
     @Override
-    public void updateProduct(Long productId, ProductRequest productRequest) {
+    public void updateProduct(Long productId, ProductRequest productRequest, MultipartFile imageFile) {
         Optional<Product> product = productDao.findById(productId);
         //檢查是否有該商品 後再做修改
         if(product.isPresent()){
             Product gotProduct = product.get();
             gotProduct.setProductName(productRequest.getProductName());
             gotProduct.setCategory(productRequest.getCategory());
-            gotProduct.setImageUrl(productRequest.getImageUrl());
+            // 沒有選擇新檔案時保留原圖；有新檔案才以 Cloudinary 網址取代。
+            if (imageFile != null && !imageFile.isEmpty()) {
+                gotProduct.setImageUrl(uploadImage(imageFile, "gigafix/products"));
+            }
             gotProduct.setDescription(productRequest.getDescription());
             gotProduct.setAppearance(productRequest.getAppearance());
             gotProduct.setGrade(productRequest.getGrade());
@@ -141,6 +152,41 @@ public class ProductServiceImpl implements ProductService   {
 
         }else{
             return; //若有商品直接返回
+        }
+    }
+
+    /** 上傳圖片並只保存 HTTPS 網址，CLOUDINARY_URL 由共用 Cloudinary Bean 自動讀取。 */
+    private String uploadImage(MultipartFile imageFile, String folder) {
+        if (imageFile == null || imageFile.isEmpty()) {
+            return null;
+        }
+
+        validateCloudinaryConfiguration();
+        try {
+            Map<?, ?> uploadResult = cloudinary.uploader().upload(
+                    imageFile.getBytes(),
+                    ObjectUtils.asMap("folder", folder, "resource_type", "image")
+            );
+            return (String) uploadResult.get("secure_url");
+        } catch (IOException exception) {
+            // Cloudinary 連線或驗證失敗時回傳明確的閘道錯誤，不再讓例外變成不明原因的 500。
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Cloudinary 圖片上傳失敗，請確認 CLOUDINARY_URL 與網路連線",
+                    exception
+            );
+        }
+    }
+
+    /** 在呼叫遠端 API 前先檢查必要憑證，避免 SDK 以 IllegalArgumentException 回傳 HTTP 500。 */
+    private void validateCloudinaryConfiguration() {
+        if (cloudinary.config.cloudName == null
+                || cloudinary.config.apiKey == null
+                || cloudinary.config.apiSecret == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "後端執行環境未設定有效的 CLOUDINARY_URL"
+            );
         }
     }
 

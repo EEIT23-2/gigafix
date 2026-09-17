@@ -22,8 +22,6 @@ function fillDemoData() {
     description: "功能正常，外觀保存良好，螢幕與機身僅有輕微使用痕跡。",
     price: 26500,
     sale_status: "AVAILABLE",
-    image_url:
-      "https://megapx-assets.dcard.tw/images/1752868f-8991-4de9-9455-d5418769ff30/640.jpeg",
   };
   errorMessage.value = "";
   successMessage.value = "";
@@ -33,14 +31,14 @@ function wait(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-async function handleCreate(productRequest) {
+async function handleCreate({ productRequest, imageFile }) {
   submitting.value = true;
   errorMessage.value = "";
   successMessage.value = "";
 
   try {
     // Controller 會回傳剛建立完成的 Product，其中包含 productId。
-    const createdProduct = await createProduct(productRequest);
+    const createdProduct = await createProduct(productRequest, imageFile);
     const createdProductId = createdProduct?.productId;
 
     if (!createdProductId) {
