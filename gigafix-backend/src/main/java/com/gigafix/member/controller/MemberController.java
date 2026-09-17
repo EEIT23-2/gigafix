@@ -1,5 +1,8 @@
 package com.gigafix.member.controller;
 
+import java.io.IOException;
+import java.util.Map;
+
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
@@ -11,9 +14,14 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.gigafix.member.dto.UpdatePasswordReq;
+import com.gigafix.member.exception.InvalidImageFormatException;
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import com.gigafix.common.util.SecurityUtils;
 import com.gigafix.member.dto.DeleteMemberReq;
 import com.gigafix.member.dto.ForgotPasswordReq;
@@ -23,7 +31,6 @@ import com.gigafix.member.dto.MemberInfoResp;
 import com.gigafix.member.dto.RegisterReq;
 import com.gigafix.member.dto.RegisterAndLoginResult;
 import com.gigafix.member.dto.SendOtpReq;
-import com.gigafix.member.dto.UpdateAvatarReq;
 import com.gigafix.member.dto.UpdateMemberInfoReq;
 import com.gigafix.member.security.MemberUserDetails;
 import com.gigafix.member.service.CaptchaService;
@@ -40,6 +47,7 @@ public class MemberController {
 	private final MemberService memberService;
 	private final MailSenderService mailSenderService;
 	private final CaptchaService captchaService;
+	private final Cloudinary cloudinary;
 
 	@PostMapping("/register") // 註冊,因為不是只資源操作，而是還有包含驗證所以不適用restful原則
 	public ResponseEntity<LoginResp> register(@Valid @RequestBody RegisterReq registerReq) throws Exception {
@@ -106,10 +114,18 @@ public class MemberController {
 	}
 
 	@PatchMapping("/me/profileImage")
-	public ResponseEntity<MemberInfoResp> updateProfileImage(@Valid @RequestBody UpdateAvatarReq updateAvatarReq,
-			Authentication authentication) {
+	public ResponseEntity<MemberInfoResp> updateProfileImage(@RequestParam("file") MultipartFile file,
+			Authentication authentication) throws IOException {
+		byte[] bytes = file.getBytes();
+		// 進來的檔案要做格式驗證為圖檔(不檢查副檔名，而是檢查magic munber)
+		if (!isValidImage(bytes)) {// 不是PNG或JPG就拋錯
+			throw new InvalidImageFormatException();// 415
+		}
 		MemberUserDetails memberDetails = SecurityUtils.getCurrentMember(authentication);
-		MemberInfoResp memberInfo = memberService.updateAvatar(updateAvatarReq, memberDetails.getId());
+		// 參數一檔案，參數二上傳選項(可以設定上傳的資料夾、檔名等等
+		Map result = cloudinary.uploader().upload(bytes, ObjectUtils.asMap("folder", "gigafix/avatars"));
+		String profileImageUrl = (String) result.get("secure_url");
+		MemberInfoResp memberInfo = memberService.updateAvatar(profileImageUrl, memberDetails.getId());
 		return ResponseEntity.ok(memberInfo); // 200
 	}
 
@@ -131,4 +147,25 @@ public class MemberController {
 				.body(registerResult.loginResp()); // 201
 	}
 
+	private static boolean isValidImage(byte[] bytes) {
+		if (bytes.length < 12) {
+			return false;
+		}
+		// jpg的檔案特徵碼(magic number)→FF D8 FF
+		if ((bytes[0] & 0xFF) == 0xFF && (bytes[2] & 0xFF) == 0xFF && (bytes[1] & 0xFF) == 0xD8) {
+			// 因為java的byte是有號整數，圖片資料的byte如果超過64第八位會是1的話，在java中會是負數
+			/*
+			 * 所以必須用位元運算子&把把位數之前的1都去掉(0xFF是16進位FF=255也就是1111
+			 * 1111，運算原本的byte就算第八位之後有1也會被去掉)和轉型(變成int的32位元)
+			 */
+			return true;
+		}
+		// pen的檔案特徵碼→89 50 4E 47 0D 0A 1A 0A
+		if ((bytes[0] & 0xFF) == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47 && bytes[4] == 0x0D
+				&& bytes[5] == 0x0A && bytes[6] == 0x1A && bytes[7] == 0x0A) {
+			return true;
+		}
+
+		return false;
+	}
 }

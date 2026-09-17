@@ -52,6 +52,7 @@ const router = createRouter({
           path: "member-center",//不要加/,/是根網址
           name: "member-center",
           component: () => import("@/layouts/MemberCenterLayout.vue"),
+          redirect: { name: "MemberInfo" }, //直接進/member-center時預設導向會員資料頁，不然RouterView會是空的
           children: [
             ...memberInfoMembercenter,
             ...cartMembercenter,
