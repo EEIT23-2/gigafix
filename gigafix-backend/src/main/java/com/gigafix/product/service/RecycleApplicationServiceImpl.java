@@ -374,9 +374,11 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
 
         LocalDateTime completedTime = LocalDateTime.now();
         Product inventoryProduct = buildInventoryProduct(applyForm, completedTime);
-        productDao.save(inventoryProduct);
+        Product savedInventoryProduct = productDao.save(inventoryProduct);
 
         // 庫存新增成功後才更新回收單狀態，兩者由同一個交易一併提交或回滾。
+        // 關聯由後端自動建立，不接受 RecycleRequest 傳入商品 ID。
+        applyForm.setProduct(savedInventoryProduct);
         applyForm.setRecycleStatus(RecycleStatus.COMPLETED);
         applyForm.setLastModifiedTime(completedTime);
         RecycleApplication completedApplication = recycleApplicationDao.save(applyForm);

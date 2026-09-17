@@ -9,7 +9,9 @@ import com.gigafix.product.constant.ProductSaleStatus;
 import com.gigafix.product.dto.ProductQueryParams;
 import com.gigafix.product.dto.ProductRequest;
 import com.gigafix.product.entity.Product;
+import com.gigafix.product.entity.RecycleApplication;
 import com.gigafix.product.repository.ProductDao;
+import com.gigafix.product.repository.RecycleApplicationDao;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.domain.Page;
@@ -38,6 +40,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -49,6 +53,8 @@ public class ProductServiceImpl implements ProductService   {
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     @Autowired
     private ProductDao productDao;
+    @Autowired
+    private RecycleApplicationDao recycleApplicationDao;
     @Autowired //注入jackson 反序列化需要的介面
     private ObjectMapper objectMapper;
     @Autowired //注入改匯率工具
@@ -69,6 +75,7 @@ public class ProductServiceImpl implements ProductService   {
         String sortParam = Utils.blankToNull(productQueryParams.getSort());
         Integer minPrice = productQueryParams.getMinPrice();
         Integer maxPrice = productQueryParams.getMaxPrice();
+        Long recycleApplyId = productQueryParams.getRecycleApplyId();
         Integer limit = productQueryParams.getLimit();
         Integer offset = productQueryParams.getOffset();
 
@@ -95,28 +102,59 @@ public class ProductServiceImpl implements ProductService   {
         //結合為Pageable物件  參數為 頁數 ,pagesize, 排序
         Pageable pageable = PageRequest.of(page,limit,sort);
         //封裝商品列表
-        Page<Product> productList = productDao.findByConditions(category,saleStatus,search,modelName,color,storage,minPrice,maxPrice,pageable);
+        Page<Product> productList = productDao.findByConditions(
+                category, saleStatus, search, modelName, color, storage,
+                recycleApplyId, minPrice, maxPrice, pageable
+        );
+
+        // 批次取得本頁商品的來源回收單，避免逐筆查詢造成 N+1 問題。
+        List<Long> productIds = new ArrayList<>();
+        for (Product product : productList.getContent()) {
+            productIds.add(product.getProductId());
+        }
+
+        Map<Long, Long> recycleApplyIds = new HashMap<>();
+        if (!productIds.isEmpty()) {
+            List<RecycleApplication> sourceApplications =
+                    recycleApplicationDao.findAllByProductIdIn(productIds);
+            for (RecycleApplication application : sourceApplications) {
+                recycleApplyIds.put(
+                        application.getProduct().getProductId(),
+                        application.getApplyId()
+                );
+            }
+        }
         //呼叫api獲取最新匯率
         Map<String, Double> rates = exchangeRateUtils.getLatestRatesFromTWD();
         //以下兩段為防段往機制  三元運算設定預設安全匯率
         final double usdRate = (rates != null) ? rates.getOrDefault("USD", 0.031) : 0.031;
         final double jpyRate = (rates != null) ? rates.getOrDefault("JPY", 4.65) : 4.65;
-        //使用 page.map() 為分頁的48筆商品注入外幣價格
-        return productList.map(product -> {
+        // 直接更新本頁 Entity 的 transient 顯示欄位，避免使用 lambda 轉換整個 Page。
+        for (Product product : productList.getContent()) {
             if (product.getPrice() != null) {
                 product.setPriceUSD(product.getPrice() * usdRate);
                 product.setPriceJPY(product.getPrice() * jpyRate);
             }
-            return product;
-            //這邊的lambda是 org.springframework.core.convert.converter.Converter<S, T>
-            //S為傳入,T為傳出 把一個只有台幣價格的商品，轉換成一個擁有美金、日幣價格的商品
-        });
+            product.setRecycleApplyId(recycleApplyIds.get(product.getProductId()));
+        }
+        return productList;
     }
 
     //實作以id查詢商品
     @Override
     public Product getProductById(Long productId) {
-        return productDao.findById(productId).orElse(null);
+        Product product = productDao.findById(productId).orElse(null);
+        if (product == null) {
+            return null;
+        }
+
+        // recycleApplyId 是 API 顯示欄位，來源仍以回收單表的關聯為準。
+        Optional<RecycleApplication> sourceApplication =
+                recycleApplicationDao.findByProduct_ProductId(productId);
+        if (sourceApplication.isPresent()) {
+            product.setRecycleApplyId(sourceApplication.get().getApplyId());
+        }
+        return product;
     }
 
     //實作新增商品
@@ -207,12 +245,14 @@ public class ProductServiceImpl implements ProductService   {
     //實作刪除單筆商品
     @Override
     public void deleteProductById(Long productId) {
+        recycleApplicationDao.clearProductReference(productId);
         productDao.deleteById(productId);
 
     }
     //實作刪除所有商品
     @Override
     public void deleteAllProducts() {
+        recycleApplicationDao.clearAllProductReferences();
         productDao.deleteAll();
     }
 

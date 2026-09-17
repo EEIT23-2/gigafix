@@ -1,6 +1,7 @@
 package com.gigafix.product.entity;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.gigafix.member.entity.Member;
 
@@ -30,6 +31,12 @@ public class RecycleApplication {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "member_id")
 	private Member member; // 申請會員 ID
+
+	// 完成回收時保存系統建立的商品；外鍵位於回收單，不修改 products 表。
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "product_id")
+	@JsonIgnore
+	private Product product;
 	@Column(name ="product_name" ,nullable = false)
 	private String productName;  //手機名稱 型號等
 	@Enumerated(EnumType.ORDINAL)

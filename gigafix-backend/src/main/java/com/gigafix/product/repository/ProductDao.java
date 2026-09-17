@@ -16,21 +16,35 @@ import java.util.List;
 public interface ProductDao extends JpaRepository<Product,Long> {
 
     //用JPQL實作條件查詢
-    @Query("SELECT p FROM Product p WHERE " +
+    @Query(value = "SELECT DISTINCT p FROM Product p " +
+            "LEFT JOIN RecycleApplication r ON r.product = p WHERE " +
             "(:category IS NULL OR p.category = :category) AND " +
             "(:saleStatus IS NULL OR p.saleStatus = :saleStatus)AND " +
             "(:search IS NULL OR p.productName LIKE %:search%) AND "+
             "(:modelName IS NULL OR p.productName LIKE %:modelName%) AND " +
             "(:color IS NULL OR p.productName LIKE %:color%) AND " +
             "(:storage IS NULL OR p.productName LIKE %:storage%) AND " +
+            "(:recycleApplyId IS NULL OR r.applyId = :recycleApplyId) AND " +
             "(:minPrice IS NULL OR p.price >= :minPrice) AND " + // 💡 新增最低價判斷
-            "(:maxPrice IS NULL OR p.price <= :maxPrice)")
+            "(:maxPrice IS NULL OR p.price <= :maxPrice)",
+            countQuery = "SELECT COUNT(DISTINCT p) FROM Product p " +
+                    "LEFT JOIN RecycleApplication r ON r.product = p WHERE " +
+                    "(:category IS NULL OR p.category = :category) AND " +
+                    "(:saleStatus IS NULL OR p.saleStatus = :saleStatus) AND " +
+                    "(:search IS NULL OR p.productName LIKE %:search%) AND " +
+                    "(:modelName IS NULL OR p.productName LIKE %:modelName%) AND " +
+                    "(:color IS NULL OR p.productName LIKE %:color%) AND " +
+                    "(:storage IS NULL OR p.productName LIKE %:storage%) AND " +
+                    "(:recycleApplyId IS NULL OR r.applyId = :recycleApplyId) AND " +
+                    "(:minPrice IS NULL OR p.price >= :minPrice) AND " +
+                    "(:maxPrice IS NULL OR p.price <= :maxPrice)")
     Page<Product> findByConditions(@Param("category") ProductCategory category,
                                    @Param("saleStatus") ProductSaleStatus saleStatus,
                                    @Param("search") String search,
                                    @Param("modelName") String modelName,
                                    @Param("color") String color,
                                    @Param("storage") String storage,
+                                   @Param("recycleApplyId") Long recycleApplyId,
                                    @Param("minPrice") Integer minPrice,
                                    @Param("maxPrice") Integer maxPrice,
                                    Pageable page); //新增分頁功能

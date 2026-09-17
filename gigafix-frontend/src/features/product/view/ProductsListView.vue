@@ -27,6 +27,7 @@ const {
   keyword,
   category,
   saleStatus,
+  recycleApplyId,
   modelName,
   color,
   storage,
@@ -61,6 +62,7 @@ const hasActiveFilters = computed(() =>
     keyword.value ||
     category.value ||
     saleStatus.value ||
+    recycleApplyId.value ||
     modelName.value ||
     color.value ||
     storage.value ||
@@ -126,6 +128,7 @@ function buildQueryParams(targetPage) {
     ...(keyword.value && { search: keyword.value }),
     ...(category.value && { category: category.value }),
     ...(saleStatus.value && { saleStatus: saleStatus.value }),
+    ...(recycleApplyId.value && { recycleApplyId: recycleApplyId.value }),
     ...(modelName.value && { modelName: modelName.value }),
     ...(color.value && { color: color.value }),
     ...(storage.value && { storage: storage.value }),
@@ -138,6 +141,11 @@ function buildQueryParams(targetPage) {
 }
 
 async function fetchProducts(targetPage = 0) {
+  if (recycleApplyId.value && !/^[1-9]\d*$/.test(recycleApplyId.value)) {
+    errorMessage.value = "回收單 ID 必須是正整數";
+    return;
+  }
+
   if (
     minPrice.value != null &&
     maxPrice.value != null &&
@@ -199,6 +207,7 @@ function clearAllFilters() {
   keyword.value = "";
   category.value = "";
   saleStatus.value = "";
+  recycleApplyId.value = "";
   modelName.value = "";
   color.value = "";
   storage.value = "";
@@ -495,6 +504,15 @@ onMounted(() => fetchProducts(page.value));
             class="form-control search-input"
             type="search"
             placeholder="搜尋商品名稱、型號..."
+            @keyup.enter="fetchProducts(0)"
+          />
+          <input
+            v-model.trim="recycleApplyId"
+            class="form-control recycle-id-input"
+            type="text"
+            inputmode="numeric"
+            placeholder="搜尋來源回收單 ID"
+            aria-label="搜尋來源回收單 ID"
             @keyup.enter="fetchProducts(0)"
           />
           <select
@@ -809,6 +827,9 @@ main {
 .search-input {
   flex: 1 1 320px;
 }
+.recycle-id-input {
+  flex: 0 1 210px;
+}
 .filter-select {
   max-width: 190px;
 }
@@ -859,7 +880,8 @@ main {
 @media (max-width: 767.98px) {
   .filter-select,
   .page-size-select,
-  .price-range {
+  .price-range,
+  .recycle-id-input {
     max-width: none;
   }
 }

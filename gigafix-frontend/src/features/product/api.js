@@ -28,7 +28,7 @@ const createMultipartBody = (partName, payload, imageFile) => {
  * 查詢商品列表。
  *
  * params 可以包含：
- * category、saleStatus、search、modelName、color、storage、
+ * category、saleStatus、search、recycleApplyId、modelName、color、storage、
  * orderBy、sort、minPrice、maxPrice、limit、offset。
  *
  * 對應：
