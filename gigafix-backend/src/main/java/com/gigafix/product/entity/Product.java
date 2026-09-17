@@ -56,6 +56,10 @@ public class Product {
     @Transient
     private Double priceJPY;
 
+    // 僅供商品 API 回傳來源回收單 ID，不會在 products 表建立欄位。
+    @Transient
+    private Long recycleApplyId;
+
 //	//關聯的外建FK,資料型別待組員建立後更改
 //	@OneToOne(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
 //    @JoinColumn(name = "invoice_id")

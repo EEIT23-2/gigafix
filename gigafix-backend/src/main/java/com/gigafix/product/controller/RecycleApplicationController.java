@@ -53,6 +53,24 @@ public class RecycleApplicationController {
                 .body(jsonBytes);
     }
 
+    // 將全部回收單匯出為 Excel (.xlsx) 檔。
+    @GetMapping("/api/admin/recycle-applications/export/excel")
+    public ResponseEntity<byte[]> exportApplyFormsExcel() throws IOException {
+        byte[] excelBytes = recycleApplicationService.exportApplyFormsExcel();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(
+                HttpHeaders.CONTENT_DISPOSITION,
+                "attachment; filename=recycle-applications.xlsx"
+        );
+        headers.add(
+                HttpHeaders.CONTENT_TYPE,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        );
+
+        return ResponseEntity.ok().headers(headers).body(excelBytes);
+    }
+
     //Id搜尋單筆回收單的路由controller
     @GetMapping("/api/admin/recycle-applications/{applyId}")
     public ResponseEntity<RecycleResponse> getApplyFormById(@PathVariable Long applyId){

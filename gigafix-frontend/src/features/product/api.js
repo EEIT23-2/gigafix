@@ -28,7 +28,7 @@ const createMultipartBody = (partName, payload, imageFile) => {
  * 查詢商品列表。
  *
  * params 可以包含：
- * category、saleStatus、search、modelName、color、storage、
+ * category、saleStatus、search、recycleApplyId、modelName、color、storage、
  * orderBy、sort、minPrice、maxPrice、limit、offset。
  *
  * 對應：
@@ -158,6 +158,14 @@ export const exportProducts = async () => {
     responseType: "blob",
   });
   // 回傳 Blob 給 View 建立下載連結。
+  return response.data;
+};
+
+/** 後台將全部商品匯出成 Excel (.xlsx) 檔。 */
+export const exportProductsExcel = async () => {
+  const response = await axios.get(`${ADMIN_PRODUCT_URL}/export/excel`, {
+    responseType: "blob",
+  });
   return response.data;
 };
 
@@ -375,6 +383,16 @@ export const deleteAllRecycleApplications = async () => {
 export const exportRecycleApplications = async () => {
   const response = await axios.get(
     `${ADMIN_RECYCLE_APPLICATION_URL}/export`,
+    { responseType: "blob" },
+  );
+
+  return response.data;
+};
+
+/** 後台將全部回收申請匯出成 Excel (.xlsx) 檔。 */
+export const exportRecycleApplicationsExcel = async () => {
+  const response = await axios.get(
+    `${ADMIN_RECYCLE_APPLICATION_URL}/export/excel`,
     { responseType: "blob" },
   );
 

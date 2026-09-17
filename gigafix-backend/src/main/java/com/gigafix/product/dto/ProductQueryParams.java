@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
     private String color; //顏色查詢
     private String storage; //容量查詢
     private ProductSaleStatus saleStatus; //依販售狀態查詢
+    private Long recycleApplyId; //來源回收單 ID 精確查詢
     //排序條件
     private String orderBy;//依 初始值建立時間排列查詢
     private String sort;//依降冪排列查詢
@@ -122,5 +123,13 @@ import org.springframework.stereotype.Component;
 
     public void setSaleStatus(ProductSaleStatus saleStatus) {
         this.saleStatus = saleStatus;
+    }
+
+    public Long getRecycleApplyId() {
+        return recycleApplyId;
+    }
+
+    public void setRecycleApplyId(Long recycleApplyId) {
+        this.recycleApplyId = recycleApplyId;
     }
 }

@@ -33,6 +33,9 @@ public interface ProductService {
 
     byte[] exportProducts() throws IOException;
 
+    // 輸出商品表 Excel 檔
+    byte[] exportProductsExcel() throws IOException;
+
     //----以下商業邏輯for 訂單同學呼叫改狀態
     //鎖定商品  購買後結帳前呼叫
     void reserveProduct(Long productId);
