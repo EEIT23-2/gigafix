@@ -5,12 +5,7 @@ import {
     getOrder,
     updateOrder as updateOrderApi
 } from '../../api/adminOrderApi'
-import {
-    orderStatusText,
-    paymentStatusText,
-    orderStatusClass,
-    paymentStatusClass
-} from '../../status'
+import OrderStatusBadge from '../../components/OrderStatusBadge.vue'
 
 //******編輯訂單頁面******
 
@@ -142,9 +137,7 @@ const formatPrice = (price) => {
                                 訂單狀態
                             </div>
 
-                            <span class="badge" :class="orderStatusClass(order.orderStatus)">
-                                {{ orderStatusText(order.orderStatus) }}
-                            </span>
+                            <OrderStatusBadge type="order" :value="order.orderStatus" />
                         </div>
 
                         <div class="col-12 col-md-3">
@@ -152,9 +145,7 @@ const formatPrice = (price) => {
                                 付款狀態
                             </div>
 
-                            <span class="badge" :class="paymentStatusClass(order.paymentStatus)">
-                                {{ paymentStatusText(order.paymentStatus) }}
-                            </span>
+                            <OrderStatusBadge type="payment" :value="order.paymentStatus" />
                         </div>
 
                     </div>
