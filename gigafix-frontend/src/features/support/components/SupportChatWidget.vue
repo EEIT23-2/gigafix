@@ -37,6 +37,38 @@ const ERROR_MESSAGES = {
   network: '客服服務暫時連不上，請稍後再試一次。',
 }
 
+// AI 回覆裡用中括號標記的站內頁面名稱 -> 實際路由。白名單機制：只有完全比對到這裡的文字才會變成可點擊連結，
+// 其他中括號文字（包含模型可能亂寫或被誘導寫出的內容）一律當純文字顯示，不會被拿去當連結目標——
+// 連結目的地永遠來自這個寫死的白名單，不會相信模型輸出的任何網址/路徑本身，避免被提示注入導去不該去的地方
+const INTERNAL_LINKS = {
+  '維修手機>預約維修': { name: 'repair-appointment' },
+  '認證二手手機販售': { name: 'mall-list' },
+  '二手機收購/回收': { name: 'recycle-form' },
+}
+
+// 把一則訊息文字拆成「純文字」與「白名單內的站內連結」交錯的片段，給模板用 v-for 渲染
+function parseMessageSegments(content) {
+  const segments = []
+  const pattern = /\[([^[\]]+)\]/g
+  let lastIndex = 0
+  let match
+
+  while ((match = pattern.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({ type: 'text', text: content.slice(lastIndex, match.index) })
+    }
+    const label = match[1]
+    const to = INTERNAL_LINKS[label]
+    segments.push(to ? { type: 'link', text: label, to } : { type: 'text', text: match[0] })
+    lastIndex = pattern.lastIndex
+  }
+
+  if (lastIndex < content.length) {
+    segments.push({ type: 'text', text: content.slice(lastIndex) })
+  }
+  return segments
+}
+
 // 面板打開時鎖住背景捲動，關閉時解鎖，跟 ProductCartDrawer 同一種寫法
 watch(
   () => store.open,
@@ -125,7 +157,20 @@ function handleKeydown(event) {
               class="message-row"
               :class="message.role"
             >
-              <div class="message-bubble">{{ message.content }}</div>
+              <div class="message-bubble">
+                <template v-if="message.role === 'assistant'">
+                  <template v-for="(segment, index) in parseMessageSegments(message.content)" :key="index">
+                    <RouterLink
+                      v-if="segment.type === 'link'"
+                      :to="segment.to"
+                      class="message-link"
+                      @click="store.closePanel()"
+                    >{{ segment.text }}</RouterLink>
+                    <template v-else>{{ segment.text }}</template>
+                  </template>
+                </template>
+                <template v-else>{{ message.content }}</template>
+              </div>
             </div>
 
             <div v-if="store.sending" class="message-row assistant">
@@ -332,6 +377,17 @@ function handleKeydown(event) {
 .message-pending {
   color: #888888;
   font-style: italic;
+}
+
+.message-link {
+  color: #2b77c5;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.message-link:hover,
+.message-link:focus-visible {
+  color: #1e3557;
 }
 
 .error-banner {
