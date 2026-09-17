@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { getArticlesForAdmin, updateArticlePin } from '../../adminApi'
+import { getArticlesForAdmin, seedForumData, updateArticlePin } from '../../adminApi'
 import { ARTICLE_STATUS_MAP } from '../../adminStatusMaps'
 import CategorySelect from '../../components/CategorySelect.vue'
 import ArticleAdminTable from '../../components/admin/ArticleAdminTable.vue'
@@ -29,6 +29,11 @@ const errorMessage = ref('')
 const successMessage = ref('')
 
 const statusOptions = Object.entries(ARTICLE_STATUS_MAP)
+
+const seeding = ref(false)
+// CategorySelect 只在自己 onMounted 抓一次分類，產生展示資料會新增分類，
+// 換掉 key 強制重新掛載，新分類才會出現在篩選下拉選單裡
+const categorySelectKey = ref(0)
 
 const middlePages = computed(() => {
   if (totalPages.value <= 2) return []
@@ -116,6 +121,31 @@ async function handleTogglePin(article) {
   }
 }
 
+// 一鍵產生展示資料：後端把 resources/forum-seed 的文案寫進資料庫，
+// 已經產生過會回 409，這裡把後端的訊息原樣顯示出來
+async function handleSeed() {
+  if (!confirm('確定要產生論壇展示資料嗎？會新增分類、文章、樓層、留言與按讚。')) return
+
+  errorMessage.value = ''
+  successMessage.value = ''
+  seeding.value = true
+  try {
+    const result = await seedForumData()
+    successMessage.value =
+      `已產生展示資料：分類 ${result.categoryCount} 個、文章 ${result.articleCount} 篇、` +
+      `樓層 ${result.floorCount} 層、留言 ${result.commentCount} 則、按讚 ${result.likeCount} 次`
+    categorySelectKey.value += 1
+    await fetchArticles(0)
+  } catch (error) {
+    console.error(error)
+    errorMessage.value = error.response
+      ? error.response.data?.message || `產生失敗：HTTP ${error.response.status}`
+      : '無法連線到後端伺服器'
+  } finally {
+    seeding.value = false
+  }
+}
+
 onMounted(() => fetchArticles(0))
 </script>
 
@@ -127,6 +157,15 @@ onMounted(() => fetchArticles(0))
         <span v-if="activeTab === 'articles'" class="badge rounded-pill text-bg-light border">
           Total: {{ totalElements }}
         </span>
+        <button
+          v-if="activeTab === 'articles'"
+          class="btn btn-outline-secondary btn-sm ms-auto"
+          type="button"
+          :disabled="seeding"
+          @click="handleSeed"
+        >
+          {{ seeding ? '產生中...' : '一鍵產生展示資料' }}
+        </button>
       </header>
 
       <ul class="nav nav-tabs mb-4">
@@ -171,6 +210,7 @@ onMounted(() => fetchArticles(0))
               </option>
             </select>
             <CategorySelect
+              :key="categorySelectKey"
               v-model="categoryId"
               :include-all-option="true"
               @update:model-value="fetchArticles(0)"

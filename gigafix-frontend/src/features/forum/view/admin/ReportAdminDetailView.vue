@@ -547,7 +547,7 @@ onMounted(fetchAll)
   border: 0;
   background: none;
   color: #0d6efd;
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
 }
 
@@ -600,7 +600,7 @@ onMounted(fetchAll)
   background: #f8f9fc;
   border-left: 3px solid #b7b9cc;
   border-radius: 0 4px 4px 0;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.6;
   color: #858796;
 }
@@ -619,7 +619,7 @@ onMounted(fetchAll)
 }
 
 .field-label {
-  font-size: 12px;
+  font-size: 14px;
   color: #858796;
 }
 
@@ -642,7 +642,7 @@ onMounted(fetchAll)
 }
 
 .action-title {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: #5a5c69;
 }
@@ -655,12 +655,12 @@ onMounted(fetchAll)
 }
 
 .text-muted-sm {
-  font-size: 12px;
+  font-size: 14px;
   color: #858796;
 }
 
 .text-faint-sm {
-  font-size: 11px;
+  font-size: 14px;
   color: #b7b9cc;
 }
 
@@ -677,7 +677,7 @@ onMounted(fetchAll)
   padding: 10px 20px;
   background: #fff5f5;
   border-bottom: 1px solid #f5c2c7;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: #dc3545;
 }
@@ -691,7 +691,7 @@ onMounted(fetchAll)
 }
 
 .section-label {
-  font-size: 11px;
+  font-size: 14px;
   letter-spacing: 0.06em;
   font-weight: 700;
   color: #858796;
@@ -702,7 +702,7 @@ onMounted(fetchAll)
   border: 0;
   background: none;
   color: #0d6efd;
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
 }
 
@@ -718,7 +718,7 @@ onMounted(fetchAll)
 }
 
 .article-meta {
-  font-size: 12px;
+  font-size: 14px;
   color: #858796;
 }
 
@@ -727,7 +727,7 @@ onMounted(fetchAll)
   gap: 14px;
   padding-bottom: 4px;
   border-bottom: 1px solid #e8ebf0;
-  font-size: 12px;
+  font-size: 14px;
   color: #858796;
 }
 
@@ -738,6 +738,12 @@ onMounted(fetchAll)
   color: #5a5c69;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* v-html 的子節點吃不到 scoped 樣式，圖片寬度要用 :deep 才限制得住 */
+.article-content :deep(img) {
+  max-width: 100%;
+  height: auto;
 }
 
 /* ── 留言串 ── */
@@ -751,7 +757,7 @@ onMounted(fetchAll)
   background: #f8f9fc;
   border: 1px dashed #d1d3e2;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .thread-toolbar {
@@ -762,7 +768,7 @@ onMounted(fetchAll)
   padding: 12px 20px;
   background: #f8fafc;
   border-bottom: 1px solid #e8ebf0;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .thread {
@@ -801,7 +807,7 @@ onMounted(fetchAll)
 }
 
 .thread-author {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: #5a5c69;
 }
@@ -826,7 +832,7 @@ onMounted(fetchAll)
 .thread-empty {
   padding: 12px 0;
   text-align: center;
-  font-size: 13px;
+  font-size: 14px;
   color: #858796;
 }
 </style>

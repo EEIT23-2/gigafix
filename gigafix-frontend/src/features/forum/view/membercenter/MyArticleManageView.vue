@@ -248,7 +248,7 @@ function goToPublic() {
 }
 
 .category {
-  font-size: 12px;
+  font-size: 14px;
   color: #2b77c5;
 }
 
@@ -257,7 +257,7 @@ function goToPublic() {
   border-radius: 4px;
   background-color: #eef4fb;
   color: #2b77c5;
-  font-size: 11px;
+  font-size: 14px;
 }
 
 .panel-title {
@@ -273,7 +273,7 @@ function goToPublic() {
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
-  font-size: 13px;
+  font-size: 14px;
   color: #888888;
 }
 
@@ -312,7 +312,7 @@ function goToPublic() {
 
 .hint {
   margin: 14px 0 0;
-  font-size: 13px;
+  font-size: 14px;
   color: #888888;
 }
 

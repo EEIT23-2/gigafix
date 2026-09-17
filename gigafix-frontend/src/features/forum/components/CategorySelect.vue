@@ -54,7 +54,7 @@ function handleChange(event) {
 
 .error {
   margin-left: 8px;
-  font-size: 12px;
+  font-size: 14px;
   color: #c0392b;
 }
 </style>

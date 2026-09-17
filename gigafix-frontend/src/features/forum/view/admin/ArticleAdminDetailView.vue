@@ -55,7 +55,10 @@ async function handleStatusSubmit() {
   errorMessage.value = ''
   successMessage.value = ''
   try {
-    await updateArticleStatus(articleId, { status: targetStatus.value, isPinned: targetPinned.value })
+    await updateArticleStatus(articleId, {
+      status: targetStatus.value,
+      isPinned: article.value?.parentArticleId == null ? targetPinned.value : null,
+    })
     successMessage.value = '狀態已更新'
     targetStatus.value = ''
     await fetchArticle()
@@ -155,7 +158,7 @@ onMounted(fetchArticle)
                   </option>
                 </select>
               </div>
-              <div class="form-check">
+              <div v-if="article.parentArticleId == null" class="form-check">
                 <input id="target-pinned" v-model="targetPinned" class="form-check-input" type="checkbox" />
                 <label class="form-check-label" for="target-pinned">置頂</label>
               </div>
@@ -186,6 +189,12 @@ onMounted(fetchArticle)
 .content {
   line-height: 1.7;
   white-space: pre-wrap;
+}
+
+/* v-html 的子節點吃不到 scoped 樣式，圖片寬度要用 :deep 才限制得住 */
+.content :deep(img) {
+  max-width: 100%;
+  height: auto;
 }
 .detail-list dt,
 .detail-list dd {

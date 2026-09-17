@@ -306,7 +306,7 @@ async function handleConfirmDelete(category) {
 }
 th {
   white-space: nowrap;
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   letter-spacing: 0.03em;
 }
 td {
