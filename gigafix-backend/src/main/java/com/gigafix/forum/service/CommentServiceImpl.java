@@ -205,6 +205,7 @@ public class CommentServiceImpl implements CommentService {
 				.articleId(comment.getArticle().getArticleId())
 				.authorId(comment.getAuthor().getId())
 				.authorNickName(comment.getAuthor().getNickName())
+				.authorProfileImageUrl(comment.getAuthor().getProfileImageUrl())
 				.content(comment.getContent())
 				.likeCount(comment.getLikeCount())
 				.likedByCurrentMember(likedByCurrentMember)

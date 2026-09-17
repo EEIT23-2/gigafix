@@ -77,7 +77,7 @@ onBeforeUnmount(() => document.removeEventListener('click', handleDocumentClick)
   border: 0;
   background: none;
   color: inherit;
-  font-size: 13px;
+  font-size: 14px;
   text-align: left;
   text-decoration: none;
   white-space: nowrap;

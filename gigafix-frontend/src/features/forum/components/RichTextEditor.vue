@@ -29,6 +29,15 @@ const BACKGROUND_COLORS = [
   '#fce4ec', '#e0f2f1', '#fff0e6', '#e9ecef', '#ffffff',
 ]
 
+// 色票面板沒選過任何顏色時預設顯示這組（黑字白底），「清除」按鈕也是回到這組，
+// 而不是單純移除顏色標記——移除標記後其實是繼承 .tiptap 的 #333333，顏色會比黑色淺
+const DEFAULT_TEXT_COLOR = '#000000'
+const DEFAULT_BACKGROUND_COLOR = '#ffffff'
+
+function pickRandom(array) {
+  return array[Math.floor(Math.random() * array.length)]
+}
+
 const props = defineProps({
   modelValue: { type: String, default: '' },
   placeholder: { type: String, default: '開始撰寫內文...' },
@@ -57,7 +66,10 @@ const editor = useEditor({
     FontSize,
     BackgroundColor,
   ],
-  onUpdate: ({ editor: instance }) => {
+  onUpdate: ({ editor: instance, transaction }) => {
+    if (randomStyleEnabled.value) {
+      applyRandomStyleToInsertedText(transaction, instance)
+    }
     emit('update:modelValue', instance.getHTML())
     syncEditorState()
   },
@@ -127,6 +139,10 @@ function setLink() {
 const currentColor = ref('')
 const currentBackground = ref('')
 
+// 「隨機樣式」核取方塊：勾選後，接下來每次輸入動作打的字都會套用隨機文字顏色/背景色，
+// 只在打字當下生效，不回頭改已經打好的文字；本地狀態，不持久化，每次開編輯器預設關閉
+const randomStyleEnabled = ref(false)
+
 // 字級用「本地 ref + 明確同步」而不是 computed：
 // computed 讀的是 ProseMirror 的內部狀態，Vue 追蹤不到它的變化，不會可靠地重算，
 // 結果是輸入框顯示的值與編輯器實際狀態各走各的（要點兩下才生效就是這樣來的）
@@ -146,16 +162,25 @@ const hasSelection = ref(false)
 // 只在游標收合（沒有選取範圍）時介入；有選取文字時套色是靠點色票，不需要這裡處理
 function syncStickyColor() {
   if (!editor.value) return
+  // IME 組字（例如注音）進行中如果在這裡多丟一個 transaction，會打斷正在進行的組字，
+  // 導致還沒選字完成的符號被強制送出成文字（實測：打「你好」會變成「ㄋ你好」）。
+  // 組字結束後 compositionend 會觸發一次新的 onUpdate，屆時再正常同步即可，這裡先讓組字跑完
+  if (editor.value.view.composing) return
   const { from, to } = editor.value.state.selection
   if (from !== to) return
 
   const attrs = editor.value.getAttributes('textStyle')
-  if (currentColor.value && attrs.color !== currentColor.value) {
-    editor.value.commands.setColor(currentColor.value)
-  }
-  if (currentBackground.value && attrs.backgroundColor !== currentBackground.value) {
-    editor.value.commands.setBackgroundColor(currentBackground.value)
-  }
+  const colorMismatch = currentColor.value && attrs.color !== currentColor.value
+  const backgroundMismatch = currentBackground.value && attrs.backgroundColor !== currentBackground.value
+  if (!colorMismatch && !backgroundMismatch) return
+
+  // 兩個屬性要在同一個 chain 裡一起設定，不能分兩次各自呼叫 setColor/setBackgroundColor——
+  // 游標收合時 setMark 是拿「目前游標位置既有的樣式」跟新屬性合併，分兩次呼叫的話，
+  // 第二次修的那個屬性會拿「第一次剛設完、還沒套用這次屬性」的樣式去合併，等於白修
+  const chain = editor.value.chain()
+  if (currentColor.value) chain.setColor(currentColor.value)
+  if (currentBackground.value) chain.setBackgroundColor(currentBackground.value)
+  chain.run()
 }
 
 function syncEditorState() {
@@ -189,6 +214,10 @@ function resetFontSize() {
 // 對策：面板一打開就先記下當時的選取，套色時強制還原成記下來的範圍，不管當下的選取實際上是什麼
 let savedColorSelection = null
 
+// 套用隨機樣式本身也會觸發一次新的 onUpdate（chain().run() 會 dispatch 一次新 transaction），
+// 用這個旗標擋住那次遞迴呼叫，避免無窮迴圈——HTML 照常 emit、工具列狀態照常同步，只是不會再疊一次隨機樣式
+let applyingRandomStyle = false
+
 function captureColorSelection() {
   if (!editor.value) return
   const { from, to } = editor.value.state.selection
@@ -199,24 +228,42 @@ function restoreColorSelection(chain) {
   return savedColorSelection ? chain.setTextSelection(savedColorSelection) : chain
 }
 
+// 套色時，如果目標範圍是收合的游標（還沒選字，屬於「筆刷」情境，例如換行後先選色再打字），
+// 文字色跟背景色要在同一個 chain 裡一起明確設定——理由跟 syncStickyColor 一樣：
+// 剛換行的空段落通常什麼樣式都沒有，分開呼叫的話，後設的那個屬性會把先設的那個蓋掉。
+// 有實際選取既有文字時就不受影響，只改這次要改的那個屬性，其餘沿用選取範圍原本的樣式
+function applyColorLikeStyle(attribute, value) {
+  const target = savedColorSelection ?? editor.value.state.selection
+  const chain = restoreColorSelection(editor.value.chain().focus())
+  if (target.from === target.to) {
+    if (currentColor.value) chain.setColor(currentColor.value)
+    if (currentBackground.value) chain.setBackgroundColor(currentBackground.value)
+  } else if (attribute === 'color') {
+    chain.setColor(value)
+  } else {
+    chain.setBackgroundColor(value)
+  }
+  chain.run()
+}
+
 function applyColor(value) {
-  restoreColorSelection(editor.value.chain().focus()).setColor(value).run()
   currentColor.value = value
+  applyColorLikeStyle('color', value)
 }
 
 function clearColor() {
-  restoreColorSelection(editor.value.chain().focus()).unsetColor().run()
-  currentColor.value = ''
+  currentColor.value = DEFAULT_TEXT_COLOR
+  applyColorLikeStyle('color', DEFAULT_TEXT_COLOR)
 }
 
 function applyBackground(value) {
-  restoreColorSelection(editor.value.chain().focus()).setBackgroundColor(value).run()
   currentBackground.value = value
+  applyColorLikeStyle('background', value)
 }
 
 function clearBackground() {
-  restoreColorSelection(editor.value.chain().focus()).unsetBackgroundColor().run()
-  currentBackground.value = ''
+  currentBackground.value = DEFAULT_BACKGROUND_COLOR
+  applyColorLikeStyle('background', DEFAULT_BACKGROUND_COLOR)
 }
 
 function addImage() {
@@ -233,6 +280,33 @@ const FORMAT_MARKS = {
   italic: { set: 'setItalic', unset: 'unsetItalic' },
   strike: { set: 'setStrike', unset: 'unsetStrike' },
 }
+
+// 記錄勾選「隨機樣式」當下游標的樣式，取消勾選時要復原成這樣，
+// 否則取消勾選後接著打的字會沿用最後一個字剛好套到的隨機樣式，而不是原本的樣式
+let preRandomStyleFormat = null
+
+watch(randomStyleEnabled, (enabled) => {
+  if (!editor.value) return
+
+  if (enabled) {
+    const attrs = editor.value.getAttributes('textStyle')
+    preRandomStyleFormat = {
+      color: attrs.color ?? null,
+      backgroundColor: attrs.backgroundColor ?? null,
+      fontSize: attrs.fontSize ?? null,
+    }
+    return
+  }
+
+  if (!preRandomStyleFormat) return
+  const format = preRandomStyleFormat
+  const chain = editor.value.chain().focus()
+  format.color ? chain.setColor(format.color) : chain.unsetColor()
+  format.backgroundColor ? chain.setBackgroundColor(format.backgroundColor) : chain.unsetBackgroundColor()
+  format.fontSize ? chain.setFontSize(format.fontSize) : chain.unsetFontSize()
+  chain.run()
+  preRandomStyleFormat = null
+})
 
 const copiedFormat = ref(null)
 
@@ -267,6 +341,53 @@ function applyFormat() {
   })
 
   chain.run()
+}
+
+// 「隨機樣式」核取方塊勾選時，每次輸入動作（英打通常一個字元、中文選字後一整個詞，
+// 連續快速輸入或自動化工具也可能一次送出一整串）結束後呼叫，把剛打進去的每一個字元各自套上
+// 獨立隨機的文字顏色/背景色——同一次輸入動作插入多個字元時，每個字元顏色都要不一樣
+function applyRandomStyleToInsertedText(transaction, instance) {
+  if (applyingRandomStyle || !transaction.docChanged) return
+
+  // 剛打完字游標會收合在插入內容後面；選取狀態的異動（例如刪除選取範圍）不是「打字」，不處理
+  const { from, to } = transaction.selection
+  if (from !== to) return
+
+  // 純文字時 step.slice.content.size 等於這次插入的字數（ProseMirror 標準算法）；
+  // 刪除等異動沒有 slice 或 size 為 0，insertedSize 會是 0，直接略過
+  let insertedSize = 0
+  transaction.steps.forEach((step) => {
+    if (step.slice) insertedSize += step.slice.content.size
+  })
+  if (insertedSize <= 0) return
+
+  const start = to - insertedSize
+
+  // Enter 換行（分段）也會讓 docChanged 為真、insertedSize 算出非 0（段落分割本身佔位），
+  // 但那不是「打字」，沒有插入任何新文字——這時候 start 往前算會跨進「上一段」，
+  // textBetween(start, to) 撈到的其實是換行前那段文字尾端既有的字元，會被誤套上隨機樣式
+  // （實測：文字尾端按 Enter，前一行最後兩個字元會被套色）。用頭尾是否同一段落擋掉這種情況
+  if (transaction.doc.resolve(start).parent !== transaction.doc.resolve(to).parent) return
+
+  // 取出剛插入的純文字，用展開運算子拆成一個個 Unicode 字元（避免 emoji 之類的 surrogate pair
+  // 字元被切成半個，跟 initial() 用的手法一致），逐一各自套用隨機樣式
+  const insertedText = transaction.doc.textBetween(start, to)
+  const characters = [...insertedText]
+  if (characters.length === 0) return
+
+  applyingRandomStyle = true
+  const chain = instance.chain()
+  let cursor = start
+  characters.forEach((char) => {
+    const charEnd = cursor + char.length
+    chain.setTextSelection({ from: cursor, to: charEnd })
+    chain.setColor(pickRandom(TEXT_COLORS))
+    chain.setBackgroundColor(pickRandom(BACKGROUND_COLORS))
+    cursor = charEnd
+  })
+  chain.setTextSelection(to) // 全部套完再把游標收回打字位置後面，不留選取狀態
+  chain.run()
+  applyingRandomStyle = false
 }
 </script>
 
@@ -379,6 +500,7 @@ function applyFormat() {
       <ColorPopover
         :model-value="currentColor"
         :swatches="TEXT_COLORS"
+        :default-color="DEFAULT_TEXT_COLOR"
         title="文字顏色"
         @select="applyColor"
         @clear="clearColor"
@@ -390,6 +512,7 @@ function applyFormat() {
       <ColorPopover
         :model-value="currentBackground"
         :swatches="BACKGROUND_COLORS"
+        :default-color="DEFAULT_BACKGROUND_COLOR"
         title="文字背景"
         @select="applyBackground"
         @clear="clearBackground"
@@ -397,6 +520,11 @@ function applyFormat() {
       >
         <template #icon><i class="bi bi-highlighter"></i></template>
       </ColorPopover>
+
+      <label class="random-style-toggle" title="打字時隨機套用文字顏色與背景色">
+        <input v-model="randomStyleEnabled" type="checkbox">
+        <span>隨機樣式</span>
+      </label>
 
       <span class="divider"></span>
 
@@ -515,6 +643,22 @@ function applyFormat() {
   margin: 0 4px;
 }
 
+.random-style-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 8px;
+  color: #5a5c69;
+  font-size: 14px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.random-style-toggle input {
+  cursor: pointer;
+}
+
 .size-group {
   display: inline-flex;
   align-items: center;
@@ -528,7 +672,7 @@ function applyFormat() {
   border-radius: 4px;
   background: #ffffff;
   color: #5a5c69;
-  font-size: 13px;
+  font-size: 14px;
   padding: 0 2px;
   text-align: center;
 }

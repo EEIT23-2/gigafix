@@ -13,6 +13,18 @@ watch(
     coverFailed.value = false
   },
 )
+
+// 作者頭像也是外部網址，載不到或沒有設定時退回暱稱首字
+const avatarFailed = ref(false)
+watch(
+  () => props.article.authorProfileImageUrl,
+  () => {
+    avatarFailed.value = false
+  },
+)
+function initial(nickName) {
+  return nickName ? [...nickName][0] : '?'
+}
 </script>
 
 <template>
@@ -28,7 +40,19 @@ watch(
       </div>
       <h3 class="title">{{ article.title }}</h3>
       <div class="meta">
-        <span>{{ article.authorNickName }}</span>
+        <span class="meta-author">
+          <span class="avatar avatar-sm">
+            <img
+              v-if="article.authorProfileImageUrl && !avatarFailed"
+              :src="article.authorProfileImageUrl"
+              alt=""
+              class="avatar-img"
+              @error="avatarFailed = true"
+            >
+            <template v-else>{{ initial(article.authorNickName) }}</template>
+          </span>
+          {{ article.authorNickName }}
+        </span>
         <span :title="`瀏覽數: ${article.viewCount}`">👁 {{ article.viewCount }}</span>
         <span :title="`讚數: ${article.likeCount}`">👍 {{ article.likeCount }}</span>
         <span>
@@ -97,14 +121,14 @@ watch(
 }
 
 .category {
-  font-size: 12px;
+  font-size: 14px;
   color: #2b77c5;
 }
 
 .pinned-badge {
   background-color: #e05a2b;
   color: #ffffff;
-  font-size: 11px;
+  font-size: 14px;
   padding: 2px 8px;
   border-radius: 4px;
 }
@@ -122,9 +146,37 @@ watch(
 
 .meta {
   display: flex;
+  align-items: center;
   gap: 14px;
-  font-size: 13px;
+  font-size: 14px;
   color: #888888;
+}
+
+.meta-author {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.avatar-sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background-color: #e5e9f0;
+  color: #1d324b;
+  font-size: 14px;
+  font-weight: 700;
+  overflow: hidden;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 /* 固定 120×120，圖片依原比例縮到框內置中；直向與橫向的留白對稱 */

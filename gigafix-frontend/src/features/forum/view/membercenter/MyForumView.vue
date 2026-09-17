@@ -408,7 +408,12 @@ watch(activeTab, () => {
               @click="goToPublic(article.articleId)"
             >
               <span class="recent-category">{{ article.categoryName }}</span>
-              <span class="recent-name">{{ article.title }}</span>
+              <!-- 被隱藏/下架的文章後端會把 title 遮成 null，直接渲染會是一片空白，
+                   改成顯示後端給的遮蔽原因（寫法比照上面的收藏分頁） -->
+              <span v-if="article.visible" class="recent-name">{{ article.title }}</span>
+              <span v-else class="recent-name recent-name-masked">
+                {{ article.visibilityMessage || '此文章目前無法瀏覽' }}
+              </span>
               <span class="recent-author">{{ article.authorNickName }}</span>
             </div>
 
@@ -456,7 +461,7 @@ watch(activeTab, () => {
 }
 
 .category {
-  font-size: 12px;
+  font-size: 14px;
   color: #2b77c5;
 }
 
@@ -465,7 +470,7 @@ watch(activeTab, () => {
   border-radius: 4px;
   background-color: #eef4fb;
   color: #2b77c5;
-  font-size: 11px;
+  font-size: 14px;
 }
 
 .row-title {
@@ -499,7 +504,7 @@ watch(activeTab, () => {
   display: flex;
   align-items: center;
   gap: 14px;
-  font-size: 13px;
+  font-size: 14px;
   color: #888888;
   min-width: 0;
 }
@@ -521,7 +526,7 @@ watch(activeTab, () => {
   border-radius: 4px;
   background-color: #ffffff;
   color: #555555;
-  font-size: 13px;
+  font-size: 14px;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -562,7 +567,7 @@ watch(activeTab, () => {
 }
 
 .confirm-text {
-  font-size: 13px;
+  font-size: 14px;
   color: #c0392b;
   white-space: nowrap;
 }
@@ -639,7 +644,7 @@ watch(activeTab, () => {
 .recent-category {
   flex-shrink: 0;
   width: 76px;
-  font-size: 12px;
+  font-size: 14px;
   color: #2b77c5;
 }
 
@@ -653,9 +658,15 @@ watch(activeTab, () => {
   white-space: nowrap;
 }
 
+/* 沿用收藏分頁 .row-title-masked 的視覺語彙：遮蔽提示是灰字斜體，跟真正的標題區分開 */
+.recent-name-masked {
+  color: #888888;
+  font-style: italic;
+}
+
 .recent-author {
   flex-shrink: 0;
-  font-size: 13px;
+  font-size: 14px;
   color: #888888;
 }
 </style>

@@ -7,6 +7,9 @@ const props = defineProps({
   modelValue: { type: String, default: '' },
   swatches: { type: Array, default: () => [] },
   title: { type: String, default: '顏色' },
+  // modelValue 還是空字串（沒選過任何顏色）時，觸發鈕的色條要顯示的預設色，
+  // 純粹是顯示用途，不影響 modelValue 本身或有沒有套用顏色
+  defaultColor: { type: String, default: '' },
 })
 
 const emit = defineEmits(['select', 'clear', 'panel-open'])
@@ -67,8 +70,8 @@ function clear() {
   <span ref="rootRef" class="color-popover">
     <button type="button" class="trigger" :title="title" @click="toggle">
       <slot name="icon" />
-      <!-- 目前色值直接顯示在按鈕下緣，不用打開面板也看得到 -->
-      <span class="current-bar" :style="{ background: props.modelValue || 'transparent' }"></span>
+      <!-- 目前色值直接顯示在按鈕下緣，不用打開面板也看得到；還沒選過顏色時退回 defaultColor -->
+      <span class="current-bar" :style="{ background: props.modelValue || props.defaultColor || 'transparent' }"></span>
     </button>
 
     <div v-if="open" class="panel">
@@ -213,7 +216,7 @@ function clear() {
   border-radius: 4px;
   background: #ffffff;
   color: #5a5c69;
-  font-size: 12px;
+  font-size: 14px;
   padding: 4px 0;
   cursor: pointer;
 }

@@ -14,6 +14,7 @@ import {
 import CategorySelect from '../components/CategorySelect.vue'
 import RichTextEditor from '../components/RichTextEditor.vue'
 import { isHtmlEmpty } from '../htmlContent'
+import { DEMO_ARTICLE } from '../demoContent'
 import { useFetchMemberInfoStore } from '@/stores/member'
 import { normalizeTab, backToMemberForum } from '../utils/memberForumNav'
 
@@ -264,6 +265,19 @@ async function handleSubmit() {
   }
 }
 
+// demo/測試用：把示範文章填進表單，只填不送出。
+// 樓層的標題與分類是繼承根文章的（欄位本身就是 disabled），也沒有封面圖，所以只填內文。
+// 分類不用填：建立模式下 handleCategoriesLoaded 已經自動選好第一個分類。
+// 填完之後照常觸發自動存草稿，跟使用者手打的行為一致
+function fillDemoData() {
+  errorMessage.value = ''
+  form.value.content = DEMO_ARTICLE.content
+  if (!isFloor.value) {
+    form.value.title = DEMO_ARTICLE.title
+    form.value.coverImage = DEMO_ARTICLE.coverImage
+  }
+}
+
 // 「查看公開頁面」跟「取消」語意不同，不能共用一支：
 // 前者就是要離開去看前台，後者要回到使用者原本待的地方
 function goToPublicArticle() {
@@ -354,6 +368,13 @@ onBeforeUnmount(() => {
         <span class="status-text">{{ isFloor ? '蓋樓僅提供編輯內文' : '這篇文章目前公開，儲存後改動會立即生效' }}</span>
         <button type="button" class="link-btn" @click="goToPublicArticle">查看公開頁面</button>
         <span class="status-note w-100">注意:若未「儲存變更」離開將會捨棄變更</span>
+      </div>
+
+      <!-- demo/測試用：一鍵把示範內容填進表單，位置與樣式比照專案其他「一鍵輸入資料」按鈕 -->
+      <div class="d-flex justify-content-end mb-2">
+        <button type="button" class="btn btn-outline-secondary btn-sm" @click="fillDemoData">
+          一鍵輸入資料
+        </button>
       </div>
 
       <form class="form-card" @submit.prevent="handleSubmit">
@@ -502,9 +523,10 @@ onBeforeUnmount(() => {
   gap: 18px;
 }
 
-/* 會員中心的其他頁面都是靠左對齊，這裡跟著靠左才不會只有編輯頁往中間跑 */
+/* 會員中心的內容區扣掉右側 260px 側欄後還是很寬，表單本身固定 900px，
+   靠左會在右邊留下一大片空白，所以這裡跟前台一樣置中 */
 .embedded .form-shell {
-  margin: 0;
+  margin: 0 auto;
 }
 
 /* ── 標題列 ── */
@@ -517,7 +539,7 @@ onBeforeUnmount(() => {
 }
 
 .mode-label {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.08em;
   color: #2b77c5;
@@ -550,7 +572,7 @@ onBeforeUnmount(() => {
 .pill {
   padding: 3px 10px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -565,7 +587,7 @@ onBeforeUnmount(() => {
 }
 
 .status-text {
-  font-size: 13px;
+  font-size: 14px;
   color: #888888;
 }
 
@@ -574,7 +596,7 @@ onBeforeUnmount(() => {
 }
 
 .status-note {
-  font-size: 12px;
+  font-size: 14px;
   color: #adb5bd;
 }
 
@@ -587,7 +609,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 14px;
   color: #1e7e34;
 }
 
@@ -604,7 +626,7 @@ onBeforeUnmount(() => {
   border: 0;
   background: none;
   color: #2b77c5;
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
 }
 
@@ -640,24 +662,24 @@ onBeforeUnmount(() => {
 }
 
 .field-label {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: #555555;
 }
 
 .required {
-  font-size: 12px;
+  font-size: 14px;
   color: #c0392b;
 }
 
 .optional {
-  font-size: 12px;
+  font-size: 14px;
   color: #adb5bd;
 }
 
 .counter {
   margin-left: auto;
-  font-size: 12px;
+  font-size: 14px;
   color: #adb5bd;
 }
 
@@ -731,7 +753,7 @@ onBeforeUnmount(() => {
 }
 
 .cover-hint {
-  font-size: 11px;
+  font-size: 14px;
   color: #6c757d;
 }
 
@@ -749,7 +771,7 @@ onBeforeUnmount(() => {
   border: 1px solid #d0d0d0;
   background: #ffffff;
   color: #888888;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1;
   cursor: pointer;
   display: flex;
@@ -782,12 +804,12 @@ onBeforeUnmount(() => {
 }
 
 .action-note {
-  font-size: 12px;
+  font-size: 14px;
   color: #adb5bd;
 }
 
 .blocked-reason {
-  font-size: 12px;
+  font-size: 14px;
   color: #a15c00;
 }
 
@@ -849,6 +871,6 @@ onBeforeUnmount(() => {
 .error {
   margin: 0;
   color: #c0392b;
-  font-size: 13px;
+  font-size: 14px;
 }
 </style>
