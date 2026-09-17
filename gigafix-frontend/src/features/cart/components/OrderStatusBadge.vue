@@ -1,6 +1,15 @@
 <script setup>
 import { computed } from 'vue'
 
+import {
+    orderStatusText,
+    paymentStatusText,
+    shippingStatusText,
+    orderStatusClass,
+    paymentStatusClass,
+    shippingStatusClass
+} from '../status'
+
 const props = defineProps({
     type: {
         type: String,
@@ -13,60 +22,45 @@ const props = defineProps({
 })
 
 const statusConfig = computed(() => {
-    const configs = {
-        order: {
-            PENDING: {
-                text: '待處理',
-                class: 'bg-warning text-dark'
-            },
-            CANCELLED: {
-                text: '已取消',
-                class: 'bg-secondary'
-            },
-            COMPLETED: {
-                text: '已完成',
-                class: 'bg-success'
-            }
-        },
 
-        payment: {
-            UNPAID: {
-                text: '未付款',
-                class: 'bg-danger'
-            },
-            PAID: {
-                text: '已付款',
-                class: 'bg-success'
-            }
-        },
-
-        shipping: {
-            PENDING: {
-                text: '待出貨',
-                class: 'bg-warning text-dark'
-            },
-            SHIPPED: {
-                text: '已出貨',
-                class: 'bg-primary'
-            },
-            DELIVERED: {
-                text: '已送達',
-                class: 'bg-success'
-            }
+    if (props.type === 'order') {
+        return {
+            text: orderStatusText(props.value),
+            class: orderStatusClass(props.value)
         }
     }
 
-    return (
-        configs[props.type]?.[props.value] || {
-            text: props.value,
-            class: 'bg-secondary'
+    if (props.type === 'payment') {
+        return {
+            text: paymentStatusText(props.value),
+            class: paymentStatusClass(props.value)
         }
-    )
+    }
+
+    if (props.type === 'shipping') {
+        return {
+            text: shippingStatusText(props.value),
+            class: shippingStatusClass(props.value)
+        }
+    }
+
+    return {
+        text: props.value,
+        class: 'text-bg-secondary'
+    }
 })
 </script>
 
 <template>
-    <span class="badge" :class="statusConfig.class">
+    <span class="badge order-status-badge" :class="statusConfig.class">
         {{ statusConfig.text }}
     </span>
 </template>
+<style scoped>
+.order-status-badge {
+    font-size: 0.9rem;
+    padding: 0.45rem 0.75rem;
+    font-weight: 600;
+    border-radius: 0.5rem;
+}
+</style>

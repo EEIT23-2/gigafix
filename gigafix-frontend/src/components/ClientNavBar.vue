@@ -1109,7 +1109,7 @@ const goToCart = () => {
 .logo-container {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
   margin: 0;
   flex-shrink: 0;
   text-decoration: none;
@@ -1119,48 +1119,48 @@ const goToCart = () => {
 .logo-mark {
   background-color: #2b77c5;
   color: #ffffff;
-  width: 52px;
-  height: 52px;
+  width: 62px;
+  height: 62px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32px;
+  font-size: 38px;
   font-weight: 900;
   font-style: italic;
 }
 
 .logo-title {
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 800;
   color: #1d324b;
   line-height: 1;
 }
 
 .logo-title span {
-  font-size: 19px;
+  font-size: 21px;
   font-weight: 400;
   color: #7b94ad;
   margin-left: 4px;
 }
 
 .logo-sub {
-  font-size: 13px;
+  font-size: 14px;
   letter-spacing: 3px;
   color: #555555;
   text-align: left;
   margin-top: 5px;
 }
 
-/* 選單清單：透過 margin: 0 auto 自動推到中間 */
+/* 選單清單：緊接在Logo後面固定間距，不要用margin:0 auto置中，避免寬螢幕時跟Logo中間空一大塊 */
 .nav-list {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   list-style: none;
   gap: 26px;
   padding: 0;
-  margin: 0 auto;
+  margin: 0 0 0 56px;
   flex-wrap: nowrap;
 }
 

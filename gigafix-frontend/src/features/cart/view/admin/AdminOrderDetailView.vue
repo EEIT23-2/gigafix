@@ -2,17 +2,11 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { getOrder } from '../../api/adminOrderApi'
+import OrderStatusBadge from '../../components/OrderStatusBadge.vue'
 import {
-    orderStatusText,
-    paymentStatusText,
-    shippingStatusText,
     paymentMethodText,
-    shippingMethodText,
-    orderStatusClass,
-    paymentStatusClass,
-    shippingStatusClass
+    shippingMethodText
 } from '../../status'
-
 //******訂單詳情頁面******
 
 const props = defineProps({
@@ -296,9 +290,7 @@ const usedCoupon = computed(() => {
                                     訂單狀態
                                 </div>
 
-                                <span class="badge" :class="orderStatusClass(order.orderStatus)">
-                                    {{ orderStatusText(order.orderStatus) }}
-                                </span>
+                                <OrderStatusBadge type="order" :value="order.orderStatus" />
                             </div>
 
                             <div class="col-12 col-md-6">
@@ -306,9 +298,7 @@ const usedCoupon = computed(() => {
                                     付款狀態
                                 </div>
 
-                                <span class="badge" :class="paymentStatusClass(order.paymentStatus)">
-                                    {{ paymentStatusText(order.paymentStatus) }}
-                                </span>
+                                <OrderStatusBadge type="payment" :value="order.paymentStatus" />
                             </div>
 
                             <div class="col-12 col-md-6">
@@ -420,9 +410,7 @@ const usedCoupon = computed(() => {
                                     物流狀態
                                 </div>
 
-                                <span class="badge" :class="shippingStatusClass(order.shippingStatus)">
-                                    {{ shippingStatusText(order.shippingStatus) }}
-                                </span>
+                                <OrderStatusBadge type="shipping" :value="order.shippingStatus" />
                             </div>
 
                             <div class="col-12">

@@ -91,9 +91,9 @@ public class MemberService {
 	}
 
 	// 更新使用者頭像
-	public MemberInfoResp updateAvatar(UpdateAvatarReq req, Long id) {
+	public MemberInfoResp updateAvatar(String profileImageUrl, Long id) {
 		Member member = memberRepository.findById(id).orElseThrow(() -> new MemberNotFoundException());
-		member.setProfileImageUrl(req.profileImageUrl());
+		member.setProfileImageUrl(profileImageUrl);
 		return toMemberInfoResp(member);
 	}
 

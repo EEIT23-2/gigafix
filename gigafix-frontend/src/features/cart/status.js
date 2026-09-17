@@ -87,7 +87,7 @@ export const paymentStatusClass = (status) => {
 // 物流狀態樣式
 export const shippingStatusClass = (status) => {
     const classMap = {
-        PENDING: 'text-bg-secondary',
+        PENDING: 'text-bg-warning',
         SHIPPED: 'text-bg-primary',
         DELIVERED: 'text-bg-success',
         CANCELLED: 'text-bg-danger'
