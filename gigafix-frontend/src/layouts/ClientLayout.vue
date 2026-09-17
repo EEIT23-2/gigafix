@@ -15,7 +15,10 @@ import { RouterView } from 'vue-router';
 
     <!-- 共用頁尾 -->
     <footer class="site-footer">
-      <p>© Gigafix 機不可失 - 歡迎聯絡我們以取得您最好的手機</p>
+      <p>
+        © Gigafix 機不可失 - 歡迎聯絡我們以取得您最好的手機 ｜
+        全省門市營業時間 11:00～21:00
+      </p>
     </footer>
   </div>
 </template>
