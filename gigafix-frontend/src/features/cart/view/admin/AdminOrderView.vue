@@ -9,14 +9,7 @@ import {
     deliverOrder as deliverOrderApi,
     cancelOrder as cancelOrderApi
 } from '../../api/adminOrderApi'
-import {
-    orderStatusText,
-    paymentStatusText,
-    shippingStatusText,
-    orderStatusClass,
-    paymentStatusClass,
-    shippingStatusClass
-} from '../../status'
+import OrderStatusBadge from '../../components/OrderStatusBadge.vue'
 
 //******訂單管理頁面******
 
@@ -402,15 +395,11 @@ const formatPrice = (price) => {
                                 </td>
                                 <!-- 訂單狀態 -->
                                 <td>
-                                    <span class="badge" :class="orderStatusClass(order.orderStatus)">
-                                        {{ orderStatusText(order.orderStatus) }}
-                                    </span>
+                                    <OrderStatusBadge type="order" :value="order.orderStatus" />
                                 </td>
                                 <!-- 付款狀態 -->
                                 <td>
-                                    <span class="badge" :class="paymentStatusClass(order.paymentStatus)">
-                                        {{ paymentStatusText(order.paymentStatus) }}
-                                    </span>
+                                    <OrderStatusBadge type="payment" :value="order.paymentStatus" />
                                 </td>
                                 <!-- 收件人 -->
                                 <td>
@@ -418,13 +407,11 @@ const formatPrice = (price) => {
                                 </td>
                                 <!-- 物流狀態 -->
                                 <td>
-                                    <span class="badge" :class="shippingStatusClass(order.shippingStatus)">
-                                        {{ shippingStatusText(order.shippingStatus) }}
-                                    </span>
+                                    <OrderStatusBadge type="shipping" :value="order.shippingStatus" />
                                 </td>
                                 <!-- 操作 -->
                                 <td class="text-end">
-                                    <div class="d-flex justify-content-end flex-wrap gap-1 order-actions">
+                                    <div class="d-flex justify-content-end flex-wrap gap-2 order-actions">
 
                                         <!-- 所有訂單都可查看 -->
                                         <button class="btn btn-sm btn-outline-secondary" type="button"
@@ -457,13 +444,13 @@ const formatPrice = (price) => {
                                             order.paymentStatus === 'PAID' &&
                                             order.shippingStatus === 'PENDING' &&
                                             order.orderStatus !== 'CANCELLED'
-                                        " class="btn btn-sm btn-primary" type="button"
+                                        " class="btn btn-sm btn-outline-primary" type="button"
                                             @click="shipOrder(order.orderId)">
                                             出貨
                                         </button>
 
                                         <!-- 已出貨才可以確認送達 -->
-                                        <button v-if="order.shippingStatus === 'SHIPPED'" class="btn btn-sm btn-success"
+                                        <button v-if="order.shippingStatus === 'SHIPPED'" class="btn btn-sm btn-outline-success"
                                             type="button" @click="deliverOrder(order.orderId)">
                                             確認送達
                                         </button>
@@ -517,7 +504,17 @@ const formatPrice = (price) => {
 }
 
 .order-actions {
-    min-width: 230px;
+    min-width: 250px;
+}
+
+.order-actions .btn {
+    min-width: 78px;
+    min-height: 36px;
+    padding: 0.4rem 0.7rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border-radius: 0.5rem;
+    white-space: nowrap;
 }
 
 .card {
