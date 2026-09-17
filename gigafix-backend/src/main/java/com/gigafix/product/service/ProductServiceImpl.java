@@ -21,12 +21,23 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.IndexedColors;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,6 +45,8 @@ import java.util.Optional;
 @Transactional
 @Service
 public class ProductServiceImpl implements ProductService   {
+    private static final DateTimeFormatter EXCEL_DATE_TIME_FORMAT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     @Autowired
     private ProductDao productDao;
     @Autowired //注入jackson 反序列化需要的介面
@@ -233,6 +246,79 @@ public class ProductServiceImpl implements ProductService   {
                 .writeValueAsBytes(products);
     }
 
+    // 將全部商品轉成 Office Open XML 格式，讓前端可以直接下載 .xlsx 檔。
+    @Override
+    public byte[] exportProductsExcel() throws IOException {
+        List<Product> products = productDao.findAll(Sort.by("createdTime").descending());
+        String[] headers = {
+                "商品 ID", "商品名稱", "類別", "圖片網址", "商品描述", "外觀狀況",
+                "等級", "價格", "販售狀態", "建立時間", "最後修改時間"
+        };
+        int[] columnWidths = {12, 24, 14, 45, 40, 30, 12, 14, 16, 22, 22};
+
+        try (Workbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("商品資料");
+            sheet.createFreezePane(0, 1);
+
+            CellStyle headerStyle = createExcelHeaderStyle(workbook);
+            Row headerRow = sheet.createRow(0);
+            for (int index = 0; index < headers.length; index++) {
+                Cell cell = headerRow.createCell(index);
+                cell.setCellValue(headers[index]);
+                cell.setCellStyle(headerStyle);
+                sheet.setColumnWidth(index, columnWidths[index] * 256);
+            }
+
+            for (int index = 0; index < products.size(); index++) {
+                Product product = products.get(index);
+                Row row = sheet.createRow(index + 1);
+                setNumberCell(row, 0, product.getProductId());
+                setTextCell(row, 1, product.getProductName());
+                setTextCell(row, 2, product.getCategory() == null ? null : product.getCategory().name());
+                setTextCell(row, 3, product.getImageUrl());
+                setTextCell(row, 4, product.getDescription());
+                setTextCell(row, 5, product.getAppearance());
+                setTextCell(row, 6, product.getGrade());
+                setNumberCell(row, 7, product.getPrice());
+                setTextCell(row, 8, product.getSaleStatus() == null ? null : product.getSaleStatus().name());
+                setTextCell(row, 9, formatExcelDateTime(product.getCreatedTime()));
+                setTextCell(row, 10, formatExcelDateTime(product.getLastModifiedTime()));
+            }
+
+            workbook.write(outputStream);
+            return outputStream.toByteArray();
+        }
+    }
+
+    // Excel 標題列使用粗體與底色，方便使用者閱讀欄位。
+    private CellStyle createExcelHeaderStyle(Workbook workbook) {
+        Font font = workbook.createFont();
+        font.setBold(true);
+        font.setColor(IndexedColors.WHITE.getIndex());
+
+        CellStyle style = workbook.createCellStyle();
+        style.setFont(font);
+        style.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        return style;
+    }
+
+    private void setTextCell(Row row, int columnIndex, String value) {
+        row.createCell(columnIndex).setCellValue(value == null ? "" : value);
+    }
+
+    private void setNumberCell(Row row, int columnIndex, Number value) {
+        Cell cell = row.createCell(columnIndex);
+        if (value != null) {
+            cell.setCellValue(value.doubleValue());
+        }
+    }
+
+    private String formatExcelDateTime(LocalDateTime value) {
+        return value == null ? "" : value.format(EXCEL_DATE_TIME_FORMAT);
+    }
+
 
 //以下商業邏輯實作是給 訂單人員呼叫用的
 
@@ -302,4 +388,3 @@ public class ProductServiceImpl implements ProductService   {
 
 
 }
-

@@ -161,6 +161,14 @@ export const exportProducts = async () => {
   return response.data;
 };
 
+/** 後台將全部商品匯出成 Excel (.xlsx) 檔。 */
+export const exportProductsExcel = async () => {
+  const response = await axios.get(`${ADMIN_PRODUCT_URL}/export/excel`, {
+    responseType: "blob",
+  });
+  return response.data;
+};
+
 /**
  * 將商品設為「已保留」。
  *
@@ -375,6 +383,16 @@ export const deleteAllRecycleApplications = async () => {
 export const exportRecycleApplications = async () => {
   const response = await axios.get(
     `${ADMIN_RECYCLE_APPLICATION_URL}/export`,
+    { responseType: "blob" },
+  );
+
+  return response.data;
+};
+
+/** 後台將全部回收申請匯出成 Excel (.xlsx) 檔。 */
+export const exportRecycleApplicationsExcel = async () => {
+  const response = await axios.get(
+    `${ADMIN_RECYCLE_APPLICATION_URL}/export/excel`,
     { responseType: "blob" },
   );
 

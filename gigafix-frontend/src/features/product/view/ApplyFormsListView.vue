@@ -6,6 +6,7 @@ import {
   deleteAllRecycleApplications,
   deleteRecycleApplication,
   exportRecycleApplications,
+  exportRecycleApplicationsExcel,
   getRecycleApplications,
 } from "../api";
 import ApplyFormTable from "../components/ApplyFormTable.vue";
@@ -35,6 +36,7 @@ const loading = ref(false);
 const deletingId = ref(null);
 const deletingAll = ref(false);
 const exporting = ref(false);
+const exportingExcel = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
 const showDeleteConfirm = ref(false);
@@ -341,6 +343,41 @@ async function handleExport() {
   }
 }
 
+// 下載後端產生的 Office Open XML 回收單報表。
+async function handleExcelExport() {
+  exportingExcel.value = true;
+  errorMessage.value = "";
+  successMessage.value = "";
+
+  try {
+    const blobData = await exportRecycleApplicationsExcel();
+    const blob =
+      blobData instanceof Blob
+        ? blobData
+        : new Blob([blobData], {
+            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          });
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = downloadUrl;
+    link.download = `recycle-applications-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(downloadUrl);
+
+    successMessage.value = "回收申請 Excel 已成功匯出";
+  } catch (error) {
+    console.error(error);
+    errorMessage.value = error.response
+      ? `Excel 匯出失敗（HTTP ${error.response.status}）`
+      : "無法連線至伺服器";
+  } finally {
+    exportingExcel.value = false;
+  }
+}
+
 // 使用 Pinia 中保留的頁碼及篩選條件重新查詢。
 onMounted(() => fetchApplications(page.value));
 </script>
@@ -376,7 +413,7 @@ onMounted(() => fetchApplications(page.value));
           <button
             type="button"
             class="btn btn-outline-secondary"
-            :disabled="exporting || deletingAll"
+            :disabled="exporting || exportingExcel || deletingAll"
             @click="handleExport"
           >
             <span
@@ -390,8 +427,25 @@ onMounted(() => fetchApplications(page.value));
 
           <button
             type="button"
+            class="btn btn-outline-success"
+            :disabled="exporting || exportingExcel || deletingAll"
+            @click="handleExcelExport"
+          >
+            <span
+              v-if="exportingExcel"
+              class="spinner-border spinner-border-sm me-1"
+              aria-hidden="true"
+            ></span>
+            <i v-else class="bi bi-file-earmark-excel me-1" aria-hidden="true"></i>
+            {{ exportingExcel ? "匯出中..." : "匯出 Excel" }}
+          </button>
+
+          <button
+            type="button"
             class="btn btn-outline-danger"
-            :disabled="deletingAll || exporting || totalElements === 0"
+            :disabled="
+              deletingAll || exporting || exportingExcel || totalElements === 0
+            "
             @click="openDeleteAllConfirm"
           >
             <span

@@ -7,6 +7,7 @@ import {
   deleteAllProducts,
   deleteProduct,
   exportProducts,
+  exportProductsExcel,
   getAdminProducts,
   importProducts,
 } from "../api";
@@ -44,6 +45,7 @@ const deletingAll = ref(false);
 const showDeleteAllConfirm = ref(false);
 const importing = ref(false);
 const exporting = ref(false);
+const exportingExcel = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
 const showAdvancedFilter = ref(false);
@@ -318,6 +320,41 @@ async function handleExport() {
   }
 }
 
+// 下載後端產生的 Office Open XML 商品報表。
+async function handleExcelExport() {
+  exportingExcel.value = true;
+  errorMessage.value = "";
+  successMessage.value = "";
+
+  try {
+    const blobData = await exportProductsExcel();
+    const blob =
+      blobData instanceof Blob
+        ? blobData
+        : new Blob([blobData], {
+            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          });
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = downloadUrl;
+    link.download = `products-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(downloadUrl);
+
+    successMessage.value = "商品 Excel 已成功匯出";
+  } catch (error) {
+    console.error(error);
+    errorMessage.value = error.response
+      ? `Excel 匯出失敗：HTTP ${error.response.status}`
+      : "無法連線到後端伺服器";
+  } finally {
+    exportingExcel.value = false;
+  }
+}
+
 // 第一次點擊只顯示警告，不會立刻刪除資料。
 function openDeleteAllConfirm() {
   errorMessage.value = "";
@@ -388,7 +425,7 @@ onMounted(() => fetchProducts(page.value));
           <button
             class="btn btn-outline-secondary"
             type="button"
-            :disabled="importing || exporting"
+            :disabled="importing || exporting || exportingExcel"
             @click="handleImport"
           >
             <span
@@ -402,7 +439,7 @@ onMounted(() => fetchProducts(page.value));
           <button
             class="btn btn-outline-secondary"
             type="button"
-            :disabled="importing || exporting"
+            :disabled="importing || exporting || exportingExcel"
             @click="handleExport"
           >
             <span
@@ -414,10 +451,29 @@ onMounted(() => fetchProducts(page.value));
           </button>
 
           <button
+            class="btn btn-outline-success"
+            type="button"
+            :disabled="importing || exporting || exportingExcel"
+            @click="handleExcelExport"
+          >
+            <span
+              v-if="exportingExcel"
+              class="spinner-border spinner-border-sm me-1"
+              aria-hidden="true"
+            ></span>
+            <i v-else class="bi bi-file-earmark-excel me-1" aria-hidden="true"></i>
+            {{ exportingExcel ? "匯出中..." : "匯出 Excel" }}
+          </button>
+
+          <button
             class="btn btn-outline-danger"
             type="button"
             :disabled="
-              importing || exporting || deletingAll || totalElements === 0
+              importing ||
+              exporting ||
+              exportingExcel ||
+              deletingAll ||
+              totalElements === 0
             "
             @click="openDeleteAllConfirm"
           >
