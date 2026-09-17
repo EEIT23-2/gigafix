@@ -19,18 +19,17 @@ import CommentSection from '../components/CommentSection.vue'
 import MoreActionsMenu from '../components/MoreActionsMenu.vue'
 import { sanitizeHtml, isHtmlEmpty } from '../htmlContent'
 import RichTextEditor from '../components/RichTextEditor.vue'
+import ReportForm from '../components/ReportForm.vue'
 import ForumLoginModal from '../components/ForumLoginModal.vue'
 import { useForumLoginModalStore } from '../store/loginModal'
 import { pushRecentViewed } from '../utils/recentViewed'
+import { DEMO_FLOOR } from '../demoContent'
 import { TAB_LABELS, normalizeTab, backToMemberForum, fromMemberForum } from '../utils/memberForumNav'
 
 const route = useRoute()
 const router = useRouter()
 const loginModalStore = useForumLoginModalStore()
 const { memberInfo } = storeToRefs(useFetchMemberInfoStore())
-
-// 對齊後端 CreateReportRequest 的 @Size(max = 250)，欄位是 NVARCHAR(250)，250 是字元數
-const REPORT_MAX_LENGTH = 250
 
 const article = ref(null)
 const loading = ref(true)
@@ -61,8 +60,8 @@ const expandedFloors = ref({})
 
 // 一次只展開一份檢舉表單。null = 沒展開；有值 = 正在檢舉哪一篇
 // （樓層本身也是一筆 article，所以主文章跟樓層可以共用同一組狀態與同一支 reportArticle API）
+// 檢舉原因由 ReportForm 自己持有，送出時才交給 handleReportSubmit
 const reportingArticleId = ref(null)
-const reportReason = ref('')
 const reportSubmitting = ref(false)
 const reportErrorMessage = ref('')
 const reportSuccessMessage = ref('')
@@ -89,10 +88,17 @@ const floorLocked = computed(
   () => article.value?.status === 'CLOSED' || article.value?.status === 'FORCE_CLOSED',
 )
 
-// 沒有頭像欄位，用暱稱首字當頭像。用展開運算子取字，避免 emoji 之類的字元被切成半個
+// 有頭像網址時優先顯示真實頭像，沒有欄位或圖片載入失敗才退回暱稱首字。用展開運算子取字，避免 emoji 之類的字元被切成半個
 function initial(nickName) {
   return nickName ? [...nickName][0] : '?'
 }
+
+// 文章上方作者列跟右側作者卡顯示的是同一位作者、同一張圖，共用同一個失敗狀態即可
+const articleAuthorAvatarError = ref(false)
+// 樓層各自的作者不同，要用 articleId 當 key 讓每個樓層的失敗狀態互不影響
+const floorAvatarErrors = ref({})
+// 蓋樓撰寫框裡「我」的頭像圖片載入失敗時的 fallback 狀態
+const myFloorAvatarError = ref(false)
 
 function formatDateTime(value) {
   if (!value) return ''
@@ -104,16 +110,6 @@ function formatDateTime(value) {
     minute: '2-digit',
     hour12: false,
   })
-}
-
-function autoResize(event) {
-  const el = event.target
-  // 先歸零才量得到內容真正需要的高度；height:auto 時 rows 屬性會決定最小高度，
-  // 所以蓋樓框（rows=3）打第一個字時不會被縮成一行
-  el.style.height = 'auto'
-  // scrollHeight 不含 border，box-sizing: border-box 下直接套用會每次少掉 border 那幾 px
-  const borderHeight = el.offsetHeight - el.clientHeight
-  el.style.height = `${el.scrollHeight + borderHeight}px`
 }
 
 async function load() {
@@ -258,6 +254,13 @@ async function handleCreateFloor() {
   }
 }
 
+// demo/測試用：把示範內容填進蓋樓框，只填不送出。
+// RichTextEditor 有 watch modelValue，直接指派 floorContent 編輯器畫面就會跟著更新
+function fillDemoFloor() {
+  floorErrorMessage.value = ''
+  floorContent.value = DEMO_FLOOR
+}
+
 // 樓層可否編輯：與後端 updateFloor 的守衛一對一（隱藏／強制隱藏都還能編輯，只有關閉/下架不行）。
 // 刻意不用 floor.visible——被管理員隱藏（FORCE_HIDDEN）的樓層，作者本人拿到的 visible 仍是 true，
 // 用它當條件等於任何狀態都能編輯，繞過了 EDIT_BLOCKED_STATUSES 這道實際的限制
@@ -312,12 +315,11 @@ function toggleReportForm(targetId) {
   reportSuccessMessage.value = ''
   reportSuccessTargetId.value = null
   reportErrorMessage.value = ''
-  reportReason.value = ''
   reportingArticleId.value = reportingArticleId.value === targetId ? null : targetId
 }
 
-async function handleReportSubmit(targetId) {
-  if (!reportReason.value.trim()) return
+async function handleReportSubmit(targetId, reason) {
+  if (!reason.trim()) return
   if (!memberInfo.value) {
     loginModalStore.open(route.fullPath)
     return
@@ -325,9 +327,8 @@ async function handleReportSubmit(targetId) {
   reportSubmitting.value = true
   reportErrorMessage.value = ''
   try {
-    await reportArticle(targetId, reportReason.value)
+    await reportArticle(targetId, reason)
     reportingArticleId.value = null
-    reportReason.value = ''
     reportSuccessMessage.value = '已送出檢舉'
     reportSuccessTargetId.value = targetId
   } catch (error) {
@@ -445,7 +446,16 @@ async function handleDeleteFloor(floorId) {
 
                   <div class="meta-row">
                     <span class="meta-author">
-                      <span class="avatar avatar-sm">{{ initial(article.authorNickName) }}</span>
+                      <span class="avatar avatar-sm">
+                        <img
+                          v-if="article.authorProfileImageUrl && !articleAuthorAvatarError"
+                          :src="article.authorProfileImageUrl"
+                          alt=""
+                          class="avatar-img"
+                          @error="articleAuthorAvatarError = true"
+                        >
+                        <template v-else>{{ initial(article.authorNickName) }}</template>
+                      </span>
                       <span class="author-name">{{ article.authorNickName }}</span>
                     </span>
                     <span class="meta-item">
@@ -485,29 +495,13 @@ async function handleDeleteFloor(floorId) {
                   </button>
                 </div>
 
-                <form
+                <ReportForm
                   v-if="reportingArticleId === article.articleId"
-                  class="report-form"
-                  @submit.prevent="handleReportSubmit(article.articleId)"
-                >
-                  <textarea
-                    v-model="reportReason"
-                    rows="1"
-                    :maxlength="REPORT_MAX_LENGTH"
-                    placeholder="請輸入檢舉原因..."
-                    @input="autoResize"
-                  />
-                  <div class="form-footer">
-                    <span class="char-count">{{ reportReason.length }}/{{ REPORT_MAX_LENGTH }}</span>
-                    <button type="button" class="cancel" @click="toggleReportForm(article.articleId)">
-                      取消
-                    </button>
-                    <button type="submit" :disabled="reportSubmitting">
-                      {{ reportSubmitting ? '送出中...' : '送出' }}
-                    </button>
-                  </div>
-                  <p v-if="reportErrorMessage" class="error">{{ reportErrorMessage }}</p>
-                </form>
+                  :submitting="reportSubmitting"
+                  :error-message="reportErrorMessage"
+                  @submit="handleReportSubmit(article.articleId, $event)"
+                  @cancel="toggleReportForm(article.articleId)"
+                />
                 <p v-if="reportSuccessTargetId === article.articleId" class="report-success">
                   {{ reportSuccessMessage }}
                 </p>
@@ -537,6 +531,16 @@ async function handleDeleteFloor(floorId) {
               >
                 <div class="floor-head">
                   <span class="floor-badge">{{ floor.floorNumber }}樓</span>
+                  <span class="avatar avatar-sm">
+                    <img
+                      v-if="floor.authorProfileImageUrl && !floorAvatarErrors[floor.articleId]"
+                      :src="floor.authorProfileImageUrl"
+                      alt=""
+                      class="avatar-img"
+                      @error="floorAvatarErrors[floor.articleId] = true"
+                    >
+                    <template v-else>{{ initial(floor.authorNickName) }}</template>
+                  </span>
                   <span class="author-name">{{ floor.authorNickName }}</span>
                   <span class="floor-time">{{ formatDateTime(floor.articleCreatedTime) }}</span>
                   <!-- articleEditedTime 只在 updateFloor 真的存新內文時才會寫入，狀態變更/刪除不會動到它。
@@ -625,29 +629,13 @@ async function handleDeleteFloor(floorId) {
                       </button>
                     </div>
 
-                    <form
+                    <ReportForm
                       v-if="reportingArticleId === floor.articleId"
-                      class="report-form"
-                      @submit.prevent="handleReportSubmit(floor.articleId)"
-                    >
-                      <textarea
-                        v-model="reportReason"
-                        rows="1"
-                        :maxlength="REPORT_MAX_LENGTH"
-                        placeholder="請輸入檢舉原因..."
-                        @input="autoResize"
-                      />
-                      <div class="form-footer">
-                        <span class="char-count">{{ reportReason.length }}/{{ REPORT_MAX_LENGTH }}</span>
-                        <button type="button" class="cancel" @click="toggleReportForm(floor.articleId)">
-                          取消
-                        </button>
-                        <button type="submit" :disabled="reportSubmitting">
-                          {{ reportSubmitting ? '送出中...' : '送出' }}
-                        </button>
-                      </div>
-                      <p v-if="reportErrorMessage" class="error">{{ reportErrorMessage }}</p>
-                    </form>
+                      :submitting="reportSubmitting"
+                      :error-message="reportErrorMessage"
+                      @submit="handleReportSubmit(floor.articleId, $event)"
+                      @cancel="toggleReportForm(floor.articleId)"
+                    />
                     <p v-if="reportSuccessTargetId === floor.articleId" class="report-success">
                       {{ reportSuccessMessage }}
                     </p>
@@ -669,10 +657,23 @@ async function handleDeleteFloor(floorId) {
                   <i class="bi bi-lock"></i>蓋樓功能已關閉
                 </p>
                 <form v-else class="floor-form" @submit.prevent="handleCreateFloor">
-                  <span class="avatar avatar-md">{{ initial('我') }}</span>
+                  <span class="avatar avatar-md">
+                    <img
+                      v-if="memberInfo?.profileImageUrl && !myFloorAvatarError"
+                      :src="memberInfo.profileImageUrl"
+                      alt=""
+                      class="avatar-img"
+                      @error="myFloorAvatarError = true"
+                    >
+                    <template v-else>我</template>
+                  </span>
                   <div class="floor-form-main">
                     <RichTextEditor v-model="floorContent" placeholder="回覆這篇文章（蓋樓）..." />
                     <div class="form-footer">
+                      <!-- demo/測試用：一鍵填入示範回覆，只填不送出 -->
+                      <button type="button" class="btn btn-outline-secondary btn-sm" @click="fillDemoFloor">
+                        一鍵輸入資料
+                      </button>
                       <button type="submit" class="submit-btn" :disabled="floorSubmitting">
                         {{ floorSubmitting ? '送出中...' : '送出' }}
                       </button>
@@ -686,7 +687,16 @@ async function handleDeleteFloor(floorId) {
             <!-- ──────── 側欄 ──────── -->
             <div class="col-lg-4">
               <section class="card author-card">
-                <span class="avatar avatar-lg">{{ initial(article.authorNickName) }}</span>
+                <span class="avatar avatar-lg">
+                  <img
+                    v-if="article.authorProfileImageUrl && !articleAuthorAvatarError"
+                    :src="article.authorProfileImageUrl"
+                    alt=""
+                    class="avatar-img"
+                    @error="articleAuthorAvatarError = true"
+                  >
+                  <template v-else>{{ initial(article.authorNickName) }}</template>
+                </span>
                 <span class="author-card-name">{{ article.authorNickName }}</span>
                 <!-- TODO: 後端還沒有「作者文章數」端點，也還沒有作者文章列表頁可以連，
                      等這兩件事補上再把篇數與連結接上，先不顯示假資料 -->
@@ -749,18 +759,25 @@ async function handleDeleteFloor(floorId) {
   background-color: #e5e9f0;
   color: #1d324b;
   font-weight: 700;
+  overflow: hidden;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .avatar-sm {
   width: 26px;
   height: 26px;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .avatar-md {
   width: 34px;
   height: 34px;
-  font-size: 13px;
+  font-size: 14px;
   background-color: #2b77c5;
   color: #ffffff;
 }
@@ -780,7 +797,7 @@ async function handleDeleteFloor(floorId) {
   border-radius: 0.375rem;
   background-color: #ffffff;
   color: #6c757d;
-  font-size: 12px;
+  font-size: 14px;
   cursor: pointer;
 }
 
@@ -867,7 +884,7 @@ async function handleDeleteFloor(floorId) {
   gap: 4px;
   padding: 0.35em 0.65em;
   border-radius: 50rem;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -896,7 +913,7 @@ async function handleDeleteFloor(floorId) {
   gap: 16px;
   padding-bottom: 20px;
   border-bottom: 1px solid #eaeaea;
-  font-size: 13px;
+  font-size: 14px;
   color: #888888;
 }
 
@@ -934,6 +951,14 @@ async function handleDeleteFloor(floorId) {
   line-height: 1.8;
   color: #333333;
   white-space: pre-wrap;
+  overflow-wrap: anywhere; /* 內文貼了超長網址時不要把卡片推寬 */
+}
+
+/* 內文是 v-html 塞進來的，scoped 樣式碰不到它的子節點，圖片要用 :deep 才管得到；
+   沒有這條的話，編輯器插入的原尺寸大圖會直接撐破文章卡片 */
+.op-content :deep(img) {
+  max-width: 100%;
+  height: auto;
 }
 
 .op-actions {
@@ -986,12 +1011,12 @@ async function handleDeleteFloor(floorId) {
   padding: 12px 20px;
   background-color: #f8fafc;
   border-bottom: 1px solid #e5e9f0;
-  font-size: 12px;
+  font-size: 14px;
   color: #888888;
 }
 
 .floor-head .author-name {
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .floor-badge {
@@ -999,7 +1024,7 @@ async function handleDeleteFloor(floorId) {
   border-radius: 50rem;
   background-color: #2b77c5;
   color: #ffffff;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -1016,6 +1041,12 @@ async function handleDeleteFloor(floorId) {
   line-height: 1.75;
   color: #333333;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.floor-content :deep(img) {
+  max-width: 100%;
+  height: auto;
 }
 
 /* 被隱藏/下架的樓層，沿用留言遮蔽的視覺語彙（灰底虛線） */
@@ -1026,7 +1057,7 @@ async function handleDeleteFloor(floorId) {
   border: 1px dashed #cccccc;
   border-radius: 0.375rem;
   color: #888888;
-  font-size: 13px;
+  font-size: 14px;
   text-align: center;
 }
 
@@ -1041,7 +1072,7 @@ async function handleDeleteFloor(floorId) {
   border: 1px solid #ffe69c;
   border-radius: 0.375rem;
   color: #664d03;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 /* 原地編輯：排法比照蓋樓輸入的 .floor-form-main。
@@ -1117,6 +1148,12 @@ async function handleDeleteFloor(floorId) {
 .floor-form .form-footer {
   display: flex;
   justify-content: flex-end;
+  /* demo 用的一鍵輸入按鈕靠左，送出仍然靠右 */
+  gap: 8px;
+}
+
+.floor-form .form-footer .btn-outline-secondary {
+  margin-right: auto;
 }
 
 .submit-btn {
@@ -1145,7 +1182,7 @@ async function handleDeleteFloor(floorId) {
   border: 1px solid #e9ecef;
   border-radius: 0.375rem;
   color: #6c757d;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 /* ── 側欄作者卡 ── */
@@ -1163,76 +1200,21 @@ async function handleDeleteFloor(floorId) {
   color: #1d324b;
 }
 
-/* ── 檢舉表單（沿用既有視覺語彙） ── */
+/* ── 檢舉表單 ── */
+/* 表單本身的外觀在 ReportForm.vue；這裡只管它在文章卡片、樓層裡的留白
+   （scoped 樣式選得到子元件的根節點，不需要 :deep） */
 .report-form {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
   margin: 0 24px 16px;
-  padding: 8px;
-  background-color: #fffaf0;
-  border: 1px solid #e8d3a0;
-  border-radius: 0.375rem;
 }
 
 .floor-body .report-form {
   margin: 0;
 }
 
-.report-form textarea {
-  padding: 8px;
-  border: 1px solid #d0d0d0;
-  border-radius: 0.375rem;
-  font-family: inherit;
-  resize: none;
-  overflow: hidden;
-}
-
-.report-form .form-footer {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 8px;
-}
-
-.char-count {
-  font-size: 12px;
-  color: #999999;
-}
-
-/* footer 已經是 flex-end + gap，字數靠 margin-right:auto 吃掉剩餘空間推到最左邊 */
-.report-form .char-count {
-  margin-right: auto;
-}
-
-.report-form .cancel {
-  padding: 4px 12px;
-  font-size: 13px;
-  background: none;
-  border: 1px solid #d0d0d0;
-  border-radius: 0.375rem;
-  cursor: pointer;
-}
-
-.report-form button[type='submit'] {
-  padding: 4px 12px;
-  font-size: 13px;
-  background-color: #2b77c5;
-  color: #ffffff;
-  border: none;
-  border-radius: 0.375rem;
-  cursor: pointer;
-}
-
-.report-form button[type='submit']:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
 .report-success {
   margin: 0 24px 16px;
   color: #1e7e34;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .floor-body .report-success {
@@ -1242,6 +1224,6 @@ async function handleDeleteFloor(floorId) {
 .error {
   margin: 0;
   color: #c0392b;
-  font-size: 13px;
+  font-size: 14px;
 }
 </style>

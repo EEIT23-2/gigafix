@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 import com.gigafix.admin.dto.AdminCreateReq;
 import com.gigafix.admin.dto.AdminInfoDto;
+import com.gigafix.admin.dto.AdminListItemDto;
 import com.gigafix.admin.dto.DeleteAdminReq;
 import com.gigafix.admin.dto.ResetPasswordReq;
 import com.gigafix.admin.dto.SuperAdminSetupReq;
@@ -49,7 +50,7 @@ public class AdminAccountController {
 
 	@GetMapping
 	@PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN')")
-	public ResponseEntity<List<AdminInfoDto>> getAll() {
+	public ResponseEntity<List<AdminListItemDto>> getAll() {
 		return ResponseEntity.ok(accountService.getAllAccounts()); // 200
 	}
 

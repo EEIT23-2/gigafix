@@ -66,6 +66,10 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
 	// 蓋樓時計算「目前已有幾樓」用
 	long countByParentArticle_ArticleId(Long parentArticleId);
 
+	// 展示資料的重複執行檢查：同標題的根文章是否已存在
+	// 限定 parent_article_id IS NULL，否則會連「根標題(2樓)」這種樓層一起比對到
+	boolean existsByTitleAndParentArticleIsNull(String title);
+
 	// 瀏覽數 +1：故意不走 entity 的 setter + save，因為那會觸發 @PreUpdate，
 	// 讓 article_updated_time 變成「最後被瀏覽的時間」而不是「最後被編輯的時間」
 	@Modifying(clearAutomatically = true, flushAutomatically = true)

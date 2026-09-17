@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, onMounted, computed } from 'vue'
+import { ref, watch, onMounted, computed, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import {
@@ -11,8 +11,10 @@ import {
   reportComment,
 } from '../api'
 import MoreActionsMenu from './MoreActionsMenu.vue'
+import ReportForm from './ReportForm.vue'
 import { useForumLoginModalStore } from '../store/loginModal'
 import { useFetchMemberInfoStore } from '@/stores/member'
+import { DEMO_COMMENT } from '../demoContent'
 
 const route = useRoute()
 const loginModalStore = useForumLoginModalStore()
@@ -28,7 +30,6 @@ const props = defineProps({
 const emit = defineEmits(['count-change'])
 
 const MAX_LENGTH = 1000
-const REPORT_MAX_LENGTH = 250
 
 const comments = ref([])
 const newContent = ref('')
@@ -40,20 +41,33 @@ const textareaRef = ref(null)
 // 系統隱藏的留言暫時被使用者點開過（只存在這次瀏覽，重新整理會恢復遮蔽）
 const revealed = ref({})
 
+// 留言頭像圖片載入失敗（網址失效）時記錄下來改用暱稱首字當 fallback；用 commentId 當 key 讓每則留言的失敗狀態互不影響
+const avatarErrors = ref({})
+
+// 撰寫框裡「我」的頭像圖片載入失敗時的 fallback 狀態
+const myAvatarError = ref(false)
+
 // 檢舉表單：同時間只會展開一則留言的檢舉表單
+// 檢舉原因由 ReportForm 自己持有，送出時才交給 handleReportSubmit
 const reportingCommentId = ref(null)
-const reportReason = ref('')
 const reportSubmitting = ref(false)
 const reportErrorMessage = ref('')
 const reportSuccessMessage = ref('')
+// 記住成功訊息屬於哪一則，訊息才能貼在那則留言下方（跟文章、樓層的檢舉一致）
+const reportSuccessTargetId = ref(null)
 
 // 只有發布中才能留言（後端 CommentServiceImpl.createComment 的規則），非發布中一律預先鎖住輸入框，
 // 不用等使用者送出才發現失敗——涵蓋 CLOSED/FORCE_CLOSED，也涵蓋 HIDDEN/FORCE_HIDDEN/TAKEN_DOWN/DRAFT
 const locked = computed(() => props.status !== 'PUBLISHED')
 
-// 沒有頭像欄位，用暱稱首字當頭像。用展開運算子取字，避免 emoji 之類的字元被切成半個
+// 有頭像網址時優先顯示真實頭像，沒有欄位或圖片載入失敗才退回暱稱首字。用展開運算子取字，避免 emoji 之類的字元被切成半個
 function initial(nickName) {
   return nickName ? [...nickName][0] : '?'
+}
+
+// 系統隱藏且尚未被點開的留言，維持原本的「?」遮蔽，不論有沒有真實頭像
+function isMasked(comment) {
+  return comment.status === 'HIDDEN' && !revealed.value[comment.commentId]
 }
 
 function formatDateTime(value) {
@@ -75,10 +89,24 @@ watch(newContent, (value) => {
   }
 })
 
-function autoResize(event) {
-  const el = event.target
+function resizeTextarea(el) {
+  if (!el) return
+  // 先歸零才量得到內容真正需要的高度
   el.style.height = 'auto'
   el.style.height = `${el.scrollHeight}px`
+}
+
+function autoResize(event) {
+  resizeTextarea(event.target)
+}
+
+// demo/測試用：把示範留言填進輸入框，只填不送出。
+// 程式設值不會觸發 @input，所以要自己撐高 textarea，否則文字會被壓在 rows="1" 的高度裡
+async function fillDemoComment() {
+  errorMessage.value = ''
+  newContent.value = DEMO_COMMENT
+  await nextTick()
+  resizeTextarea(textareaRef.value)
 }
 
 function resetTextareaHeight() {
@@ -153,13 +181,13 @@ async function handleLike(comment) {
 
 function toggleReportForm(commentId) {
   reportSuccessMessage.value = ''
+  reportSuccessTargetId.value = null
   reportErrorMessage.value = ''
   reportingCommentId.value = reportingCommentId.value === commentId ? null : commentId
-  reportReason.value = ''
 }
 
-async function handleReportSubmit(commentId) {
-  if (!reportReason.value.trim()) return
+async function handleReportSubmit(commentId, reason) {
+  if (!reason.trim()) return
   if (!memberInfo.value) {
     loginModalStore.open(route.fullPath)
     return
@@ -167,10 +195,10 @@ async function handleReportSubmit(commentId) {
   reportSubmitting.value = true
   reportErrorMessage.value = ''
   try {
-    await reportComment(commentId, reportReason.value)
+    await reportComment(commentId, reason)
     reportingCommentId.value = null
-    reportReason.value = ''
     reportSuccessMessage.value = '已送出檢舉'
+    reportSuccessTargetId.value = commentId
   } catch (error) {
     // 兩種錯誤格式都要接：@Valid 失敗是 { errors: [...] }，
     // 後端商業規則（重複檢舉、檢舉自己的留言）走 ForumExceptionHandler，回的是 { errorCode, message }
@@ -188,8 +216,15 @@ async function handleReportSubmit(commentId) {
     <p v-if="loadError" class="error">{{ loadError }}</p>
     <ul v-else class="comment-list">
       <li v-for="comment in comments" :key="comment.commentId" class="comment-item">
-        <span class="avatar" :class="{ 'avatar-masked': comment.status === 'HIDDEN' && !revealed[comment.commentId] }">
-          {{ comment.status === 'HIDDEN' && !revealed[comment.commentId] ? '?' : initial(comment.authorNickName) }}
+        <span class="avatar" :class="{ 'avatar-masked': isMasked(comment) }">
+          <img
+            v-if="!isMasked(comment) && comment.authorProfileImageUrl && !avatarErrors[comment.commentId]"
+            :src="comment.authorProfileImageUrl"
+            alt=""
+            class="avatar-img"
+            @error="avatarErrors[comment.commentId] = true"
+          >
+          <template v-else>{{ isMasked(comment) ? '?' : initial(comment.authorNickName) }}</template>
         </span>
         <div class="comment-main">
           <div class="comment-header">
@@ -232,41 +267,38 @@ async function handleReportSubmit(commentId) {
                 </template>
               </MoreActionsMenu>
             </div>
-            <form
+            <ReportForm
               v-if="reportingCommentId === comment.commentId"
-              class="report-form"
-              @submit.prevent="handleReportSubmit(comment.commentId)"
-            >
-              <textarea
-                v-model="reportReason"
-                rows="1"
-                :maxlength="REPORT_MAX_LENGTH"
-                placeholder="請輸入檢舉原因..."
-                @input="autoResize"
-              />
-              <div class="form-footer">
-                <span class="char-count">{{ reportReason.length }}/{{ REPORT_MAX_LENGTH }}</span>
-                <button type="button" class="cancel" @click="toggleReportForm(comment.commentId)">取消</button>
-                <button type="submit" :disabled="reportSubmitting">
-                  {{ reportSubmitting ? '送出中...' : '送出檢舉' }}
-                </button>
-              </div>
-              <p v-if="reportErrorMessage" class="error">{{ reportErrorMessage }}</p>
-            </form>
+              :submitting="reportSubmitting"
+              :error-message="reportErrorMessage"
+              @submit="handleReportSubmit(comment.commentId, $event)"
+              @cancel="toggleReportForm(comment.commentId)"
+            />
+            <!-- 成功訊息貼在被檢舉的那則留言下方，跟文章、樓層的檢舉一致 -->
+            <p v-if="reportSuccessTargetId === comment.commentId" class="report-success">
+              {{ reportSuccessMessage }}
+            </p>
           </template>
         </div>
       </li>
       <li v-if="comments.length === 0" class="empty">還沒有留言，來搶頭香吧！</li>
     </ul>
 
-    <p v-if="reportSuccessMessage" class="report-success">{{ reportSuccessMessage }}</p>
-
     <p v-if="locked" class="locked-message">
       <i class="bi bi-lock"></i>目前無法留言
     </p>
     <!-- 撰寫框放在留言列表下方 -->
     <form v-else class="comment-form" @submit.prevent="handleSubmit">
-      <span class="avatar avatar-me">我</span>
+      <span class="avatar avatar-me">
+        <img
+          v-if="memberInfo?.profileImageUrl && !myAvatarError"
+          :src="memberInfo.profileImageUrl"
+          alt=""
+          class="avatar-img"
+          @error="myAvatarError = true"
+        >
+        <template v-else>我</template>
+      </span>
       <div class="comment-form-main">
         <textarea
           ref="textareaRef"
@@ -277,8 +309,14 @@ async function handleReportSubmit(commentId) {
           @input="autoResize"
         />
         <div class="form-footer">
-          <span class="char-count">{{ newContent.length }}/{{ MAX_LENGTH }}</span>
-          <button type="submit" class="submit-btn" :disabled="submitting">送出</button>
+          <!-- demo/測試用：一鍵填入示範留言，只填不送出 -->
+          <button type="button" class="btn btn-outline-secondary btn-sm" @click="fillDemoComment">
+            一鍵輸入資料
+          </button>
+          <div class="footer-actions">
+            <span class="char-count">{{ newContent.length }}/{{ MAX_LENGTH }}</span>
+            <button type="submit" class="submit-btn" :disabled="submitting">送出</button>
+          </div>
         </div>
         <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
       </div>
@@ -316,8 +354,15 @@ async function handleReportSubmit(commentId) {
   border-radius: 50%;
   background-color: #e5e9f0;
   color: #1d324b;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
+  overflow: hidden;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .avatar-masked {
@@ -342,7 +387,7 @@ async function handleReportSubmit(commentId) {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 12px;
+  font-size: 14px;
   color: #888888;
 }
 
@@ -375,7 +420,7 @@ async function handleReportSubmit(commentId) {
   border-radius: 0.375rem;
   background-color: #ffffff;
   color: #6c757d;
-  font-size: 12px;
+  font-size: 14px;
   cursor: pointer;
 }
 
@@ -398,7 +443,7 @@ async function handleReportSubmit(commentId) {
   border: 1px dashed #cccccc;
   border-radius: 0.375rem;
   color: #888888;
-  font-size: 13px;
+  font-size: 14px;
   text-align: center;
   cursor: pointer;
 }
@@ -412,7 +457,7 @@ async function handleReportSubmit(commentId) {
   border-top: 1px solid #eef1f5;
   color: #999999;
   text-align: center;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 /* ── 撰寫框：列表下方 ── */
@@ -431,8 +476,7 @@ async function handleReportSubmit(commentId) {
   min-width: 0;
 }
 
-.comment-form textarea,
-.report-form textarea {
+.comment-form textarea {
   padding: 10px 12px;
   border: 1px solid #dee2e6;
   border-radius: 0.375rem;
@@ -448,8 +492,15 @@ async function handleReportSubmit(commentId) {
   align-items: center;
 }
 
+/* 字數與送出維持原本靠右並排；左邊留給 demo 用的一鍵輸入按鈕 */
+.footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .char-count {
-  font-size: 12px;
+  font-size: 14px;
   color: #999999;
 }
 
@@ -477,66 +528,27 @@ async function handleReportSubmit(commentId) {
   padding: 16px 24px;
   border-top: 1px solid #eef1f5;
   color: #6c757d;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 /* ── 檢舉表單 ── */
+/* 表單本身的外觀在 ReportForm.vue；這裡只管它與上方動作列的間距
+   （scoped 樣式選得到子元件的根節點，不需要 :deep） */
 .report-form {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
   margin-top: 6px;
-  padding: 8px;
-  background-color: #fffaf0;
-  border: 1px solid #e8d3a0;
-  border-radius: 0.375rem;
 }
 
-/* .form-footer 是留言表單與檢舉表單共用的 space-between；檢舉表單多了字數會變成三個子元素，
-   space-between 會把「取消」推到正中間，所以這裡改成靠右排列，字數用 margin-right:auto 推到左邊 */
-.report-form .form-footer {
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.report-form .char-count {
-  margin-right: auto;
-}
-
-.report-form .cancel {
-  padding: 4px 12px;
-  font-size: 13px;
-  background: none;
-  border: 1px solid #d0d0d0;
-  border-radius: 0.375rem;
-  cursor: pointer;
-}
-
-.report-form button[type='submit'] {
-  padding: 4px 12px;
-  font-size: 13px;
-  background-color: #2b77c5;
-  color: #ffffff;
-  border: none;
-  border-radius: 0.375rem;
-  cursor: pointer;
-}
-
-.report-form button[type='submit']:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
+/* 成功訊息現在貼在該則留言底下（在 .comment-main 內），不再是列表底部的整列提示，
+   所以不需要原本對齊卡片左右內距的 padding */
 .report-success {
-  margin: 0;
-  padding: 8px 24px 0;
+  margin: 6px 0 0;
   color: #1e7e34;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .error {
   margin: 0;
   color: #c0392b;
-  font-size: 13px;
+  font-size: 14px;
 }
 </style>

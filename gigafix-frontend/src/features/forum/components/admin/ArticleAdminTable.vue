@@ -50,6 +50,7 @@ function parentArticleLabel(article) {
           </td>
           <td>
             <button
+              v-if="article.parentArticleId == null"
               class="btn btn-sm pin-button"
               :class="article.isPinned ? 'btn-warning' : 'btn-outline-secondary'"
               type="button"
@@ -58,6 +59,7 @@ function parentArticleLabel(article) {
             >
               {{ article.isPinned ? '📌 已置頂' : '設為置頂' }}
             </button>
+            <span v-else class="text-secondary">—</span>
           </td>
           <td class="text-end font-monospace">
             {{ article.viewCount }} / {{ article.likeCount }} / {{ article.commentCount }}
@@ -100,7 +102,7 @@ function parentArticleLabel(article) {
 }
 th {
   white-space: nowrap;
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   letter-spacing: 0.03em;
 }
 td {

@@ -19,6 +19,7 @@ public class ArticleResponse {
 	private String categoryName; // 分類名稱
 	private Long authorId; // 作者會員 ID
 	private String authorNickName; // 作者暱稱
+	private String authorProfileImageUrl; // 作者頭像網址
 	private String title; // 標題
 	private String content; // 內文
 	private Integer viewCount; // 瀏覽數

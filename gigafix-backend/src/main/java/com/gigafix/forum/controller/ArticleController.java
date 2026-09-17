@@ -192,8 +192,8 @@ public class ArticleController {
 	// ---------------後台管理功能----------------------
 
 	// 後台文章列表，不受狀態限制
-	// TODO: 角色系統做好後要加 moderator/admin 權限檢查，目前任何呼叫者都可以執行
-	@GetMapping("/api/admin/articles")
+	// 權限：路徑收在 /api/admin/forum/** 底下，由 SecurityConfig 要求 ROLE_FORUM_ADMIN
+	@GetMapping("/api/admin/forum/articles")
 	public ResponseEntity<Page<ArticleResponse>> getArticlesForAdmin(
 			@RequestParam(required = false) Article.ArticleStatus status,
 			@RequestParam(required = false) Integer categoryId,
@@ -209,8 +209,8 @@ public class ArticleController {
 	}
 
 	// 後台文章詳情，不受狀態限制
-	// TODO: 角色系統做好後要加 moderator/admin 權限檢查，目前任何呼叫者都可以執行
-	@GetMapping("/api/admin/articles/{articleId}")
+	// 權限：路徑收在 /api/admin/forum/** 底下，由 SecurityConfig 要求 ROLE_FORUM_ADMIN
+	@GetMapping("/api/admin/forum/articles/{articleId}")
 	public ResponseEntity<ArticleResponse> getArticleForAdmin(@PathVariable Long articleId) {
 
 		ArticleResponse response = articleService.getArticleForAdmin(articleId);
@@ -219,8 +219,8 @@ public class ArticleController {
 	}
 
 	// 審核／下架／強制處分
-	// TODO: 角色系統做好後要加 moderator/admin 權限檢查，目前任何呼叫者都可以執行
-	@PatchMapping("/api/admin/articles/{articleId}/status")
+	// 權限：路徑收在 /api/admin/forum/** 底下，由 SecurityConfig 要求 ROLE_FORUM_ADMIN
+	@PatchMapping("/api/admin/forum/articles/{articleId}/status")
 	public ResponseEntity<ArticleResponse> updateArticleStatus(
 			@PathVariable Long articleId,
 			@Valid @RequestBody UpdateArticleStatusRequest request) {
@@ -231,8 +231,8 @@ public class ArticleController {
 	}
 
 	// 置頂／取消置頂
-	// TODO: 角色系統做好後要加 moderator/admin 權限檢查，目前任何呼叫者都可以執行
-	@PatchMapping("/api/admin/articles/{articleId}/pin")
+	// 權限：路徑收在 /api/admin/forum/** 底下，由 SecurityConfig 要求 ROLE_FORUM_ADMIN
+	@PatchMapping("/api/admin/forum/articles/{articleId}/pin")
 	public ResponseEntity<ArticleResponse> updateArticlePin(
 			@PathVariable Long articleId,
 			@Valid @RequestBody UpdatePinRequest request) {
