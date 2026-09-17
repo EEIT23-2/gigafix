@@ -28,7 +28,7 @@ public class RepairEcpayPaymentController {
 	 * 客戶啟動綠界信用卡付款。
 	 * Backend 產生 HTML Form，Browser 再自動 POST 到 ECPay Stage。
 	 */
-	@GetMapping(value = "/api/repairs/{id}/ecpay-payment", produces = MediaType.TEXT_HTML_VALUE)
+	@GetMapping(value = "/api/gigafix/repairs/{id}/ecpay-payment", produces = MediaType.TEXT_HTML_VALUE)
 	public ResponseEntity<String> startEcpayPayment(@PathVariable Long id, Authentication authentication) {
 		Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
 		String html = repairEcpayPaymentService.buildPaymentHtml(memberId, id);

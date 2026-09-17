@@ -1,8 +1,10 @@
 import axios from "axios";
 
-const REPAIRS_URL = "/api/repairs";
-const TECHNICIANS_URL = "/api/repairtechnicians";
-const STORES_URL = "/api/stores";
+const REPAIRS_URL = "/api/gigafix/repairs"; // 會員（登入客戶）自己的維修單動作
+const ADMIN_REPAIRS_URL = "/api/admin/repair/repairs"; // 後台/技師專用的維修單管理動作
+const TECHNICIANS_URL = "/api/admin/repair/technicians"; // 技師管理，全部後台專用
+const STORES_URL = "/api/gigafix/stores"; // 公開查詢，店家地圖、預約選店都會用到
+const ADMIN_STORES_URL = "/api/admin/repair/stores"; // 分店新增/修改/刪除/匯出入，後台專用
 
 // ========== 維修單 ==========
 
@@ -20,22 +22,28 @@ export const getBookedSlots = async (storeId, date) => {
   return response.data;
 };
 
-// 查詢維修單，params 可以是 { id, memberId, memberName, technicianId, technicianName, status }
+// 後台查詢維修單，params 可以是 { id, memberId, memberName, technicianId, technicianName, status }
 // 每個欄位都可以不填，不填就是查全部
 export const searchRepairs = async (params = {}) => {
-  const response = await axios.get(REPAIRS_URL, { params });
+  const response = await axios.get(ADMIN_REPAIRS_URL, { params });
   return response.data;
 };
 
 // 後台統計：拒絕維修數／結案數／百分比／建立到結案耗時分布
 export const getRepairStats = async () => {
-  const response = await axios.get(`${REPAIRS_URL}/stats`);
+  const response = await axios.get(`${ADMIN_REPAIRS_URL}/stats`);
   return response.data;
 };
 
-// 依 id 查單一維修單
+// 會員中心「維修進度」明細用：依 id 查自己的維修單
 export const getRepair = async (repairId) => {
   const response = await axios.get(`${REPAIRS_URL}/${repairId}`);
+  return response.data;
+};
+
+// 後台維修單明細用：依 id 查任意一張維修單，不限本人
+export const getAdminRepair = async (repairId) => {
+  const response = await axios.get(`${ADMIN_REPAIRS_URL}/${repairId}`);
   return response.data;
 };
 
@@ -57,7 +65,7 @@ export const respondToQuote = async (repairId, approve) => {
 
 // 技師認領維修單
 export const assignRepair = async (repairId, technicianId) => {
-  const response = await axios.post(`${REPAIRS_URL}/${repairId}/assign`, null, {
+  const response = await axios.post(`${ADMIN_REPAIRS_URL}/${repairId}/assign`, null, {
     params: { technicianId },
   });
   return response.data;
@@ -66,7 +74,7 @@ export const assignRepair = async (repairId, technicianId) => {
 // 技師填寫／修改檢測報價（部分更新，還沒送出正式報價前都可以改）
 export const updateQuote = async (repairId, quotationRequest) => {
   const response = await axios.patch(
-    `${REPAIRS_URL}/${repairId}/quote`,
+    `${ADMIN_REPAIRS_URL}/${repairId}/quote`,
     quotationRequest,
   );
   return response.data;
@@ -75,7 +83,7 @@ export const updateQuote = async (repairId, quotationRequest) => {
 // 技師正式送出報價
 export const submitQuote = async (repairId, technicianId) => {
   const response = await axios.patch(
-    `${REPAIRS_URL}/${repairId}/quote/submit`,
+    `${ADMIN_REPAIRS_URL}/${repairId}/quote/submit`,
     null,
     { params: { technicianId } },
   );
@@ -88,7 +96,7 @@ export const updateInspectionResult = async (
   inspectionResultRequest,
 ) => {
   const response = await axios.patch(
-    `${REPAIRS_URL}/${repairId}/inspection-note`,
+    `${ADMIN_REPAIRS_URL}/${repairId}/inspection-note`,
     inspectionResultRequest,
   );
   return response.data;
@@ -97,7 +105,7 @@ export const updateInspectionResult = async (
 // 技師維修完成
 export const completeRepair = async (repairId, completeRepairRequest) => {
   const response = await axios.patch(
-    `${REPAIRS_URL}/${repairId}/complete`,
+    `${ADMIN_REPAIRS_URL}/${repairId}/complete`,
     completeRepairRequest,
   );
   return response.data;
@@ -106,7 +114,7 @@ export const completeRepair = async (repairId, completeRepairRequest) => {
 // 已通知客戶取件
 export const markNotified = async (repairId, technicianId) => {
   const response = await axios.patch(
-    `${REPAIRS_URL}/${repairId}/notify`,
+    `${ADMIN_REPAIRS_URL}/${repairId}/notify`,
     null,
     { params: { technicianId } },
   );
@@ -115,7 +123,7 @@ export const markNotified = async (repairId, technicianId) => {
 
 // 門市取貨付款、結案
 export const closeRepair = async (repairId, technicianId) => {
-  const response = await axios.patch(`${REPAIRS_URL}/${repairId}/close`, null, {
+  const response = await axios.patch(`${ADMIN_REPAIRS_URL}/${repairId}/close`, null, {
     params: { technicianId },
   });
   return response.data;
@@ -124,7 +132,7 @@ export const closeRepair = async (repairId, technicianId) => {
 // 報價不維修：技師填最終金額(檢測費)送出，狀態推進到尚未取件；finalCost 不填就是0元
 export const notifyRejected = async (repairId, technicianId, finalCost) => {
   const response = await axios.patch(
-    `${REPAIRS_URL}/${repairId}/notify-rejected`,
+    `${ADMIN_REPAIRS_URL}/${repairId}/notify-rejected`,
     null,
     { params: { technicianId, finalCost } },
   );
@@ -134,7 +142,7 @@ export const notifyRejected = async (repairId, technicianId, finalCost) => {
 // 客戶預約後未送修
 export const markUndelivered = async (repairId, technicianId) => {
   const response = await axios.patch(
-    `${REPAIRS_URL}/${repairId}/undelivered`,
+    `${ADMIN_REPAIRS_URL}/${repairId}/undelivered`,
     null,
     { params: { technicianId } },
   );
@@ -144,7 +152,7 @@ export const markUndelivered = async (repairId, technicianId) => {
 // 技師手動更新付款狀態
 export const updatePayStatus = async (repairId, payStatus) => {
   const response = await axios.patch(
-    `${REPAIRS_URL}/${repairId}/pay-status`,
+    `${ADMIN_REPAIRS_URL}/${repairId}/pay-status`,
     null,
     { params: { payStatus } },
   );
@@ -163,7 +171,7 @@ export const submitPickupPayment = async (repairId, pickupPaymentRequest) => {
 // 技師編輯收件人資訊：結案前都可以改，僅限客戶選寄件的單
 export const updateRecipient = async (repairId, recipientRequest) => {
   const response = await axios.patch(
-    `${REPAIRS_URL}/${repairId}/recipient`,
+    `${ADMIN_REPAIRS_URL}/${repairId}/recipient`,
     recipientRequest,
   );
   return response.data;
@@ -209,17 +217,17 @@ export const getStores = async () => {
 };
 
 export const createStore = async (storeRequest) => {
-  const response = await axios.post(STORES_URL, storeRequest);
+  const response = await axios.post(ADMIN_STORES_URL, storeRequest);
   return response.data;
 };
 
 export const updateStore = async (storeId, storeRequest) => {
-  const response = await axios.put(`${STORES_URL}/${storeId}`, storeRequest);
+  const response = await axios.put(`${ADMIN_STORES_URL}/${storeId}`, storeRequest);
   return response.data;
 };
 
 export const deleteStore = async (storeId) => {
-  await axios.delete(`${STORES_URL}/${storeId}`);
+  await axios.delete(`${ADMIN_STORES_URL}/${storeId}`);
 };
 
 // ========== 匯出匯入 ==========
@@ -227,7 +235,7 @@ export const deleteStore = async (storeId) => {
 // 維修單匯出，format = json / xml / xlsx，params 可以帶跟查詢一樣的篩選條件，
 // 只會匯出符合目前條件的維修單（不帶條件就是全部）
 export const exportRepairs = async (format, params = {}) => {
-  const response = await axios.get(`${REPAIRS_URL}/export`, {
+  const response = await axios.get(`${ADMIN_REPAIRS_URL}/export`, {
     params: { ...params, format },
     responseType: "blob",
   });
@@ -266,7 +274,7 @@ export const confirmImportTechnicians = async (rows) => {
 
 // 分店匯出／匯入
 export const exportStores = async (format) => {
-  const response = await axios.get(`${STORES_URL}/export`, {
+  const response = await axios.get(`${ADMIN_STORES_URL}/export`, {
     params: { format },
     responseType: "blob",
   });
@@ -277,7 +285,7 @@ export const exportStores = async (format) => {
 export const previewImportStores = async (file, format) => {
   const formData = new FormData();
   formData.append("file", file);
-  const response = await axios.post(`${STORES_URL}/import/preview`, formData, {
+  const response = await axios.post(`${ADMIN_STORES_URL}/import/preview`, formData, {
     params: { format },
   });
   return response.data;
@@ -285,7 +293,7 @@ export const previewImportStores = async (file, format) => {
 
 // 確認匯入：把預覽時拿到的 rows(每筆的 data)原封不動送回來，這裡才真的寫入資料庫
 export const confirmImportStores = async (rows) => {
-  const response = await axios.post(`${STORES_URL}/import/confirm`, rows);
+  const response = await axios.post(`${ADMIN_STORES_URL}/import/confirm`, rows);
   return response.data;
 };
 

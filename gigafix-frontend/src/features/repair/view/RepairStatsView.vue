@@ -2,7 +2,7 @@
 // 後台維修單統計：全部9種repairStatus的筆數與佔比（圓餅圖，含已結案/已取消/未送檢），
 // 拒絕維修(approvalStatus=REJECTED,不論是否結案)/結案的數字卡片，已結案單建立到結案的耗時分布（長條圖），
 // 以及各分店/技師的維修單量與結案率比較（單軸堆疊長條圖：已結案/未結案疊加，依單量由多到少排序）
-// 資料來自 GET /api/repairs/stats，結案耗時是用 repairUpdatedTime-repairCreatedTime 近似值（後端沒有獨立的結案時間欄位）
+// 資料來自 GET /api/admin/repair/repairs/stats，結案耗時是用 repairUpdatedTime-repairCreatedTime 近似值（後端沒有獨立的結案時間欄位）
 import { computed, onMounted, ref } from "vue";
 import { use } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";

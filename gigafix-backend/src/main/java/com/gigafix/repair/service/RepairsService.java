@@ -198,6 +198,16 @@ public class RepairsService {
 				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
 		return toResponse(repair);
 	}
+
+	// 會員中心「維修進度」明細用：只能查自己的維修單，避免用網址猜id查到別人的單
+	public RepairsResponse selectByIdForMember(Long id, Long memberId) {
+		Repairs repair =  rRepos.findById(id)
+				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
+		if (!repair.getMember().getId().equals(memberId)) {
+			throw new NotEligibleException("此維修單不是你的，無法查看");
+		}
+		return toResponse(repair);
+	}
 	
 ////	查全部，沒用到了
 //	public List<RepairsResponse> selectAll() {
