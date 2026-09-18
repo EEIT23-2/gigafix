@@ -441,6 +441,7 @@ public class EcpayPaymentService {
 
                 // 部署前 本機demo用，實際上應該驗證 ECPay 回傳來源
                 // 部署後註解
+
                 processPaymentReturn(callback);
 
                 // 找回 GigaFix 訂單
