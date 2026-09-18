@@ -5,7 +5,7 @@ import { RouterLink } from "vue-router";
 <template>
   <nav class="nav-menu">
     <RouterLink to="/admin/manager" class="nav-item">
-      <span class="icon">📊</span>
+      <span class="icon"><i class="bi bi-person-badge"></i></span>
       <span>管理員資訊</span>
     </RouterLink>
     <RouterLink to="/admin/member-management" class="nav-item">
@@ -15,21 +15,21 @@ import { RouterLink } from "vue-router";
 
     <div class="nav-heading">商品訂單相關</div>
     <RouterLink class="nav-item" to="/admin/products">
-      <span class="nav-title"><span class="icon">⚙️</span> 商品管理</span>
+      <span class="nav-title"><span class="icon">📱</span> 商品管理</span>
       <span class="arrow">›</span>
     </RouterLink>
     <RouterLink class="nav-item" to="/admin/applyForms">
-      <span class="nav-title"><span class="icon">📁</span> 回收單管理</span>
+      <span class="nav-title"><span class="icon">♻️</span> 回收單管理</span>
       <span class="arrow">›</span>
     </RouterLink>
     <RouterLink class="nav-item" to="/admin/orders">
-      <span class="nav-title"><span class="icon">🔧</span> 訂單管理</span>
+      <span class="nav-title"><span class="icon">🧾</span> 訂單管理</span>
       <span class="arrow">›</span>
     </RouterLink>
 
     <div class="nav-heading">ADDONS</div>
     <RouterLink class="nav-item" to="/admin/repairs">
-      <span class="nav-title"><span class="icon">📁</span> 維修單</span>
+      <span class="nav-title"><span class="icon">🔧</span> 維修單</span>
       <span class="arrow">›</span>
     </RouterLink>
     <RouterLink class="nav-item" to="/admin/repairs/stats">
@@ -37,7 +37,7 @@ import { RouterLink } from "vue-router";
       <span class="arrow">›</span>
     </RouterLink>
     <RouterLink class="nav-item" to="/admin/technicians">
-      <span class="nav-title"><span class="icon">🧑</span> 技師管理</span>
+      <span class="nav-title"><span class="icon"><i class="bi bi-person-gear"></i></span> 技師管理</span>
       <span class="arrow">›</span>
     </RouterLink>
     <RouterLink class="nav-item" to="/admin/stores">
@@ -45,7 +45,7 @@ import { RouterLink } from "vue-router";
       <span class="arrow">›</span>
     </RouterLink>
     <RouterLink class="nav-item" to="/admin/forum/articles">
-      <span class="nav-title"><span class="icon">📁</span> 論壇文章</span>
+      <span class="nav-title"><span class="icon">📝</span> 論壇文章</span>
       <span class="arrow">›</span>
     </RouterLink>
     <RouterLink class="nav-item" to="/admin/forum/reports">
