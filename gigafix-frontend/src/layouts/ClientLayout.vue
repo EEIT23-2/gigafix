@@ -1,6 +1,7 @@
 <script setup>
 import ClientNavBar from '@/components/ClientNavBar.vue';
 import { RouterView } from 'vue-router';
+import SupportChatWidget from '@/features/support/components/SupportChatWidget.vue';
 </script>
 
 <template>
@@ -17,6 +18,9 @@ import { RouterView } from 'vue-router';
     <footer class="site-footer">
       <p>© Gigafix 機不可失 - 歡迎聯絡我們以取得您最好的手機</p>
     </footer>
+
+    <!-- AI 智能客服浮動氣泡窗：掛在這裡涵蓋所有前台頁面，不會出現在後台 AdminLayout -->
+    <SupportChatWidget />
   </div>
 </template>
 

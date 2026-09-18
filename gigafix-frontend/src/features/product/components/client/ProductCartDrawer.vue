@@ -2,12 +2,20 @@
 import { computed, onBeforeUnmount, watch } from "vue";
 import { ref } from "vue";
 import { getCartItems } from "@/features/cart/api/cartApi.js";
+import { useFloatingBubblesStore } from "@/stores/floatingBubbles";
 
 const props = defineProps({
   open: { type: Boolean, default: false },
   refreshKey: { type: Number, default: 0 },
   showTrigger: { type: Boolean, default: false },
 });
+
+// 跟 SupportChatWidget 共用同一份浮動氣泡登記機制，避免兩顆按鈕疊在同一個位置——
+// order 比客服（20）小，維持「購物車在下面、客服疊在上面」的既有安排
+const BUBBLE_ID = "cart";
+const BUBBLE_ORDER = 10;
+const floatingBubbles = useFloatingBubblesStore();
+const stackIndex = computed(() => floatingBubbles.stackIndex(BUBBLE_ID));
 
 const emit = defineEmits(["open", "close"]);
 const cartItems = ref([]);
@@ -39,12 +47,19 @@ watch(
   ([open, , showTrigger]) => {
     document.body.style.overflow = open ? "hidden" : "";
     if (open || showTrigger) loadCart();
+
+    if (showTrigger && !open) {
+      floatingBubbles.register(BUBBLE_ID, BUBBLE_ORDER);
+    } else {
+      floatingBubbles.unregister(BUBBLE_ID);
+    }
   },
   { immediate: true },
 );
 
 onBeforeUnmount(() => {
   document.body.style.overflow = "";
+  floatingBubbles.unregister(BUBBLE_ID);
 });
 </script>
 
@@ -54,6 +69,7 @@ onBeforeUnmount(() => {
       <button
         v-if="showTrigger && !open"
         class="cart-floating-button"
+        :style="{ '--stack-index': stackIndex }"
         type="button"
         :aria-label="`查看購物車明細，目前共 ${cartItems.length} 件商品`"
         @click="emit('open')"
@@ -154,7 +170,8 @@ onBeforeUnmount(() => {
 .cart-floating-button {
   position: fixed;
   right: 28px;
-  bottom: 28px;
+  /* --stack-index 由 floatingBubbles store 決定，跟其他浮動氣泡（例如客服）疊在一起時不重疊 */
+  bottom: calc(28px + var(--stack-index, 0) * 70px);
   z-index: 1060;
   display: inline-flex;
   align-items: center;
@@ -454,7 +471,7 @@ onBeforeUnmount(() => {
 @media (max-width: 575.98px) {
   .cart-floating-button {
     right: 16px;
-    bottom: 16px;
+    bottom: calc(16px + var(--stack-index, 0) * 62px);
     min-height: 50px;
     padding: 12px 18px;
     font-size: 14px;
