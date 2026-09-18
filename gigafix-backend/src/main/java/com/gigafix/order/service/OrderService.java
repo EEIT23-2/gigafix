@@ -1,8 +1,10 @@
 package com.gigafix.order.service;
 
+import java.io.IOException;
 import java.util.List;
 
 import com.gigafix.order.dto.AdminOrderCreateOptionsResponse;
+import com.gigafix.order.dto.AdminOrderStatisticsResponse;
 import com.gigafix.order.dto.PaymentSuccessRequest;
 import com.gigafix.order.dto.CreateOrderRequest;
 import com.gigafix.order.dto.OrderResponse;
@@ -52,6 +54,15 @@ public interface OrderService {
         // 管理員依會員及商品建立訂單
         OrderResponse createOrderByAdmin(
                         AdminCreateOrderRequest request);
+
+        // 一次產生 50 筆後台 Demo 訂單
+        int generateDemoOrders();
+
+        // 查詢後台訂單統計
+        AdminOrderStatisticsResponse getOrderStatistics();
+
+        // 匯出全部後台訂單為 Excel
+        byte[] exportOrders() throws IOException;
 
         // 查詢所有會員的訂單
         List<OrderResponse> getAllOrders();

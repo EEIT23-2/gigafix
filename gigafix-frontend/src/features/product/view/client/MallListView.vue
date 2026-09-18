@@ -10,7 +10,10 @@ import {
 } from "vue";
 import { storeToRefs } from "pinia";
 import { useRouter } from "vue-router";
-import { addCartItem } from "@/features/cart/api/cartApi.js";
+import {
+  addCartItem,
+  getCartItems,
+} from "@/features/cart/api/cartApi.js";
 import { useFetchMemberInfoStore } from "@/stores/member";
 import { getProducts } from "../../api.js";
 import MallTable from "../../components/client/MallTable.vue";
@@ -54,6 +57,8 @@ const cartMessage = ref("");
 const cartMessageType = ref("success");
 const cartDrawerOpen = ref(false);
 const cartRefreshKey = ref(0);
+const cartProductIds = ref(new Set());
+const addingProductIds = ref(new Set());
 let requestSequence = 0;
 let debounceTimer;
 let cartMessageTimer;
@@ -97,6 +102,25 @@ function compactParams(params) {
       ([, value]) => value !== "" && value !== null && value !== undefined,
     ),
   );
+}
+
+const productIdKey = (productId) => String(productId);
+
+async function loadCartProductIds() {
+  if (!memberInfo.value) {
+    cartProductIds.value = new Set();
+    return;
+  }
+
+  try {
+    const response = await getCartItems();
+    cartProductIds.value = new Set(
+      (response.data ?? []).map((item) => productIdKey(item.productId)),
+    );
+  } catch (error) {
+    cartProductIds.value = new Set();
+    console.error("購物車商品載入失敗", error);
+  }
 }
 
 // 阻擋鍵盤直接輸入負號，避免價格欄位出現負數。
@@ -197,11 +221,21 @@ const addToCart = async (product) => {
     return;
   }
 
+  const productId = productIdKey(product.productId);
+  if (
+    cartProductIds.value.has(productId) ||
+    addingProductIds.value.has(productId)
+  ) {
+    return;
+  }
+
   clearTimeout(cartMessageTimer);
   const name =
     product.product_name ?? product.productName ?? product.name ?? "商品";
+  addingProductIds.value = new Set(addingProductIds.value).add(productId);
   try {
     await addCartItem(product.productId);
+    cartProductIds.value = new Set(cartProductIds.value).add(productId);
     cartMessageType.value = "success";
     cartMessage.value = `${name} 已加入購物車`;
     cartRefreshKey.value += 1;
@@ -209,6 +243,10 @@ const addToCart = async (product) => {
     cartMessageType.value = "danger";
     cartMessage.value =
       error?.response?.data?.message ?? `${name} 加入購物車失敗，請稍後再試`;
+  } finally {
+    const nextAddingProductIds = new Set(addingProductIds.value);
+    nextAddingProductIds.delete(productId);
+    addingProductIds.value = nextAddingProductIds;
   }
   cartMessageTimer = setTimeout(() => {
     cartMessage.value = "";
@@ -237,6 +275,7 @@ watch(
   },
   { deep: true },
 );
+watch(memberInfo, loadCartProductIds, { immediate: true });
 onMounted(fetchProducts);
 onBeforeUnmount(() => {
   clearTimeout(debounceTimer);
@@ -415,6 +454,8 @@ onBeforeUnmount(() => {
           :page-number="pageNumber"
           :total-pages="totalPages"
           :visible-pages="visiblePages"
+          :cart-product-ids="cartProductIds"
+          :adding-product-ids="addingProductIds"
           @retry="fetchProducts"
           @change-page="changePage"
           @select-product="handleSelectProduct"
