@@ -252,10 +252,14 @@ onMounted(async () => {
         {{ errorMessage }}
         <button type="button" class="btn-close" @click="errorMessage = ''"></button>
       </div>
-      <form class="card card-body" @submit.prevent="handleSubmit">
+      <form @submit.prevent="handleSubmit">
         <p class="text-danger small text-end mb-2">*為必填</p>
 
-        <h2 class="h5 mb-3">聯絡資訊</h2>
+        <section class="card section-card mb-4">
+          <div class="card-header fw-bold section-card-header">
+            <i class="bi bi-person-vcard"></i> 聯絡資訊
+          </div>
+          <div class="card-body">
         <div class="row g-3 mb-3">
           <div class="col-md-6">
             <label class="form-label">聯絡姓名<span class="text-danger">*</span></label>
@@ -286,7 +290,7 @@ onMounted(async () => {
           </div>
         </div>
 
-        <div class="form-check mb-3">
+        <div class="form-check mb-0">
           <input
             id="useMemberContact"
             :checked="useMemberContact"
@@ -299,8 +303,14 @@ onMounted(async () => {
             使用會員資料的姓名/電話(自行修改姓名或電話會自動取消勾選；取消勾選會清空欄位，重新勾選可帶回會員資料)
           </label>
         </div>
+          </div>
+        </section>
 
-        <h2 class="h5 mb-3">維修資訊</h2>
+        <section class="card section-card mb-4">
+          <div class="card-header fw-bold section-card-header">
+            <i class="bi bi-tools"></i> 維修資訊
+          </div>
+          <div class="card-body">
         <div class="row g-3 mb-3">
           <div class="col-md-6">
             <label class="form-label">分店<span class="text-danger">*</span></label>
@@ -444,9 +454,11 @@ onMounted(async () => {
             </p>
           </div>
         </div>
+          </div>
+        </section>
 
-        <button type="submit" class="btn btn-primary" :disabled="submitting">
-          {{ submitting ? "送出中..." : "送出預約" }}
+        <button type="submit" class="btn btn-primary rounded-pill px-4" :disabled="submitting">
+          <i class="bi bi-send me-1"></i>{{ submitting ? "送出中..." : "送出預約" }}
         </button>
       </form>
     </template>
@@ -454,6 +466,23 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* 區塊卡片：圓角+柔和陰影，跟維修單管理同一套風格 */
+.section-card {
+  border: none;
+  border-radius: 1rem;
+  box-shadow: 0 2px 10px rgba(30, 53, 87, 0.08);
+}
+
+/* 區塊標題色塊：跟站內品牌藍統一風格 */
+.section-card-header {
+  background-color: #a8cdf0;
+  color: #14263d;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 20px;
+}
+
 .time-slot-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);

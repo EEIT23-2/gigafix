@@ -209,14 +209,14 @@ onMounted(async () => {
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h1 class="fw-bold mb-0">分店管理</h1>
       <div class="d-flex gap-2">
-        <button class="btn btn-primary" @click="openCreateModal">
-          ＋ 新增分店
+        <button class="btn btn-primary rounded-pill px-4" @click="openCreateModal">
+          <i class="bi bi-plus-lg me-1"></i>新增分店
         </button>
 
         <!-- 匯出：下拉選格式 -->
         <div class="dropdown" :ref="(el) => (exportMenu.containerRef.value = el)">
           <button
-            class="btn btn-outline-secondary dropdown-toggle"
+            class="btn btn-outline-secondary dropdown-toggle rounded-pill px-3"
             type="button"
             :disabled="exporting"
             @click="exportMenu.toggle"
@@ -244,7 +244,7 @@ onMounted(async () => {
 
         <!-- 匯入：直接跳檔案選擇，格式從副檔名判斷 -->
         <button
-          class="btn btn-outline-secondary"
+          class="btn btn-outline-secondary rounded-pill px-3"
           type="button"
           :disabled="importing"
           @click="openImportFilePicker"
@@ -282,18 +282,28 @@ onMounted(async () => {
       ></button>
     </div>
 
-    <section class="card overflow-hidden">
+    <section class="card section-card overflow-hidden">
+      <div class="card-header fw-bold section-card-header">
+        <i class="bi bi-shop"></i> 分店列表
+      </div>
       <div v-if="loading" class="text-center py-5">
         <div class="spinner-border text-primary" role="status"></div>
       </div>
-      <table v-else class="table table-hover mb-0 align-middle">
+      <table v-else class="table table-hover mb-0 align-middle data-table">
+        <colgroup>
+          <col style="width: 8%">
+          <col style="width: 23%">
+          <col style="width: 23%">
+          <col style="width: 23%">
+          <col style="width: 23%">
+        </colgroup>
         <thead class="table-light">
           <tr>
             <th>id</th>
             <th>分店名稱</th>
             <th>地址</th>
             <th>電話</th>
-            <th class="text-end">操作</th>
+            <th>操作</th>
           </tr>
         </thead>
         <tbody>
@@ -302,15 +312,15 @@ onMounted(async () => {
             <td>{{ s.name }}</td>
             <td>{{ s.address }}</td>
             <td>{{ s.phone }}</td>
-            <td class="text-end">
+            <td>
               <button
-                class="btn btn-sm btn-outline-primary me-2"
+                class="btn btn-sm btn-outline-primary me-2 rounded-pill px-3"
                 @click="openEditModal(s)"
               >
                 修改
               </button>
               <button
-                class="btn btn-sm btn-outline-danger"
+                class="btn btn-sm btn-outline-danger rounded-pill px-3"
                 @click="handleDelete(s)"
               >
                 刪除
@@ -372,7 +382,7 @@ onMounted(async () => {
           <div class="modal-footer">
             <button
               type="button"
-              class="btn btn-secondary"
+              class="btn btn-secondary rounded-pill px-4"
               data-bs-dismiss="modal"
               :disabled="saving"
             >
@@ -380,11 +390,11 @@ onMounted(async () => {
             </button>
             <button
               type="button"
-              class="btn btn-primary"
+              class="btn btn-primary rounded-pill px-4"
               :disabled="saving"
               @click="handleSave"
             >
-              {{ saving ? "儲存中..." : "儲存" }}
+              <i class="bi bi-save me-1"></i>{{ saving ? "儲存中..." : "儲存" }}
             </button>
           </div>
         </div>
@@ -406,5 +416,40 @@ onMounted(async () => {
 .dropdown-menu {
   right: 0;
   left: auto;
+}
+
+/* 區塊卡片：圓角+柔和陰影，跟維修單管理同一套風格 */
+.section-card {
+  border: none;
+  border-radius: 1rem;
+  box-shadow: 0 2px 10px rgba(30, 53, 87, 0.08);
+}
+
+/* 區塊標題色塊：跟站內品牌藍統一風格 */
+.section-card-header {
+  background-color: #a8cdf0;
+  color: #14263d;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 20px;
+}
+
+/* 欄寬固定(搭配上面的 colgroup)，除了id欄，其他欄位平均分配寬度 */
+.data-table {
+  table-layout: fixed;
+}
+.data-table td {
+  word-break: break-word;
+}
+
+/* 表格文字放大、加粗，跟維修單管理同一個級距 */
+.data-table th {
+  font-size: 16px;
+}
+.data-table td {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1d324b;
 }
 </style>

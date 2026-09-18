@@ -79,6 +79,7 @@ public class RepairsService {
 //				可能是null的關聯物件」,要往下取欄位前要先判斷
 				.technicianId(r.getRepairTechnicians() == null ? null : r.getRepairTechnicians().getId())
 				.technicianName(r.getRepairTechnicians() == null ? null : r.getRepairTechnicians().getName())
+				.technicianPhone(r.getRepairTechnicians() == null ? null : r.getRepairTechnicians().getPhone())
 				.serialNumber(r.getSerialNumber())
 				.inspectionResult(r.getInspectionResult())
 				.repairItems(r.getRepairItems())

@@ -27,7 +27,7 @@ const STATUS_BADGE_CLASS = {
   IN_REPAIR: "text-bg-primary",
   QUOTE_REJECTED: "text-bg-danger",
   REPAIR_COMPLETED: "text-bg-success",
-  AWAITING_PICKUP: "text-bg-warning",
+  AWAITING_PICKUP: "badge-current-purple",
   CLOSED: "text-bg-dark",
   CANCELLED: "text-bg-secondary",
   NOT_DROPPED_OFF: "text-bg-secondary",
@@ -85,22 +85,28 @@ const sequence = computed(() => {
 /* 非目前階段：不上底色，只留橢圓外框+文字，避免每格都上色反而看不出目前在哪 */
 .stepper-node-inactive {
   padding: 3px 12px;
-  font-size: 0.85rem;
+  font-size: 16px;
   font-weight: 500;
   border: 1px solid var(--bs-border-color, #ced4da);
   color: var(--bs-secondary-color, #6c757d);
   background-color: transparent;
 }
 
-/* 目前所在階段：跟維修單列表同一套飽和色，並放大1.5倍凸顯出來 */
+/* 目前所在階段：跟維修單列表同一套飽和色，並放大凸顯出來 */
 .stepper-node-current {
   padding: 5px 18px;
-  font-size: 1.275rem;
+  font-size: 20px;
   font-weight: 700;
 }
 
 .stepper-divider {
   color: var(--bs-secondary-color, #adb5bd);
   font-size: 0.8rem;
+}
+
+/* 尚未取件：跟待估價原本都是黃色會混淆，改用跟維修統計圖表同一個紫色(#6f42c1) */
+.badge-current-purple {
+  background-color: #6f42c1;
+  color: #ffffff;
 }
 </style>

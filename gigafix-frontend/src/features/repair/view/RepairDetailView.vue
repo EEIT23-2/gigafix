@@ -444,7 +444,7 @@ onMounted(() => {
 <template>
   <main class="container-fluid px-3 px-lg-4 py-4">
     <div class="mb-3">
-      <button class="btn btn-outline-secondary btn-sm" @click="router.back()">
+      <button class="btn btn-outline-secondary" @click="router.back()">
         ← 返回列表
       </button>
     </div>
@@ -463,11 +463,11 @@ onMounted(() => {
         />
         <button
           v-if="repair.repairStatus === 'PENDING_QUOTE' && repair.technicianId"
-          class="btn btn-outline-danger btn-sm ms-auto"
+          class="btn btn-outline-danger btn-sm ms-auto rounded-pill px-3"
           :disabled="loading"
           @click="handleUndelivered"
         >
-          未送檢
+          <i class="bi bi-x-circle me-1"></i>未送檢
         </button>
       </div>
 
@@ -477,57 +477,90 @@ onMounted(() => {
       <div v-if="successMessage" class="alert alert-success">
         {{ successMessage }}
       </div>
+      <!-- 已報價：等客戶回應提示 -->
+      <div
+        v-if="repair.repairStatus === 'QUOTED'"
+        class="alert alert-secondary quoted-alert-text"
+      >
+        報價已送出，等待客戶在前台回應（同意／拒絕）。
+      </div>
 
-      <!-- 1. 基本資料 -->
-      <section class="card mb-4">
-        <div class="card-header fw-bold">基本資料</div>
-        <div class="card-body row g-3">
-          <div class="col-12">
-            <span class="text-secondary">客戶：</span
-            >{{ repair.memberName }}（id:{{ repair.memberId }}）
+      <div class="row g-4">
+        <!-- 2x2排列：每列依自己的內容高度分配，避免一欄過長、另一欄留白過多 -->
+        <div class="col-lg-6">
+        <!-- 1. 基本資料 -->
+        <section class="card section-card mb-4">
+          <div class="card-header fw-bold section-card-header">
+            <i class="bi bi-person-vcard"></i> 基本資料
           </div>
-          <div class="col-md-6">
-            <span class="text-secondary">聯絡姓名：</span>{{ repair.contactName }}
+          <div class="card-body row g-3">
+            <!-- 第1排(3欄)：客戶/聯絡姓名/聯絡電話 -->
+            <div class="col-md-4 info-field">
+              <div class="info-label">客戶</div>
+              <div class="info-value">{{ repair.memberName }}（id:{{ repair.memberId }}）</div>
+            </div>
+            <div class="col-md-4 info-field">
+              <div class="info-label">聯絡姓名</div>
+              <div class="info-value">{{ repair.contactName }}</div>
+            </div>
+            <div class="col-md-4 info-field">
+              <div class="info-label">聯絡電話</div>
+              <div class="info-value">{{ repair.contactPhone }}</div>
+            </div>
+            <div class="w-100"></div>
+            <!-- 第2排(3欄)：品牌/機型/問題描述 -->
+            <div class="col-md-4 info-field">
+              <div class="info-label">品牌</div>
+              <div class="info-value">{{ repair.repairBrand }}</div>
+            </div>
+            <div class="col-md-4 info-field">
+              <div class="info-label">機型</div>
+              <div class="info-value">{{ repair.repairModel }}</div>
+            </div>
+            <div class="col-md-4 info-field">
+              <div class="info-label">問題描述</div>
+              <div class="info-value">{{ repair.issueDescription }}</div>
+            </div>
+            <div class="w-100"></div>
+            <!-- 第3排：送修方式對齊第1排「客戶」欄位、分店對齊第1排「聯絡姓名」欄位 -->
+            <div class="col-md-4 info-field">
+              <div class="info-label">送修方式</div>
+              <div class="info-value">{{ label(DROPOFF_LABELS, repair.dropoffType) }}</div>
+            </div>
+            <div class="col-md-4 info-field">
+              <div class="info-label">分店</div>
+              <div class="info-value">{{ repair.storeName }}</div>
+            </div>
+            <div class="w-100"></div>
+            <!-- 第4排：預約日期對齊「客戶」欄位、預約時段對齊「聯絡姓名」欄位 -->
+            <div class="col-md-4 info-field">
+              <div class="info-label">預約日期</div>
+              <div class="info-value">{{ repair.bookingDate ?? "—" }}</div>
+            </div>
+            <div class="col-md-4 info-field">
+              <div class="info-label">預約時段</div>
+              <div class="info-value">{{ repair.timeSlot ?? "—" }}</div>
+            </div>
           </div>
-          <div class="col-md-6">
-            <span class="text-secondary">聯絡電話：</span>{{ repair.contactPhone }}
-          </div>
-          <div class="col-md-6">
-            <span class="text-secondary">品牌：</span>{{ repair.repairBrand }}
-          </div>
-          <div class="col-md-6">
-            <span class="text-secondary">機型：</span>{{ repair.repairModel }}
-          </div>
-          <div class="col-md-6">
-            <span class="text-secondary">送修方式：</span
-            >{{ label(DROPOFF_LABELS, repair.dropoffType) }}
-          </div>
-          <div class="col-md-6">
-            <span class="text-secondary">分店：</span>{{ repair.storeName }}
-          </div>
-          <div class="col-md-6">
-            <span class="text-secondary">預約日期：</span
-            >{{ repair.bookingDate ?? "—" }}
-          </div>
-          <div class="col-md-6">
-            <span class="text-secondary">預約時段：</span
-            >{{ repair.timeSlot ?? "—" }}
-          </div>
-          <div class="col-12">
-            <span class="text-secondary">問題描述：</span
-            >{{ repair.issueDescription }}
-          </div>
+        </section>
         </div>
-      </section>
 
-      <!-- 2. 檢測報價 -->
-      <section class="card mb-4">
-        <div class="card-header fw-bold">檢測/報價</div>
-        <div class="card-body row g-3">
-          <div class="col-md-4">
-            <span class="text-secondary">技師：</span
-            >{{ repair.technicianName ?? "尚未認領" }}
+        <div class="col-lg-6">
+        <!-- 2. 檢測報價 -->
+        <section class="card section-card mb-4">
+          <div class="card-header fw-bold section-card-header">
+            <i class="bi bi-tools"></i> 檢測/報價
           </div>
+          <div class="card-body row g-3">
+            <!-- 第1排(3欄)：技師/技師電話/手機序號 -->
+            <div class="col-md-4 info-field">
+              <div class="info-label">技師</div>
+              <div class="info-value">{{ repair.technicianName ?? "尚未認領" }}</div>
+            </div>
+            <div class="col-md-4 info-field">
+              <div class="info-label">技師電話</div>
+              <div class="info-value">{{ repair.technicianPhone ?? "—" }}</div>
+            </div>
 
           <!-- 手機序號 -->
           <div
@@ -536,28 +569,34 @@ onMounted(() => {
               repair.repairStatus === 'PENDING_QUOTE' && repair.technicianId
             "
           >
-            <span class="text-secondary">手機序號：</span>
+            <label class="form-label text-secondary d-block">手機序號</label>
             <input
               v-model="quoteForm.serialNumber"
               type="text"
               class="form-control"
               :class="{ 'is-invalid': quoteFieldErrors.serialNumber }"
-              style="
-                display: inline-block;
-                width: 140px;
-                vertical-align: middle;
-              "
+              style="max-width: 180px"
             />
           </div>
-          <div class="col-md-4" v-else>
-            <span class="text-secondary">手機序號：</span
-            >{{ repair.serialNumber ?? "—" }}
+          <div class="col-md-4 info-field" v-else>
+            <div class="info-label">手機序號</div>
+            <div class="info-value">{{ repair.serialNumber ?? "—" }}</div>
           </div>
 
-          <!-- 客戶確認狀態 -->
-          <div class="col-md-4">
-            <span class="text-secondary">客戶確認狀態：</span
-            >{{ label(APPROVAL_LABELS, repair.approvalStatus) }}
+          <!-- 第2排：客戶確認狀態對齊第1排「技師」欄位、估價金額對齊第1排「技師電話」欄位 -->
+          <div class="col-md-4 info-field">
+            <div class="info-label">客戶確認狀態</div>
+            <div class="info-value">{{ label(APPROVAL_LABELS, repair.approvalStatus) }}</div>
+          </div>
+          <!-- 估價金額：非編輯狀態時顯示，編輯狀態的估價金額已經併入下面購物車底部的「目前加總」 -->
+          <div
+            class="col-md-4 info-field"
+            v-if="
+              !(repair.repairStatus === 'PENDING_QUOTE' && repair.technicianId)
+            "
+          >
+            <div class="info-label">估價金額</div>
+            <div class="info-value">{{ repair.estimatedCost ?? "—" }}元</div>
           </div>
 
           <!-- 報價參考小工具：選系列/機型，下拉選項目直接加進下面的購物車 -->
@@ -567,7 +606,7 @@ onMounted(() => {
               repair.repairStatus === 'PENDING_QUOTE' && repair.technicianId
             "
           >
-            <label class="form-label text-secondary">報價參考小工具：</label>
+            <label class="form-label text-secondary">報價小工具：</label>
             <div class="d-flex flex-wrap gap-2">
               <select v-model="pickerSeries" class="form-select" style="max-width: 160px">
                 <option v-for="s in SERIES_LIST" :key="s.id" :value="s.id">
@@ -585,7 +624,7 @@ onMounted(() => {
                 style="max-width: 260px"
                 @change="addPickerItem"
               >
-                <option value="">選擇項目，加入下方報價項目</option>
+                <option value="">快速選擇報價項目</option>
                 <option v-for="item in pickerAvailableItems" :key="item.key" :value="item.key">
                   {{ item.label }}({{ formatPrice(getItemPrice(pickerSeries, pickerModelIndex, item.key)) }})
                 </option>
@@ -602,7 +641,7 @@ onMounted(() => {
           >
             <label class="form-label text-secondary">報價項目：</label>
             <p v-if="previousQuote.repairItems" class="text-muted small mb-2">
-              先前紀錄(僅供參考，購物車不會自動帶入)：{{ previousQuote.repairItems }}（{{
+              先前紀錄(僅供參考，請重新帶入)：{{ previousQuote.repairItems }}（{{
                 previousQuote.estimatedCost ?? "—"
               }}元）
             </p>
@@ -620,7 +659,7 @@ onMounted(() => {
                 ></button>
               </div>
               <p v-if="quoteItems.length === 0" class="text-muted small mb-0 py-1">
-                還沒有任何報價項目，可以從上面小工具選，或在下面自己新增
+                還沒有任何報價項目，請從上方快速帶入，或於下方自行新增
               </p>
               <div class="quote-cart-row quote-cart-new">
                 <input
@@ -643,11 +682,12 @@ onMounted(() => {
                 />
                 <button
                   type="button"
-                  class="btn btn-outline-primary btn-sm"
+                  class="btn btn-primary btn-sm rounded-circle quote-add-btn"
                   :disabled="!customItemLabel.trim()"
                   @click="addCustomItem"
+                  aria-label="新增項目"
                 >
-                  ＋
+                  <i class="bi bi-plus-lg"></i>
                 </button>
               </div>
             </div>
@@ -659,20 +699,9 @@ onMounted(() => {
               估價金額(＝目前加總)：{{ formatPrice(cartTotal) }}
             </div>
           </div>
-          <div class="col-12" v-else>
-            <span class="text-secondary">報價項目：</span
-            >{{ repair.repairItems ?? "—" }}
-          </div>
-
-          <!-- 估價金額：非編輯狀態時顯示，編輯狀態的估價金額已經併入上面購物車底部的「目前加總」 -->
-          <div
-            class="col-md-4"
-            v-if="
-              !(repair.repairStatus === 'PENDING_QUOTE' && repair.technicianId)
-            "
-          >
-            <span class="text-secondary">估價金額：</span
-            >{{ repair.estimatedCost ?? "—" }}元
+          <div class="col-12 info-field" v-else>
+            <div class="info-label">報價項目</div>
+            <div class="info-value">{{ repair.repairItems ?? "—" }}</div>
           </div>
 
           <!-- 檢測結果 -->
@@ -685,7 +714,7 @@ onMounted(() => {
             <label class="form-label text-secondary">檢測結果：</label>
             <textarea
               v-model="quoteForm.inspectionResult"
-              class="form-control"
+              class="form-control result-textarea"
               rows="2"
             ></textarea>
           </div>
@@ -698,7 +727,7 @@ onMounted(() => {
             <label class="form-label text-secondary">檢測結果：</label>
             <textarea
               v-model="inspectionResultForm"
-              class="form-control"
+              class="form-control result-textarea"
               rows="2"
             ></textarea>
             <button
@@ -709,9 +738,9 @@ onMounted(() => {
               儲存檢測結果
             </button>
           </div>
-          <div class="col-12" v-else>
-            <span class="text-secondary">檢測結果：</span
-            >{{ repair.inspectionResult ?? "—" }}
+          <div class="col-12 info-field" v-else>
+            <div class="info-label">檢測結果</div>
+            <div class="info-value result-box">{{ repair.inspectionResult ?? "—" }}</div>
           </div>
 
           <!-- 待估價+已認領：送出報價 -->
@@ -722,35 +751,31 @@ onMounted(() => {
             "
           >
             <button
-              class="btn btn-outline-secondary me-2"
+              class="btn btn-outline-secondary me-2 rounded-pill px-4"
               :disabled="loading"
               @click="handleSaveQuoteDraft"
             >
-              儲存
+              <i class="bi bi-save me-1"></i>儲存
             </button>
             <button
-              class="btn btn-primary"
+              class="btn btn-primary rounded-pill px-4"
               :disabled="loading"
               @click="openQuoteConfirmModal"
             >
-              送出報價
+              <i class="bi bi-send me-1"></i>送出報價
             </button>
           </div>
         </div>
-      </section>
+        </section>
+        </div>
 
-      <!-- 已報價：等客戶回應提示 -->
-      <div
-        v-if="repair.repairStatus === 'QUOTED'"
-        class="alert alert-secondary"
-      >
-        報價已送出，等待客戶在前台回應（同意／拒絕）。
-      </div>
-
-      <!-- 3. 維修完成 -->
-      <section class="card mb-4">
-        <div class="card-header fw-bold">維修完成</div>
-        <div class="card-body row g-3">
+        <div class="col-lg-6">
+        <!-- 3. 維修完成 -->
+        <section class="card section-card mb-4">
+          <div class="card-header fw-bold section-card-header">
+            <i class="bi bi-check-circle"></i> 維修完成
+          </div>
+          <div class="card-body row g-3">
           <!-- 維修中：可編輯，送出後推進到「維修完成」 -->
           <template v-if="repair.repairStatus === 'IN_REPAIR'">
             <div class="col-md-6">
@@ -805,9 +830,9 @@ onMounted(() => {
             </div>
           </template>
 
-          <div class="col-md-6" v-else>
-            <span class="text-secondary">最終金額：</span
-            >{{ repair.finalCost ?? "—" }}
+          <div class="col-md-6 info-field" v-else>
+            <div class="info-label">最終金額</div>
+            <div class="info-value">{{ repair.finalCost ?? "—" }}</div>
           </div>
 
           <!-- 維修完成：通知客戶取件 -->
@@ -820,20 +845,24 @@ onMounted(() => {
               已通知客戶取件
             </button>
           </div>
-        </div>
-      </section>
-
-      <!-- 4. 取件付款 -->
-      <section class="card mb-4">
-        <div class="card-header fw-bold">取件付款</div>
-        <div class="card-body row g-3">
-          <div class="col-md-4">
-            <span class="text-secondary">取件方式：</span
-            >{{ label(PICKUP_LABELS, repair.pickupType) }}
           </div>
-          <div class="col-md-4">
-            <span class="text-secondary">付款方式：</span
-            >{{ label(PAY_LABELS, repair.repairPay) }}
+        </section>
+        </div>
+
+        <div class="col-lg-6">
+        <!-- 4. 取件付款 -->
+        <section class="card section-card mb-4">
+          <div class="card-header fw-bold section-card-header">
+            <i class="bi bi-box-seam"></i> 取件付款
+          </div>
+          <div class="card-body row g-3">
+          <div class="col-md-4 info-field">
+            <div class="info-label">取件方式</div>
+            <div class="info-value">{{ label(PICKUP_LABELS, repair.pickupType) }}</div>
+          </div>
+          <div class="col-md-4 info-field">
+            <div class="info-label">付款方式</div>
+            <div class="info-value">{{ label(PAY_LABELS, repair.repairPay) }}</div>
           </div>
 
           <!-- 門市付款：尚未取件時用下拉選單當「確認收到現金」的手續，不會真的送到後端 -->
@@ -844,7 +873,7 @@ onMounted(() => {
               repair.repairPay === 'IN_STORE'
             "
           >
-            <span class="text-secondary">付款狀態：</span>
+            <label class="form-label text-secondary d-block">付款狀態</label>
             <select
               v-model="closePayStatus"
               class="form-select d-inline-block w-auto align-middle"
@@ -855,26 +884,28 @@ onMounted(() => {
           </div>
           <!-- 線上付款：尚未串接綠界，先讓技師確認後手動標記已付款 -->
           <div
-            class="col-md-4"
+            class="col-md-4 info-field"
             v-else-if="
               repair.repairStatus === 'AWAITING_PICKUP' &&
               repair.repairPay === 'ONLINE'
             "
           >
-            <span class="text-secondary">付款狀態：</span
-            >{{ label(PAY_STATUS_LABELS, repair.repairPayStatus) }}
-            <button
-              v-if="repair.repairPayStatus === 'PENDING'"
-              class="btn btn-outline-primary btn-sm ms-2"
-              :disabled="loading"
-              @click="handleMarkOnlinePaid"
-            >
-              標記已收到付款
-            </button>
+            <div class="info-label">付款狀態</div>
+            <div class="info-value">
+              {{ label(PAY_STATUS_LABELS, repair.repairPayStatus) }}
+              <button
+                v-if="repair.repairPayStatus === 'PENDING'"
+                class="btn btn-outline-primary btn-sm ms-2"
+                :disabled="loading"
+                @click="handleMarkOnlinePaid"
+              >
+                標記已收到付款
+              </button>
+            </div>
           </div>
-          <div class="col-md-4" v-else>
-            <span class="text-secondary">付款狀態：</span
-            >{{ label(PAY_STATUS_LABELS, repair.repairPayStatus) }}
+          <div class="col-md-4 info-field" v-else>
+            <div class="info-label">付款狀態</div>
+            <div class="info-value">{{ label(PAY_STATUS_LABELS, repair.repairPayStatus) }}</div>
           </div>
 
           <!-- 收件資訊：客戶選寄件才有，結案前技師都可以編輯儲存，結案後唯讀 -->
@@ -915,29 +946,33 @@ onMounted(() => {
                 儲存收件資訊
               </button>
             </div>
-            <div class="col-12" v-else>
-              <span class="text-secondary">收件資訊：</span
-              >{{ repair.recipientName }}（{{ repair.recipientPhone }}）　{{
-                repair.recipientAddress
-              }}
+            <div class="col-12 info-field" v-else>
+              <div class="info-label">收件資訊</div>
+              <div class="info-value">
+                {{ repair.recipientName }}（{{ repair.recipientPhone }}）　{{
+                  repair.recipientAddress
+                }}
+              </div>
             </div>
           </template>
-        </div>
-      </section>
+          </div>
+        </section>
 
-      <!-- 結案按鈕：走到尚未取件狀態才會出現，付款確認完成才能按 -->
-      <div v-if="repair.repairStatus === 'AWAITING_PICKUP'" class="mb-3">
-        <button
-          class="btn btn-primary"
-          :disabled="loading || !canFinalClose"
-          @click="handleFinalClose"
-        >
-          結案
-        </button>
+        <!-- 結案按鈕：走到尚未取件狀態才會出現，付款確認完成才能按 -->
+        <div v-if="repair.repairStatus === 'AWAITING_PICKUP'" class="mb-3">
+          <button
+            class="btn btn-primary"
+            :disabled="loading || !canFinalClose"
+            @click="handleFinalClose"
+          >
+            結案
+          </button>
+        </div>
+        </div>
       </div>
 
       <!-- 建立/更新時間 -->
-      <div class="text-secondary small">
+      <div class="text-secondary">
         建立時間：{{ formatDateTime(repair.repairCreatedTime) }}　更新時間：{{
           formatDateTime(repair.repairUpdatedTime)
         }}
@@ -990,6 +1025,56 @@ onMounted(() => {
 </template>
 
 <style scoped>
+/* 區塊卡片：圓角+柔和陰影，取代原本方正的預設 Bootstrap card */
+.section-card {
+  border: none;
+  border-radius: 1rem;
+  box-shadow: 0 2px 10px rgba(30, 53, 87, 0.08);
+  overflow: hidden;
+}
+
+/* 區塊標題色塊：跟站內品牌藍(首頁/預約頁同一套色)統一風格，取代原本純白預設樣式 */
+.section-card-header {
+  background-color: #a8cdf0;
+  color: #14263d;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 20px;
+}
+
+/* 資訊欄位：label在上、值在下，比原本「label：值」同一行更好掃視 */
+.info-label {
+  font-size: 16px;
+  color: var(--bs-secondary-color, #6c757d);
+  margin-bottom: 2px;
+}
+
+.info-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1d324b;
+  word-break: break-word;
+}
+
+/* 檢測結果內容可能很長，限制高度用垂直捲軸取代無限撐高卡片，寬度已經被欄位本身限制住了 */
+.result-box {
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.result-textarea {
+  max-height: 120px;
+  overflow-y: auto;
+  resize: none;
+}
+
+/* 已報價：等客戶回應提示，字級加大+加粗，跟其他提醒文字統一 */
+.quoted-alert-text {
+  font-size: 18px;
+  font-weight: 700;
+}
+
 /* 估價金額欄位很容易不小心點到數字輸入框旁邊的上下箭頭改到數值，這裡把箭頭藏起來，看起來就是普通文字框 */
 .no-spinner::-webkit-outer-spin-button,
 .no-spinner::-webkit-inner-spin-button {
@@ -1027,6 +1112,17 @@ onMounted(() => {
 .quote-cart-price {
   white-space: nowrap;
   color: #444;
+}
+
+/* 新增報價項目的圓形+按鈕，固定寬高讓圖示置中對齊圓形 */
+.quote-add-btn {
+  width: 31px;
+  height: 31px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .quote-cart-new .form-control {

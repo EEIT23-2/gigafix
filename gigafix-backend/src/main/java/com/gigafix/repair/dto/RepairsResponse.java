@@ -40,6 +40,7 @@ public class RepairsResponse{
 //	2. 分配技師、檢測後報價
 	private Integer technicianId;
 	private String technicianName;
+	private String technicianPhone;
 	private String serialNumber;
 	private String inspectionResult;
 	private String repairItems;

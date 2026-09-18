@@ -32,16 +32,18 @@ const STATUS_LABELS = {
   CANCELLED: "已取消",
   NOT_DROPPED_OFF: "未送檢",
 };
+// 顏色盡量跟狀態徽章的色系一致(待估價/已報價/維修中/維修完成/尚未取件都對得上)；
+// 報價後不維修/已取消/未送檢三個都是「紅色系」徽章，這裡各用一個深淺不同的紅互相區分
 const STATUS_COLORS = {
   PENDING_QUOTE: "#ffc107",
   QUOTED: "#0dcaf0",
   IN_REPAIR: "#0d6efd",
-  QUOTE_REJECTED: "#fd7e14",
-  REPAIR_COMPLETED: "#20c997",
+  QUOTE_REJECTED: "#b02a37",
+  REPAIR_COMPLETED: "#198754",
   AWAITING_PICKUP: "#6f42c1",
   CLOSED: "#495057",
   CANCELLED: "#dc3545",
-  NOT_DROPPED_OFF: "#adb5bd",
+  NOT_DROPPED_OFF: "#e35d6a",
 };
 
 // 下面另外用文字列表列出每個狀態的精確筆數/百分比（0筆的狀態圓餅圖畫不出弧形，文字列表才看得到），所以圖表本身不用legend
@@ -62,15 +64,22 @@ const statusPieOption = ref({
 const durationBarOption = ref({
   tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
   // yAxis的name預設畫在軸的最上方(grid.top以上的空間)，top留太少會被畫布上緣裁掉
-  grid: { left: 60, right: 24, top: 48, bottom: 40 },
-  xAxis: { type: "category", data: [], axisLabel: { interval: 0 } },
-  yAxis: { type: "value", minInterval: 1, name: "筆數", nameGap: 16 },
+  grid: { left: 70, right: 24, top: 60, bottom: 48 },
+  xAxis: { type: "category", data: [], axisLabel: { interval: 0, fontSize: 18 } },
+  yAxis: {
+    type: "value",
+    minInterval: 1,
+    name: "筆數",
+    nameGap: 16,
+    nameTextStyle: { fontSize: 18 },
+    axisLabel: { fontSize: 18 },
+  },
   series: [
     {
       type: "bar",
       name: "已結案單數",
       data: [],
-      itemStyle: { color: "#2b77c5" },
+      itemStyle: { color: "#7c93f0" },
     },
   ],
 });
@@ -83,7 +92,7 @@ const sortedTechnicianStats = computed(() =>
   stats.value ? [...stats.value.technicianStats].sort((a, b) => b.totalCount - a.totalCount) : [],
 );
 
-// 橫式單軸堆疊長條圖：長條總長度=維修單量，內部分成「已結案」(綠)/「未結案」(灰)兩段，每段色塊裡直接標百分比。
+// 橫式單軸堆疊長條圖：長條總長度=維修單量，內部分成「已結案」(淺綠，跟維修完成徽章同色)/「未結案」(紅)兩段，每段色塊裡直接標百分比。
 // 只有整條長條的兩端(最左、最右)要是圓角，中間兩段交接處要是直角接在一起，這樣兩段合起來才會是一條完整的長橢圓、
 // 不會變成兩個獨立膠囊中間斷開；如果某一段筆數是0(那一段整條都空的)，圓角就要換給剩下那一整段的兩端都用
 const BAR_RADIUS = 10;
@@ -97,10 +106,17 @@ function buildStackedBarOption(items, nameOf) {
         return `${nameOf(item)}<br/>維修單量：${item.totalCount} 筆<br/>已結案：${item.closedCount} 筆<br/>結案率：${item.closedRate}%`;
       },
     },
-    legend: { top: 0 },
-    grid: { left: 90, right: 40, top: 40, bottom: 24 },
-    xAxis: { type: "value", name: "筆數", nameGap: 12, minInterval: 1 },
-    yAxis: { type: "category", data: items.map(nameOf), inverse: true },
+    legend: { top: 0, textStyle: { fontSize: 18 } },
+    grid: { left: 130, right: 70, top: 50, bottom: 32 },
+    xAxis: {
+      type: "value",
+      name: "筆數",
+      nameGap: 12,
+      minInterval: 1,
+      nameTextStyle: { fontSize: 18 },
+      axisLabel: { fontSize: 18 },
+    },
+    yAxis: { type: "category", data: items.map(nameOf), inverse: true, axisLabel: { fontSize: 18 } },
     series: [
       {
         type: "bar",
@@ -112,12 +128,12 @@ function buildStackedBarOption(items, nameOf) {
           const radius = openCount === 0 ? BAR_RADIUS : [BAR_RADIUS, 0, 0, BAR_RADIUS];
           return { value: i.closedCount, itemStyle: { borderRadius: radius } };
         }),
-        itemStyle: { color: "#20c997" },
+        itemStyle: { color: "#a3cfbb" },
         label: {
           show: true,
           position: "inside",
-          color: "#fff",
-          fontSize: 11,
+          color: "#0a3622",
+          fontSize: 17,
           formatter: (params) => (items[params.dataIndex].closedCount > 0 ? `${items[params.dataIndex].closedRate}%` : ""),
         },
       },
@@ -131,12 +147,12 @@ function buildStackedBarOption(items, nameOf) {
           const radius = i.closedCount === 0 ? BAR_RADIUS : [0, BAR_RADIUS, BAR_RADIUS, 0];
           return { value: openCount, itemStyle: { borderRadius: radius } };
         }),
-        itemStyle: { color: "#adb5bd" },
+        itemStyle: { color: "#f08a94" },
         label: {
           show: true,
           position: "inside",
-          color: "#495057",
-          fontSize: 11,
+          color: "#7a1f27",
+          fontSize: 17,
           formatter: (params) => {
             const item = items[params.dataIndex];
             const openCount = item.totalCount - item.closedCount;
@@ -203,17 +219,17 @@ onMounted(() => {
       <!-- 統計數字卡片 -->
       <div class="row g-3 mb-4">
         <div class="col-6 col-lg-3">
-          <div class="card shadow-sm text-center h-100">
+          <div class="card stat-card text-center h-100">
             <div class="card-body">
-              <div class="text-secondary small">全部維修單</div>
+              <div class="stat-label">全部維修單</div>
               <div class="fs-3 fw-bold">{{ stats.totalCount }}</div>
             </div>
           </div>
         </div>
         <div class="col-6 col-lg-3">
-          <div class="card shadow-sm text-center h-100">
+          <div class="card stat-card text-center h-100">
             <div class="card-body">
-              <div class="text-secondary small">拒絕維修</div>
+              <div class="stat-label">拒絕維修</div>
               <div class="fs-3 fw-bold text-danger">
                 {{ stats.rejectedCount }}<small class="fs-6 fw-normal">（{{ stats.rejectedPercentage }}%）</small>
               </div>
@@ -221,9 +237,9 @@ onMounted(() => {
           </div>
         </div>
         <div class="col-6 col-lg-3">
-          <div class="card shadow-sm text-center h-100">
+          <div class="card stat-card text-center h-100">
             <div class="card-body">
-              <div class="text-secondary small">已結案</div>
+              <div class="stat-label">已結案</div>
               <div class="fs-3 fw-bold">
                 {{ stats.closedCount }}<small class="fs-6 fw-normal">（{{ stats.closedPercentage }}%）</small>
               </div>
@@ -231,9 +247,9 @@ onMounted(() => {
           </div>
         </div>
         <div class="col-6 col-lg-3">
-          <div class="card shadow-sm text-center h-100">
+          <div class="card stat-card text-center h-100">
             <div class="card-body">
-              <div class="text-secondary small">平均建立到結案耗時</div>
+              <div class="stat-label">平均建立到結案耗時</div>
               <div class="fs-4 fw-bold">{{ formatHours(stats.avgCloseDurationHours) }}</div>
             </div>
           </div>
@@ -243,9 +259,9 @@ onMounted(() => {
       <!-- 維修單狀態分布(左) / 結案耗時分布(右) 並排一排；各分店/各技師各自獨立佔一整排 -->
       <div class="row g-3 mb-3 align-items-start">
         <div class="col-lg-5">
-          <section class="card shadow-sm">
-            <div class="card-header py-3">
-              <h6 class="m-0 fw-bold">維修單狀態分布</h6>
+          <section class="card section-card">
+            <div class="card-header fw-bold section-card-header">
+              <i class="bi bi-pie-chart"></i> 維修單狀態分布
             </div>
             <div class="card-body">
               <v-chart class="chart" :option="statusPieOption" :init-options="chartInitOptions" autoresize />
@@ -277,11 +293,11 @@ onMounted(() => {
           </section>
         </div>
         <div class="col-lg-7">
-          <section class="card shadow-sm">
-            <div class="card-header py-3">
-              <h6 class="m-0 fw-bold">已結案單：建立到結案耗時分布</h6>
-              <p class="text-secondary small mb-0 mt-1">以最後一次更新時間近似結案時間，僅供參考</p>
+          <section class="card section-card">
+            <div class="card-header fw-bold section-card-header">
+              <i class="bi bi-bar-chart"></i> 已結案單：建立到結案耗時分布
             </div>
+            <p class="text-secondary chart-note mb-0 mt-2 px-3 pt-2">以最後一次更新時間近似結案時間，僅供參考</p>
             <div class="card-body">
               <v-chart
                 v-if="stats.closedCount > 0"
@@ -296,9 +312,9 @@ onMounted(() => {
         </div>
       </div>
 
-      <section class="card shadow-sm mb-3">
-        <div class="card-header py-3">
-          <h6 class="m-0 fw-bold">各分店維修單量與結案率</h6>
+      <section class="card section-card mb-3">
+        <div class="card-header fw-bold section-card-header">
+          <i class="bi bi-shop"></i> 各分店維修單量與結案率
         </div>
         <div class="card-body">
           <v-chart
@@ -312,11 +328,11 @@ onMounted(() => {
         </div>
       </section>
 
-      <section class="card shadow-sm mb-3">
-        <div class="card-header py-3">
-          <h6 class="m-0 fw-bold">各技師維修單量與結案率</h6>
-          <p class="text-secondary small mb-0 mt-1">尚未被認領的維修單不計入任何技師</p>
+      <section class="card section-card mb-3">
+        <div class="card-header fw-bold section-card-header">
+          <i class="bi bi-person-gear"></i> 各技師維修單量與結案率
         </div>
+        <p class="text-secondary chart-note mb-0 mt-2 px-3 pt-2">尚未被認領的維修單不計入任何技師</p>
         <div class="card-body">
           <v-chart
             v-if="sortedTechnicianStats.length > 0"
@@ -341,5 +357,38 @@ onMounted(() => {
   height: 10px;
   border-radius: 50%;
   flex-shrink: 0;
+}
+
+/* 圖表說明文字，比原本的 Bootstrap .small 放大1.5倍 */
+.chart-note {
+  font-size: 21px;
+}
+
+/* 區塊卡片：圓角+柔和陰影，跟維修單管理同一套風格 */
+.section-card {
+  border: none;
+  border-radius: 1rem;
+  box-shadow: 0 2px 10px rgba(30, 53, 87, 0.08);
+}
+
+/* 區塊標題色塊：跟站內品牌藍統一風格 */
+.section-card-header {
+  background-color: #a8cdf0;
+  color: #14263d;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 20px;
+}
+
+/* 統計數字卡片：圓角+柔和陰影，字級放大 */
+.stat-card {
+  border: none;
+  border-radius: 1rem;
+  box-shadow: 0 2px 10px rgba(30, 53, 87, 0.08);
+}
+.stat-label {
+  font-size: 16px;
+  color: var(--bs-secondary-color, #6c757d);
 }
 </style>
