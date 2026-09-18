@@ -33,6 +33,23 @@ export const createOrder = (data) => {
     return axios.post(ADMIN_ORDER_API, data)
 }
 
+// 一次產生 50 筆後台 Demo 訂單
+export const generateDemoOrders = () => {
+    return axios.post(`${ADMIN_ORDER_API}/demo`)
+}
+
+// 查詢後台訂單統計
+export const getOrderStatistics = () => {
+    return axios.get(`${ADMIN_ORDER_API}/statistics`)
+}
+
+// 匯出全部後台訂單為 Excel
+export const exportOrders = () => {
+    return axios.get(`${ADMIN_ORDER_API}/export`, {
+        responseType: 'blob'
+    })
+}
+
 // 修改訂單
 export const updateOrder = (orderId, data) => {
     return axios.put(`${ADMIN_ORDER_API}/${orderId}`, data)

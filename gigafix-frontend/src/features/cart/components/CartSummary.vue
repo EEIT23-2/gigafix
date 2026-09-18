@@ -81,7 +81,7 @@ defineEmits(['clear', 'checkout', 'update:selectedCouponCode'])
                     }}
                 </span>
                 
-                <span v-if="couponDiscount > 0">
+                <span style="color: red;" v-if="couponDiscount > 0">
                     優惠券折扣：
                     − NT$
                     {{
@@ -162,8 +162,8 @@ defineEmits(['clear', 'checkout', 'update:selectedCouponCode'])
 .final-amount {
     display: block;
     margin: 3px 0 5px;
-    color: #c64736;
-    font-size: 1.35rem;
+    color: #2924d3;
+    font-size: 1.5rem;
     white-space: nowrap;
 }
 
