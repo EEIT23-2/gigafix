@@ -136,6 +136,10 @@ public class Repairs {
 	@Column(name = "recipient_address", length = 200)
 	private String recipientAddress;
 
+	// 記住最後一次產生的綠界交易編號，客戶重新付款前用來跟綠界查詢上一筆是否其實已經付款成功，避免重複收費
+	@Column(name = "last_payment_trade_no", length = 20)
+	private String lastPaymentTradeNo;
+
 	@CreationTimestamp
 	@Column(name = "repair_created_time", nullable = false, updatable = false)
 	private LocalDateTime repairCreatedTime;

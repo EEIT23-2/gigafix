@@ -456,6 +456,14 @@ onMounted(() => {
             <div class="col-md-4">
               <span class="text-secondary">付款狀態：</span
               >{{ label(PAY_STATUS_LABELS, repair.repairPayStatus) }}
+              <button
+                v-if="repair.repairPay === 'ONLINE' && repair.repairPayStatus === 'PENDING'"
+                class="btn btn-outline-primary btn-sm ms-2"
+                :disabled="submittingPickupPayment"
+                @click="redirectToEcpayPayment(repair.id)"
+              >
+                重新付款
+              </button>
             </div>
             <div class="col-12" v-if="repair.pickupType === 'COURIER'">
               <span class="text-secondary">收件資訊：</span
