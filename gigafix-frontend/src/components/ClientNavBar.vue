@@ -432,7 +432,7 @@ const goToCart = () => {
 <template>
   <header class="site-header-wrapper">
     <div class="top-announcement-bar">
-      <span>加入會員就送可愛政諺寶寶一組</span>
+      <span>加入會員就送可愛奕婷寶寶一組</span>
       <!-- 這個應該在layout或是抽成元件????? -->
     </div>
 
@@ -628,7 +628,11 @@ const goToCart = () => {
     <template #title>會員註冊</template>
     <!-- demo/測試用：一鍵把下面除了OTP以外的欄位都填上假資料，OTP仍須真的收信才能填寫 -->
     <div class="d-flex justify-content-end mb-2">
-      <button type="button" class="btn btn-outline-secondary btn-sm" @click="fillRegisterFormWithFakeData()">
+      <button
+        type="button"
+        class="btn btn-outline-secondary btn-sm"
+        @click="fillRegisterFormWithFakeData()"
+      >
         一鍵輸入資料
       </button>
     </div>

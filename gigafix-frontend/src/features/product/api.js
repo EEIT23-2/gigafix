@@ -376,6 +376,17 @@ export const deleteAllRecycleApplications = async () => {
 };
 
 /**
+ * 要求後端讀取 classpath 中的 recycle-applications-demo.json。
+ * 回傳內容包含 message 與本次成功寫入的 applicationCount。
+ */
+export const importRecycleApplications = async () => {
+  const response = await axios.post(
+    `${ADMIN_RECYCLE_APPLICATION_URL}/import`,
+  );
+  return response.data;
+};
+
+/**
  * 後台將全部回收申請匯出為 JSON 檔
  *
  * GET /api/admin/recycle-applications/export

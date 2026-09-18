@@ -8,6 +8,7 @@ import {
   exportRecycleApplications,
   exportRecycleApplicationsExcel,
   getRecycleApplications,
+  importRecycleApplications,
 } from "../api";
 import ApplyFormTable from "../components/ApplyFormTable.vue";
 import RecycleChart from "../components/RecycleChart.vue";
@@ -37,6 +38,8 @@ const deletingId = ref(null);
 const deletingAll = ref(false);
 const exporting = ref(false);
 const exportingExcel = ref(false);
+// 控制快速匯入按鈕的 loading/disabled 狀態，避免使用者連點而重複新增資料。
+const importingDemo = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
 const showDeleteConfirm = ref(false);
@@ -158,6 +161,32 @@ async function fetchApplications(targetPage = page.value) {
       : "無法連線至伺服器";
   } finally {
     loading.value = false;
+  }
+}
+
+// 呼叫後端匯入固定 JSON；成功後清除篩選並重新載入第一頁，讓新增資料立即可見。
+async function handleDemoImport() {
+  if (importingDemo.value) return;
+
+  importingDemo.value = true;
+  errorMessage.value = "";
+  successMessage.value = "";
+
+  try {
+    const result = await importRecycleApplications();
+    // Demo 資料的日期與狀態可能不符合目前篩選，重設條件可確保使用者看得到匯入結果。
+    recycleApplicationStore.resetListState();
+    await fetchApplications(0);
+    successMessage.value = `已快速增加 ${result.applicationCount ?? 0} 筆回收單`;
+  } catch (error) {
+    console.error(error);
+    errorMessage.value =
+      error.response?.data?.message ??
+      (error.response
+        ? `回收單匯入失敗（HTTP ${error.response.status}）`
+        : "無法連線到伺服器，請稍後再試。");
+  } finally {
+    importingDemo.value = false;
   }
 }
 
@@ -401,6 +430,24 @@ onMounted(() => fetchApplications(page.value));
         </div>
 
         <div class="d-flex flex-wrap gap-2">
+          <!-- 快速匯入期間同步鎖定其他批次操作，避免列表狀態互相覆蓋。 -->
+          <button
+            type="button"
+            class="btn btn-primary d-inline-flex align-items-center gap-2"
+            :disabled="
+              importingDemo || deletingAll || exporting || exportingExcel
+            "
+            @click="handleDemoImport"
+          >
+            <span
+              v-if="importingDemo"
+              class="spinner-border spinner-border-sm"
+              aria-hidden="true"
+            ></span>
+            <i v-else class="bi bi-database-add" aria-hidden="true"></i>
+            {{ importingDemo ? "匯入中..." : "快速增加回收單" }}
+          </button>
+
           <button
             type="button"
             class="btn btn-outline-primary d-inline-flex align-items-center gap-2"

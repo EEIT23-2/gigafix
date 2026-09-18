@@ -11,6 +11,7 @@ import com.gigafix.product.constant.ProductCategory;
 import com.gigafix.product.constant.ProductSaleStatus;
 import com.gigafix.product.constant.RecycleStatus;
 import com.gigafix.product.dto.RecycleAgreementRequest;
+import com.gigafix.product.dto.RecycleApplicationImportItem;
 import com.gigafix.product.dto.RecycleQueryParams;
 import com.gigafix.product.dto.RecycleRequest;
 import com.gigafix.product.dto.RecycleResponse;
@@ -23,6 +24,7 @@ import com.gigafix.repair.repository.StoresRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -40,19 +42,25 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
 
 import javax.imageio.ImageIO;
 import java.io.ByteArrayOutputStream;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -647,6 +655,92 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
             throw new IllegalStateException("仍有未取消的回收單，不可執行全部刪除");
         }
         recycleApplicationDao.deleteAll(applyForms);
+    }
+
+    /**
+     * 依照 ProductService 的 JSON 匯入模式，從 classpath 讀取固定 Demo 資料。
+     * 此類別已標示 @Transactional；驗證或儲存任一步驟失敗時，整批匯入會回滾。
+     */
+    @Override
+    public int importApplyForms() throws IOException {
+        // JSON 放在 src/main/resources，打包成 JAR 後仍可透過 classpath 取得。
+        ClassPathResource resource = new ClassPathResource("recycle-applications-demo.json");
+
+        try (InputStream inputStream = resource.getInputStream()) {
+            // 使用獨立匯入 DTO，避免 JSON 直接建立 Member、Stores 等 JPA 關聯物件。
+            List<RecycleApplicationImportItem> importItems = objectMapper.readValue(
+                    inputStream,
+                    new TypeReference<List<RecycleApplicationImportItem>>() {}
+            );
+
+            // 先收集全部會員 ID，讓外鍵驗證可以一次完成。
+            Set<Long> requiredMemberIds = new LinkedHashSet<>();
+            for (RecycleApplicationImportItem item : importItems) {
+                if (item.getMemberId() == null) {
+                    throw new IllegalArgumentException("Demo 回收單缺少 memberId");
+                }
+                requiredMemberIds.add(item.getMemberId());
+            }
+
+            Map<Long, Member> membersById = new HashMap<>();
+            for (Member member : memberRepository.findAllById(requiredMemberIds)) {
+                membersById.put(member.getId(), member);
+            }
+
+            // 只要缺少任一會員便停止匯入，效果等同原 SQL 的前置檢查。
+            Set<Long> missingMemberIds = new LinkedHashSet<>(requiredMemberIds);
+            missingMemberIds.removeAll(membersById.keySet());
+            if (!missingMemberIds.isEmpty()) {
+                throw new IllegalStateException("會員 ID 不存在：" + missingMemberIds);
+            }
+
+            // DTO 全部轉成 Entity 後再批次寫入，避免逐筆 save 造成多次資料庫往返。
+            List<RecycleApplication> applications = importItems.stream()
+                    .map(item -> toImportEntity(item, membersById.get(item.getMemberId())))
+                    .toList();
+
+            recycleApplicationDao.saveAll(applications);
+            return applications.size();
+        }
+    }
+
+    /** 將匯入 DTO 轉成可儲存的 Entity，並補上已驗證的會員與門市關聯。 */
+    private RecycleApplication toImportEntity(
+            RecycleApplicationImportItem item,
+            Member member
+    ) {
+        RecycleApplication application = new RecycleApplication();
+        application.setMember(member);
+        application.setProductName(item.getProductName());
+        application.setCategory(item.getCategory());
+        application.setAppearance(item.getAppearance());
+        application.setImageUrl(item.getImageUrl());
+        application.setDescription(item.getDescription());
+        application.setEstimatedPrice(item.getEstimatedPrice());
+        application.setRecycleStatus(item.getRecycleStatus());
+        application.setAgreementSignature(item.getAgreementSignature());
+        application.setAgreementSignedTime(parseImportDateTime(item.getAgreementSignedTime()));
+        application.setCreatedTime(parseImportDateTime(item.getCreatedTime()));
+        application.setLastModifiedTime(parseImportDateTime(item.getLastModifiedTime()));
+
+        // Demo 可不指定門市；有指定時仍須驗證門市外鍵是否存在。
+        if (item.getStoreId() != null) {
+            Stores store = storesRepository.findById(item.getStoreId())
+                    .orElseThrow(() -> new IllegalStateException(
+                            "門市 ID 不存在：" + item.getStoreId()
+                    ));
+            application.setStores(store);
+        }
+
+        return application;
+    }
+
+    /**
+     * 將 JSON 的 ISO 8601 時區字串轉成資料表使用的 LocalDateTime。
+     * null 代表尚未簽署等允許空值的時間欄位。
+     */
+    private LocalDateTime parseImportDateTime(String value) {
+        return value == null ? null : OffsetDateTime.parse(value).toLocalDateTime();
     }
 
     //將全部回收單轉為 DTO 後匯出，避免直接序列化 Member、Stores 的關聯資料

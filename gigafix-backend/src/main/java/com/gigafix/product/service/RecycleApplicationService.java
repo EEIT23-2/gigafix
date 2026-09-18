@@ -67,6 +67,12 @@ public interface RecycleApplicationService {
     //刪除所有回收單
     void deleteAllApplyForms();
 
+    /**
+     * 從 classpath 的 Demo JSON 匯入回收單，回傳成功寫入的筆數。
+     * JSON 無法讀取時向上拋出 IOException。
+     */
+    int importApplyForms() throws IOException;
+
     //匯出全部回收單 JSON
     byte[] exportApplyForms() throws IOException;
 
