@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useFetchMemberInfoStore } from '@/stores/member'
 import { useFloatingBubblesStore } from '@/stores/floatingBubbles'
@@ -10,6 +10,7 @@ const store = useSupportChatStore()
 
 const draft = ref('')
 const messageListRef = ref(null)
+const composerInputRef = ref(null)
 
 // 跟 ProductCartDrawer 共用同一份浮動氣泡登記機制，避免兩顆按鈕疊在同一個位置——
 // order 比購物車（10）大，維持「客服疊在購物車上面」的既有安排
@@ -46,10 +47,19 @@ const INTERNAL_LINKS = {
   '二手機收購/回收': { name: 'recycle-form' },
 }
 
-// 把一則訊息文字拆成「純文字」與「白名單內的站內連結」交錯的片段，給模板用 v-for 渲染
+// 真人客服信箱，跟 SupportSystemPrompt 裡寫給模型的地址是同一組——
+// 只認這個寫死的字串，不是「任何看起來像信箱的文字」都轉連結，理由跟站內連結白名單一樣：
+// 不相信模型輸出裡可能出現的任意信箱地址，只轉我們自己知道、確實是真人客服的這一個
+const SUPPORT_EMAIL = 'gigafix.demo@gmail.com'
+
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+// 把一則訊息文字拆成「純文字」「白名單內的站內連結」「客服信箱」交錯的片段，給模板用 v-for 渲染
 function parseMessageSegments(content) {
   const segments = []
-  const pattern = /\[([^[\]]+)\]/g
+  const pattern = new RegExp(`\\[([^[\\]]+)\\]|(${escapeRegExp(SUPPORT_EMAIL)})`, 'g')
   let lastIndex = 0
   let match
 
@@ -57,9 +67,13 @@ function parseMessageSegments(content) {
     if (match.index > lastIndex) {
       segments.push({ type: 'text', text: content.slice(lastIndex, match.index) })
     }
-    const label = match[1]
-    const to = INTERNAL_LINKS[label]
-    segments.push(to ? { type: 'link', text: label, to } : { type: 'text', text: match[0] })
+    if (match[1] !== undefined) {
+      const label = match[1]
+      const to = INTERNAL_LINKS[label]
+      segments.push(to ? { type: 'link', text: label, to } : { type: 'text', text: match[0] })
+    } else {
+      segments.push({ type: 'email', text: SUPPORT_EMAIL })
+    }
     lastIndex = pattern.lastIndex
   }
 
@@ -100,6 +114,10 @@ async function handleSend() {
   const text = draft.value
   draft.value = ''
   await store.sendMessage(text)
+  // 送出期間 textarea 會被 disabled 蓋掉，瀏覽器會強制讓它失焦；
+  // 送出結束、disabled 解除後要手動把游標接回去，不然使用者每次都要自己重新點輸入框
+  await nextTick()
+  composerInputRef.value?.focus()
 }
 
 function handleKeydown(event) {
@@ -166,6 +184,11 @@ function handleKeydown(event) {
                       class="message-link"
                       @click="store.closePanel()"
                     >{{ segment.text }}</RouterLink>
+                    <a
+                      v-else-if="segment.type === 'email'"
+                      :href="`mailto:${segment.text}`"
+                      class="message-link"
+                    >{{ segment.text }}</a>
                     <template v-else>{{ segment.text }}</template>
                   </template>
                 </template>
@@ -185,6 +208,7 @@ function handleKeydown(event) {
 
           <form class="composer" @submit.prevent="handleSend">
             <textarea
+              ref="composerInputRef"
               v-model="draft"
               class="composer-input"
               rows="1"
