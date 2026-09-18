@@ -16,7 +16,10 @@ import SupportChatWidget from '@/features/support/components/SupportChatWidget.v
 
     <!-- 共用頁尾 -->
     <footer class="site-footer">
-      <p>© Gigafix 機不可失 - 歡迎聯絡我們以取得您最好的手機</p>
+      <p>
+        © Gigafix 機不可失 - 歡迎聯絡我們以取得您最好的手機 ｜
+        全省門市營業時間 11:00～21:00
+      </p>
     </footer>
 
     <!-- AI 智能客服浮動氣泡窗：掛在這裡涵蓋所有前台頁面，不會出現在後台 AdminLayout -->
