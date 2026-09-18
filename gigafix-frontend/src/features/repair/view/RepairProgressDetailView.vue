@@ -8,6 +8,7 @@ import {
   respondToQuote,
   submitPickupPayment,
 } from "../api";
+import RepairStatusStepper from "../components/RepairStatusStepper.vue";
 
 const props = defineProps({
   repairId: { type: [String, Number], required: true },
@@ -20,28 +21,7 @@ const loading = ref(false);
 const errorMessage = ref("");
 
 // ===== 中文對照表：跟後台 RepairDetailView 用同一套，確保狀態顯示一致 =====
-const STATUS_LABELS = {
-  PENDING_QUOTE: "待估價",
-  QUOTED: "已報價",
-  IN_REPAIR: "維修中",
-  QUOTE_REJECTED: "報價後不維修",
-  REPAIR_COMPLETED: "維修完成",
-  AWAITING_PICKUP: "尚未取件",
-  CLOSED: "已結案",
-  CANCELLED: "已取消",
-  NOT_DROPPED_OFF: "未送檢",
-};
-const STATUS_BADGE_CLASS = {
-  PENDING_QUOTE: "text-bg-warning",
-  QUOTED: "text-bg-info",
-  IN_REPAIR: "text-bg-primary",
-  QUOTE_REJECTED: "text-bg-danger",
-  REPAIR_COMPLETED: "text-bg-success",
-  AWAITING_PICKUP: "text-bg-warning",
-  CLOSED: "text-bg-dark",
-  CANCELLED: "text-bg-secondary",
-  NOT_DROPPED_OFF: "text-bg-secondary",
-};
+// (狀態流程列已抽成 RepairStatusStepper 元件自己管理，這裡不用再放 STATUS_LABELS/STATUS_BADGE_CLASS)
 const APPROVAL_LABELS = {
   PENDING: "待確認",
   APPROVED: "同意維修",
@@ -232,13 +212,12 @@ onMounted(() => {
     </div>
 
     <template v-else-if="repair">
-      <div class="d-flex align-items-center gap-3 mb-4">
+      <div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
         <h1 class="fw-bold mb-0">維修單 #{{ repair.id }}</h1>
-        <span
-          class="badge fs-6"
-          :class="STATUS_BADGE_CLASS[repair.repairStatus] ?? 'text-bg-secondary'"
-          >{{ label(STATUS_LABELS, repair.repairStatus) }}</span
-        >
+        <RepairStatusStepper
+          :repair-status="repair.repairStatus"
+          :approval-status="repair.approvalStatus"
+        />
         <button
           v-if="canCancel"
           class="btn btn-outline-danger btn-sm ms-auto"
