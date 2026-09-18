@@ -59,11 +59,12 @@ Gigafix 是前後端分離的三層式架構：前端 SPA 透過 REST API 呼叫
 - **前端**：Vue 3.5、Vite 8、Pinia、Vue Router、Bootstrap 5
 - **後端**：Java 21、Spring Boot 4.1、Spring Data JPA、Spring Security、JWT
 - **資料庫**：Microsoft SQL Server 2022（本機開發用 Docker 容器）、Azure SQL Database（正式環境，使用微軟的Azure租SQL服務）
+- **快取**：Caffeine（後端本機記憶體快取）
 - **Web Server**：Nginx（僅本機 Docker Compose 環境使用，提供前端靜態頁面並反向代理 `/api/*` 到後端；正式環境前端改由 Vercel 直接服務，不會用到這個 Nginx image）
 - **CI/CD**：Jenkins（後端 build image、push 到 DockerHub，人工確認後部署到 Azure）、Vercel（前端 GitHub 自動 build/deploy）
 - **容器化**：Docker、Docker Compose、DockerHub（image 倉庫）
 - **雲端部署**：Vercel（前端 Hosting）、Azure Container Apps（後端）、Azure SQL Database（資料庫）
-- **其他API串接**：reCAPTCHA、Google Client(後端)/Google-login(前端)、jjwt、echarts、bootstrap/bootstrap-icon、taiwan-atlas
+- **其他API串接**：reCAPTCHA、Google 一鍵登入（Google Client 後端/Google-login 前端）、Cloudinary（圖片上傳/管理）、Spring Mail（寄送 Email 通知，如 OTP、忘記密碼、訂單/維修/回收通知）、jjwt、echarts、bootstrap/bootstrap-icon、taiwan-atlas
 - **版本控制**：Git、GitHub
 
 ## 系統需求
