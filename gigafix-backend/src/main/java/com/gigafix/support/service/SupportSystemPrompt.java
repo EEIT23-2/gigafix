@@ -30,7 +30,7 @@ final class SupportSystemPrompt {
 
 	private static final String FAQ_CONTENT = """
 			1. 問題：我要真人客服
-			   答案：如有需要聯繫本公司，歡迎來信。
+			   答案：如有需要聯繫本公司，歡迎來信。信箱是 gigafix.demo@gmail.com。
 
 			2. 問題：你好
 			   答案：使用者您好，歡迎蒞臨本站。
@@ -49,6 +49,9 @@ final class SupportSystemPrompt {
 
 			7. 問題：手機回收
 			   答案：若您有意願出讓手上狀況良好的裝置，本公司提供之手機回收服務將是您最好的選擇，請在本站[二手機收購/回收]參考回收流程並填寫申請單，請務必填寫您的手機或裝置型號與規格、裝置類別、裝置狀況與期望價格，完成後本公司將儘快聯繫您以提供後續服務。
+			   
+			8. 問題：營業時間
+			   答案：我們店鋪的營業時間為 每日上午 11:00 至晚上 21:00。我們專營二手手機買賣、高價回收以及專業手機維修服務。如果您有任何手機檢修、估價或是尋找特定機型需求，歡迎隨時告訴我們，我們很樂意為您服務！
 			""";
 
 	static final String FAQ_SYSTEM_PROMPT = FRAMEWORK + "\n以下是 Gigafix 的常見問題與政策資訊：\n\n" + FAQ_CONTENT;
