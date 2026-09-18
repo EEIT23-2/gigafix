@@ -1,7 +1,10 @@
 package com.gigafix.order.controller;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.gigafix.order.dto.AdminCreateOrderRequest;
 import com.gigafix.order.dto.AdminOrderCreateOptionsResponse;
+import com.gigafix.order.dto.AdminOrderStatisticsResponse;
 import com.gigafix.order.dto.OrderResponse;
 import com.gigafix.order.dto.ShipOrderRequest;
 import com.gigafix.order.dto.UpdateOrderRequest;
@@ -38,6 +42,43 @@ public class AdminOrderController {
 
         return ResponseEntity.ok(response);
 
+    }
+
+    // 一次產生 50 筆後台 Demo 訂單
+    @PostMapping("/demo")
+    public ResponseEntity<Map<String, Integer>> generateDemoOrders() {
+
+        int createdCount = orderService.generateDemoOrders();
+
+        return ResponseEntity.ok(Map.of("createdCount", createdCount));
+    }
+
+    // 查詢後台訂單統計
+    @GetMapping("/statistics")
+    public ResponseEntity<AdminOrderStatisticsResponse> getOrderStatistics() {
+
+        AdminOrderStatisticsResponse response = orderService.getOrderStatistics();
+
+        return ResponseEntity.ok(response);
+    }
+
+    // 匯出全部後台訂單為 Excel
+    @GetMapping("/export")
+    public ResponseEntity<byte[]> exportOrders() throws IOException {
+
+        byte[] excelBytes = orderService.exportOrders();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(
+                HttpHeaders.CONTENT_DISPOSITION,
+                "attachment; filename=orders.xlsx");
+        headers.add(
+                HttpHeaders.CONTENT_TYPE,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(excelBytes);
     }
 
     // 查詢所有會員訂單
