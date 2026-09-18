@@ -179,8 +179,17 @@ onMounted(fetchProduct);
             <div class="col-12 col-lg-8">
               <div class="mb-4">
                 <div>
-                  <div class="text-secondary small mb-1">
-                    商品 ID：{{ product.productId }}
+                  <div
+                    class="text-secondary small mb-1 d-flex flex-wrap justify-content-between gap-2"
+                  >
+                    <span>商品 ID：{{ product.productId }}</span>
+                    <span>
+                      來源回收單 ID：{{
+                        product.recycleApplyId
+                          ? `#${product.recycleApplyId}`
+                          : "##"
+                      }}
+                    </span>
                   </div>
                   <h2 class="h3 fw-bold mb-2">{{ productName }}</h2>
                   <span class="badge" :class="statusClass(saleStatus)">{{
@@ -194,19 +203,6 @@ onMounted(fetchProduct);
                 <dd class="col-sm-8">{{ product.category ?? "-" }}</dd>
                 <dt class="col-sm-4">外觀等級</dt>
                 <dd class="col-sm-8">{{ product.grade ?? "-" }}</dd>
-                <dt class="col-sm-4">來源回收單 ID</dt>
-                <dd class="col-sm-8">
-                  <RouterLink
-                    v-if="product.recycleApplyId"
-                    :to="{
-                      name: 'admin-applyForms-detail',
-                      params: { applyId: product.recycleApplyId },
-                    }"
-                  >
-                    #{{ product.recycleApplyId }}
-                  </RouterLink>
-                  <span v-else>非回收商品</span>
-                </dd>
                 <dt class="col-sm-4">外觀狀況</dt>
                 <dd class="col-sm-8">{{ product.appearance ?? "-" }}</dd>
                 <dt class="col-sm-4">價格</dt>
