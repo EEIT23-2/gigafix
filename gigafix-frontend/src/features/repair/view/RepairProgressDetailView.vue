@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import {
+  cancelRepair,
   getRepair,
   redirectToEcpayPayment,
   respondToQuote,
@@ -161,6 +162,36 @@ async function handleRespond(approve) {
   }
 }
 
+// ===== 客戶自行取消（僅限待估價、尚未被技師認領） =====
+const cancelling = ref(false);
+
+const canCancel = computed(
+  () =>
+    repair.value &&
+    repair.value.repairStatus === "PENDING_QUOTE" &&
+    !repair.value.technicianId,
+);
+
+async function handleCancel() {
+  if (!window.confirm("確定要取消這張維修預約嗎？取消後無法復原。")) return;
+
+  cancelling.value = true;
+  errorMessage.value = "";
+  try {
+    await cancelRepair(repair.value.id);
+    await fetchRepair();
+  } catch (error) {
+    console.error(error);
+    errorMessage.value = error.response?.data?.message
+      ? error.response.data.message
+      : error.response
+        ? `取消失敗：HTTP ${error.response.status}`
+        : "無法連線到後端伺服器";
+  } finally {
+    cancelling.value = false;
+  }
+}
+
 async function fetchRepair() {
   loading.value = true;
   errorMessage.value = "";
@@ -208,6 +239,14 @@ onMounted(() => {
           :class="STATUS_BADGE_CLASS[repair.repairStatus] ?? 'text-bg-secondary'"
           >{{ label(STATUS_LABELS, repair.repairStatus) }}</span
         >
+        <button
+          v-if="canCancel"
+          class="btn btn-outline-danger btn-sm ms-auto"
+          :disabled="cancelling"
+          @click="handleCancel"
+        >
+          取消預約
+        </button>
       </div>
 
       <div v-if="errorMessage" class="alert alert-danger">

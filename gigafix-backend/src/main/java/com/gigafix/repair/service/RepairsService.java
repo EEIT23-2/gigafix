@@ -396,9 +396,29 @@ public class RepairsService {
 
 	    return toResponse(rRepos.save(r));
 	}
-	
-	
-	
+
+//	客戶自行取消：僅限待估價、且尚未有技師認領時才能取消，避免技師已經在處理的單被抽掉
+//	repairStatus 待估價->已取消
+	public RepairsResponse cancel(Long id, Long memberId) {
+	    Repairs r = rRepos.findById(id)
+	    		.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
+
+	    if (!r.getMember().getId().equals(memberId)) {
+	        throw new NotEligibleException("此維修單不是你的，無法取消");
+	    }
+	    if (r.getRepairStatus() != RepairStatus.PENDING_QUOTE) {
+	        throw new InvalidRepairStatusException("此階段無法取消");
+	    }
+	    if (r.getRepairTechnicians() != null) {
+	        throw new InvalidRepairStatusException("已有技師認領，無法自行取消，請聯繫門市");
+	    }
+
+	    r.setRepairStatus(RepairStatus.CANCELLED);
+	    return toResponse(rRepos.save(r));
+	}
+
+
+
 //	技師在維修中補充/更新檢測備註（例如發現新問題、電話聯絡客戶溝通後記錄、客戶拒絕維修後只收檢測費/不收費）
 //	跟 updateQuote 不同：這裡只能改 inspectionResult
 	public RepairsResponse updateInspectionResult(Long id, InspectionResultRequest req) {

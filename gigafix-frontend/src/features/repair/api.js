@@ -168,6 +168,12 @@ export const submitPickupPayment = async (repairId, pickupPaymentRequest) => {
   return response.data;
 };
 
+// 客戶自行取消，僅限待估價、尚未被技師認領，不用傳memberId，後端從登入資訊拿
+export const cancelRepair = async (repairId) => {
+  const response = await axios.patch(`${REPAIRS_URL}/${repairId}/cancel`);
+  return response.data;
+};
+
 // 技師編輯收件人資訊：結案前都可以改，僅限客戶選寄件的單
 export const updateRecipient = async (repairId, recipientRequest) => {
   const response = await axios.patch(

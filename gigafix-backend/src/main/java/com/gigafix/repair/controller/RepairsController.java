@@ -81,4 +81,11 @@ public class RepairsController {
 		return ResponseEntity.ok(rServ.submitPickupPayment(id, memberId, req));// 200
 	}
 
+	// 客戶自行取消，僅限待估價、尚未被技師認領，memberId 從SecurityContextHolder的Authentication解析出來
+	@PatchMapping("/{id}/cancel")
+	public ResponseEntity<RepairsResponse> cancel(@PathVariable Long id, Authentication authentication) {
+		Long memberId = SecurityUtils.getCurrentMember(authentication).getId();
+		return ResponseEntity.ok(rServ.cancel(id, memberId));// 200
+	}
+
 }
