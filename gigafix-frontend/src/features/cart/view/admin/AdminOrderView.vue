@@ -1,11 +1,6 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { use } from 'echarts/core'
-import { BarChart } from 'echarts/charts'
-import { GridComponent, TooltipComponent } from 'echarts/components'
-import { CanvasRenderer } from 'echarts/renderers'
-import VChart from 'vue-echarts'
 import {
     getOrders,
     getOrdersByMember,
@@ -19,14 +14,13 @@ import {
 } from '../../api/adminOrderApi'
 import OrderStatusBadge from '../../components/OrderStatusBadge.vue'
 
-use([CanvasRenderer, BarChart, GridComponent, TooltipComponent])
-
 //******訂單管理頁面******
 
 // 使用 Vue Router 的 useRouter 來導航
 const router = useRouter()
 // 存放後端回傳的訂單資料
 const orders = ref([])
+const allOrdersForStatistics = ref([])
 // 全部訂單的後台統計
 const orderStatistics = ref({
     totalOrders: 0,
@@ -123,6 +117,7 @@ const loadOrders = async () => {
         const response = await getOrders()
 
         orders.value = response.data
+        allOrdersForStatistics.value = response.data
 
         console.log('訂單資料：', response.data)
     } catch (error) {
@@ -189,8 +184,8 @@ const deleteOrder = async (orderId) => {
 
         alert('刪除成功')
 
-        // 刪除後重新查詢訂單
-        loadOrders()
+        // 刪除後重新查詢訂單與統計
+        await Promise.all([loadOrders(), loadOrderStatistics()])
     } catch (error) {
         console.error('刪除訂單失敗：', error)
         alert('刪除失敗')
@@ -273,75 +268,146 @@ const filteredOrders = computed(() => {
         }
     })
 })
-// 訂單狀態長條圖
-const orderStatusChartOption = computed(() => ({
-    animationDuration: 650,
-    tooltip: {
-        trigger: 'axis',
-        axisPointer: { type: 'shadow' },
-        valueFormatter: value => `${value} 筆`
-    },
-    grid: {
-        left: 18,
-        right: 64,
-        top: 24,
-        bottom: 12,
-        containLabel: true
-    },
-    xAxis: {
-        type: 'value',
-        minInterval: 1,
-        axisLine: { show: false },
-        axisTick: { show: false },
-        axisLabel: {
-            color: '#718096',
-            fontSize: 12
-        },
-        splitLine: {
-            lineStyle: { color: '#e9eef4' }
+const pageSize = 8
+const currentPage = ref(1)
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredOrders.value.length / pageSize)))
+const paginatedOrders = computed(() => {
+    const startIndex = (currentPage.value - 1) * pageSize
+
+    return filteredOrders.value.slice(startIndex, startIndex + pageSize)
+})
+const firstDisplayedOrder = computed(() => {
+    if (filteredOrders.value.length === 0) {
+        return 0
+    }
+
+    return (currentPage.value - 1) * pageSize + 1
+})
+const lastDisplayedOrder = computed(() => Math.min(currentPage.value * pageSize, filteredOrders.value.length))
+const visiblePageNumbers = computed(() => {
+    const total = totalPages.value
+    const current = currentPage.value
+
+    if (total <= 5) {
+        return Array.from({ length: total }, (_, index) => index + 1)
+    }
+
+    if (current <= 3) {
+        return [1, 2, 3, 'end-ellipsis', total]
+    }
+
+    if (current >= total - 2) {
+        return [1, 'start-ellipsis', total - 2, total - 1, total]
+    }
+
+    return [1, 'start-ellipsis', current, 'end-ellipsis', total]
+})
+
+const goToPage = (page) => {
+    currentPage.value = Math.min(Math.max(page, 1), totalPages.value)
+}
+
+watch(
+    [selectedMemberId, selectedOrderStatus, selectedPaymentStatus, selectedShippingStatus, searchKeyword, selectedSort],
+    () => {
+        currentPage.value = 1
+    }
+)
+
+watch(
+    () => filteredOrders.value.length,
+    () => {
+        if (currentPage.value > totalPages.value) {
+            currentPage.value = totalPages.value
         }
-    },
-    yAxis: {
-        type: 'category',
-        inverse: true,
-        data: ['待處理', '已完成', '已取消'],
-        axisLine: { show: false },
-        axisTick: { show: false },
-        axisLabel: {
-            color: '#34495e',
-            fontSize: 13,
-            fontWeight: 700
+    }
+)
+
+const toPercentage = (value, total) => {
+    if (!total) {
+        return 0
+    }
+
+    return Math.round((value / total) * 100)
+}
+
+const orderStatusStatistics = computed(() => {
+    const total = Number(orderStatistics.value.totalOrders ?? 0)
+
+    return {
+        total,
+        completed: Number(orderStatistics.value.completedOrders ?? 0),
+        pending: Number(orderStatistics.value.pendingOrders ?? 0),
+        cancelled: Number(orderStatistics.value.cancelledOrders ?? 0)
+    }
+})
+
+const orderStatusDonutStyle = computed(() => {
+    const total = orderStatusStatistics.value.total
+    const completedPercent = toPercentage(orderStatusStatistics.value.completed, total)
+    const pendingPercent = toPercentage(orderStatusStatistics.value.pending, total)
+    const completedEnd = completedPercent
+    const pendingEnd = completedPercent + pendingPercent
+
+    return {
+        background: `conic-gradient(#1f9569 0 ${completedEnd}%, #dfa00c ${completedEnd}% ${pendingEnd}%, #9ca7b0 ${pendingEnd}% 100%)`
+    }
+})
+
+const paymentStatistics = computed(() => {
+    const result = {
+        total: allOrdersForStatistics.value.length,
+        paid: 0,
+        unpaid: 0,
+        other: 0
+    }
+
+    allOrdersForStatistics.value.forEach(order => {
+        if (order.paymentStatus === 'PAID') {
+            result.paid += 1
+        } else if (order.paymentStatus === 'UNPAID') {
+            result.unpaid += 1
+        } else {
+            result.other += 1
         }
-    },
-    series: [
-        {
-            name: '訂單數量',
-            type: 'bar',
-            barWidth: 34,
-            data: [
-                {
-                    value: orderStatistics.value.pendingOrders,
-                    itemStyle: { color: '#d9a441', borderRadius: [0, 8, 8, 0] }
-                },
-                {
-                    value: orderStatistics.value.completedOrders,
-                    itemStyle: { color: '#4d9f7c', borderRadius: [0, 8, 8, 0] }
-                },
-                {
-                    value: orderStatistics.value.cancelledOrders,
-                    itemStyle: { color: '#c96f6f', borderRadius: [0, 8, 8, 0] }
-                }
-            ],
-            label: {
-                show: true,
-                position: 'right',
-                color: '#253b50',
-                fontWeight: 800,
-                formatter: '{c} 筆'
-            }
+    })
+
+    return result
+})
+
+const shippingStatistics = computed(() => {
+    const result = {
+        total: allOrdersForStatistics.value.length,
+        pending: 0,
+        shipped: 0,
+        delivered: 0,
+        cancelled: 0
+    }
+
+    allOrdersForStatistics.value.forEach(order => {
+        if (order.shippingStatus === 'PENDING') {
+            result.pending += 1
+        } else if (order.shippingStatus === 'SHIPPED') {
+            result.shipped += 1
+        } else if (order.shippingStatus === 'DELIVERED') {
+            result.delivered += 1
+        } else if (order.shippingStatus === 'CANCELLED') {
+            result.cancelled += 1
         }
-    ]
-}))
+    })
+
+    return result
+})
+
+const filterPendingShipmentOrders = () => {
+    selectedMemberId.value = ''
+    selectedOrderStatus.value = ''
+    selectedPaymentStatus.value = 'PAID'
+    selectedShippingStatus.value = 'PENDING'
+    searchKeyword.value = ''
+    orders.value = [...allOrdersForStatistics.value]
+    currentPage.value = 1
+}
 // 重設所有篩選條件
 const resetFilters = () => {
     selectedMemberId.value = ''
@@ -350,6 +416,7 @@ const resetFilters = () => {
     selectedShippingStatus.value = ''
     searchKeyword.value = ''
     selectedSort.value = 'createdAtDesc'
+    currentPage.value = 1
 
     loadOrders()
 }
@@ -374,8 +441,8 @@ const deliverOrder = async (orderId) => {
 
         alert('訂單已標記為送達')
 
-        // 重新查詢列表
-        loadOrders()
+        // 重新查詢列表與統計
+        await Promise.all([loadOrders(), loadOrderStatistics()])
 
     } catch (error) {
 
@@ -401,8 +468,8 @@ const cancelOrder = async (orderId) => {
 
         alert('訂單取消成功')
 
-        // 重新查詢訂單列表
-        loadOrders()
+        // 重新查詢訂單列表與統計
+        await Promise.all([loadOrders(), loadOrderStatistics()])
 
     } catch (error) {
 
@@ -426,19 +493,10 @@ const formatPrice = (price) => {
         <div class="mx-auto order-content-width">
 
             <!-- 頁面標題 -->
-            <header class="d-flex flex-column flex-md-row align-items-md-end justify-content-between gap-3 mb-4">
+            <header class="order-page-header">
                 <div>
-                    <div class="d-flex align-items-center gap-3">
-                        <h1 class="fw-bold mb-0">訂單管理</h1>
-
-                        <span class="badge rounded-pill text-bg-light border">
-                            Total: {{ orders.length }}
-                        </span>
-                    </div>
-
-                    <p class="text-secondary mb-0 mt-1">
-                        Manage customer orders, payments and shipping status.
-                    </p>
+                    <p class="order-breadcrumb">後台 / 訂單管理</p>
+                    <h1>訂單管理</h1>
                 </div>
 
                 <div class="d-flex flex-wrap gap-2">
@@ -460,151 +518,199 @@ const formatPrice = (price) => {
 
             <!-- 訂單統計 -->
             <section class="mb-4 order-statistics" aria-label="訂單統計">
-                <div class="revenue-summary-card">
-                    <span>總營業額</span>
-                    <strong>NT$ {{ formatPrice(orderStatistics.totalRevenue) }}</strong>
-                    <small>已付款訂單累計</small>
-                </div>
-
-                <div class="order-summary-grid" aria-label="訂單摘要">
-                    <div class="order-summary-card">
-                        <span class="summary-dot summary-dot-total" aria-hidden="true"></span>
-                        <span>總訂單數</span>
-                        <strong>{{ orderStatistics.totalOrders }}</strong>
-                    </div>
-
-                    <div class="order-summary-card">
-                        <span class="summary-dot summary-dot-completed" aria-hidden="true"></span>
-                        <span>已完成訂單</span>
-                        <strong>{{ orderStatistics.completedOrders }}</strong>
-                    </div>
-
-                    <div class="order-summary-card">
-                        <span class="summary-dot summary-dot-shipping" aria-hidden="true"></span>
-                        <span>待出貨訂單</span>
-                        <strong>{{ orderStatistics.pendingShipmentOrders }}</strong>
-                    </div>
-                </div>
-
-                <div class="chart-card">
-                    <div class="chart-card-header">
-                        <div>
-                            <p>ORDER OVERVIEW</p>
-                            <h2>訂單狀態統計</h2>
+                <div class="order-kpi-grid">
+                    <article class="order-kpi-card pending-shipment-card">
+                        <div class="order-kpi-heading">
+                            <span class="order-kpi-label">
+                                <span class="order-kpi-icon order-kpi-icon-warning" aria-hidden="true">
+                                    <i class="bi bi-truck"></i>
+                                </span>
+                                待出貨訂單
+                            </span>
+                            <span class="attention-badge">需處理</span>
                         </div>
-                        <span>全部訂單</span>
-                    </div>
-                    <div class="chart-card-body">
-                        <v-chart class="order-status-chart" :option="orderStatusChartOption"
-                            :loading="isStatisticsLoading" autoresize />
-                    </div>
+
+                        <div class="order-kpi-content">
+                            <div>
+                                <strong>{{ orderStatistics.pendingShipmentOrders }}</strong>
+                                <span>筆</span>
+                                <small>已付款、尚未出貨</small>
+                            </div>
+                            <button type="button" class="shipment-filter-button" @click="filterPendingShipmentOrders">
+                                篩選待出貨 →
+                            </button>
+                        </div>
+                    </article>
+
+                    <article class="order-kpi-card revenue-card">
+                        <span class="order-kpi-label">
+                            <span class="order-kpi-icon order-kpi-icon-blue" aria-hidden="true">
+                                <i class="bi bi-graph-up-arrow"></i>
+                            </span>
+                            總營業額
+                        </span>
+                        <div>
+                            <strong><span>NT$</span> {{ formatPrice(orderStatistics.totalRevenue) }}</strong>
+                            <small>已付款訂單累計・{{ paymentStatistics.paid }} 筆</small>
+                        </div>
+                    </article>
+
+                    <article class="order-kpi-card total-orders-card">
+                        <span class="order-kpi-label">
+                            <span class="order-kpi-icon order-kpi-icon-blue" aria-hidden="true">
+                                <i class="bi bi-clipboard2-data"></i>
+                            </span>
+                            總訂單數
+                        </span>
+                        <div>
+                            <strong>{{ orderStatistics.totalOrders }} <span>筆</span></strong>
+                            <small>本期全部訂單</small>
+                        </div>
+                    </article>
                 </div>
+
+                <article class="order-overview-card" :aria-busy="isStatisticsLoading">
+                    <div class="order-status-overview">
+                        <div class="order-status-donut" :style="orderStatusDonutStyle" role="img"
+                            :aria-label="`共 ${orderStatusStatistics.total} 筆訂單，已完成 ${orderStatusStatistics.completed} 筆、待處理 ${orderStatusStatistics.pending} 筆、已取消 ${orderStatusStatistics.cancelled} 筆`">
+                            <div>
+                                <strong>{{ orderStatusStatistics.total }}</strong>
+                                <span>筆訂單</span>
+                            </div>
+                        </div>
+
+                        <div class="order-status-legend">
+                            <h2>訂單狀態</h2>
+                            <div class="order-status-row">
+                                <span class="status-square status-square-completed" aria-hidden="true"></span>
+                                <span>已完成</span>
+                                <strong>{{ orderStatusStatistics.completed }}</strong>
+                                <small>{{ toPercentage(orderStatusStatistics.completed, orderStatusStatistics.total) }}%</small>
+                            </div>
+                            <div class="order-status-row">
+                                <span class="status-square status-square-pending" aria-hidden="true"></span>
+                                <span>待處理</span>
+                                <strong>{{ orderStatusStatistics.pending }}</strong>
+                                <small>{{ toPercentage(orderStatusStatistics.pending, orderStatusStatistics.total) }}%</small>
+                            </div>
+                            <div class="order-status-row">
+                                <span class="status-square status-square-cancelled" aria-hidden="true"></span>
+                                <span>已取消</span>
+                                <strong>{{ orderStatusStatistics.cancelled }}</strong>
+                                <small>{{ toPercentage(orderStatusStatistics.cancelled, orderStatusStatistics.total) }}%</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="order-flow-overview">
+                        <section>
+                            <header>
+                                <h3>付款狀態</h3>
+                                <span>
+                                    已付款 {{ paymentStatistics.paid }}・未付款 {{ paymentStatistics.unpaid }}
+                                    <template v-if="paymentStatistics.other">・其他 {{ paymentStatistics.other }}</template>
+                                </span>
+                            </header>
+                            <div class="statistics-track" role="img"
+                                :aria-label="`已付款 ${paymentStatistics.paid} 筆，未付款 ${paymentStatistics.unpaid} 筆，其他 ${paymentStatistics.other} 筆`">
+                                <span class="statistics-segment payment-paid"
+                                    :style="{ width: `${toPercentage(paymentStatistics.paid, paymentStatistics.total)}%` }"></span>
+                                <span class="statistics-segment payment-unpaid"
+                                    :style="{ width: `${toPercentage(paymentStatistics.unpaid, paymentStatistics.total)}%` }"></span>
+                                <span v-if="paymentStatistics.other" class="statistics-segment statistics-other"
+                                    :style="{ width: `${toPercentage(paymentStatistics.other, paymentStatistics.total)}%` }"></span>
+                            </div>
+                        </section>
+
+                        <section>
+                            <header>
+                                <h3>物流狀態</h3>
+                                <span>
+                                    待出貨 {{ shippingStatistics.pending }}・已出貨 {{ shippingStatistics.shipped }}・已送達
+                                    {{ shippingStatistics.delivered }}・已取消 {{ shippingStatistics.cancelled }}
+                                </span>
+                            </header>
+                            <div class="statistics-track" role="img"
+                                :aria-label="`待出貨 ${shippingStatistics.pending} 筆、已出貨 ${shippingStatistics.shipped} 筆、已送達 ${shippingStatistics.delivered} 筆、已取消 ${shippingStatistics.cancelled} 筆`">
+                                <span class="statistics-segment shipping-pending"
+                                    :style="{ width: `${toPercentage(shippingStatistics.pending, shippingStatistics.total)}%` }"></span>
+                                <span class="statistics-segment shipping-shipped"
+                                    :style="{ width: `${toPercentage(shippingStatistics.shipped, shippingStatistics.total)}%` }"></span>
+                                <span class="statistics-segment shipping-delivered"
+                                    :style="{ width: `${toPercentage(shippingStatistics.delivered, shippingStatistics.total)}%` }"></span>
+                                <span class="statistics-segment shipping-cancelled"
+                                    :style="{ width: `${toPercentage(shippingStatistics.cancelled, shippingStatistics.total)}%` }"></span>
+                            </div>
+                        </section>
+                    </div>
+                </article>
             </section>
 
             <!-- 訂單篩選 -->
             <section class="card shadow-sm border-0 mb-4 filter-card">
-                <div class="card-body p-4">
+                <div class="filter-grid">
+                    <label class="filter-field">
+                        <span>會員</span>
+                        <select v-model="selectedMemberId" class="form-select" @change="searchByMember">
+                            <option value="">全部會員</option>
+                            <option v-for="member in members" :key="member.memberId" :value="member.memberId">
+                                {{ member.memberName }}（ID：{{ member.memberId }}）
+                            </option>
+                        </select>
+                    </label>
 
-                    <!-- 第一排 -->
-                    <div class="row g-3">
+                    <label class="filter-field">
+                        <span>訂單狀態</span>
+                        <select v-model="selectedOrderStatus" class="form-select">
+                            <option value="">所有訂單狀態</option>
+                            <option value="PENDING">待處理</option>
+                            <option value="COMPLETED">已完成</option>
+                            <option value="CANCELLED">已取消</option>
+                        </select>
+                    </label>
 
-                        <!-- 會員 -->
-                        <div class="col-12 col-md-6 col-xl-3">
-                            <label class="form-label fw-semibold">
-                                會員
-                            </label>
-                            <select v-model="selectedMemberId" class="form-select" @change="searchByMember">
-                                <option value="">全部會員</option>
+                    <label class="filter-field">
+                        <span>付款狀態</span>
+                        <select v-model="selectedPaymentStatus" class="form-select">
+                            <option value="">所有付款狀態</option>
+                            <option value="UNPAID">未付款</option>
+                            <option value="PAID">已付款</option>
+                            <option value="FAILED">付款失敗</option>
+                            <option value="REFUNDED">已退款</option>
+                        </select>
+                    </label>
 
-                                <option v-for="member in members" :key="member.memberId" :value="member.memberId">
-                                    {{ member.memberName }}
-                                    （ID：{{ member.memberId }}）
-                                </option>
-                            </select>
-                        </div>
+                    <label class="filter-field">
+                        <span>物流狀態</span>
+                        <select v-model="selectedShippingStatus" class="form-select">
+                            <option value="">所有物流狀態</option>
+                            <option value="PENDING">待出貨</option>
+                            <option value="SHIPPED">已出貨</option>
+                            <option value="DELIVERED">已送達</option>
+                            <option value="CANCELLED">已取消</option>
+                        </select>
+                    </label>
 
-                        <!-- 訂單狀態 -->
-                        <div class="col-12 col-md-6 col-xl-3">
-                            <label class="form-label fw-semibold">
-                                訂單狀態
-                            </label>
-                            <select v-model="selectedOrderStatus" class="form-select">
-                                <option value="">所有訂單狀態</option>
-                                <option value="PENDING">待處理</option>
-                                <option value="COMPLETED">已完成</option>
-                                <option value="CANCELLED">已取消</option>
-                            </select>
-                        </div>
+                    <label class="filter-field filter-search-field">
+                        <span>搜尋</span>
+                        <input v-model="searchKeyword" type="search" class="form-control"
+                            placeholder="搜尋訂單 ID、商品名稱、收件人">
+                    </label>
 
-                        <!-- 付款狀態 -->
-                        <div class="col-12 col-md-6 col-xl-3">
-                            <label class="form-label fw-semibold">
-                                付款狀態
-                            </label>
-                            <select v-model="selectedPaymentStatus" class="form-select">
-                                <option value="">所有付款狀態</option>
-                                <option value="UNPAID">未付款</option>
-                                <option value="PAID">已付款</option>
-                                <option value="FAILED">付款失敗</option>
-                                <option value="REFUNDED">已退款</option>
-                            </select>
-                        </div>
+                    <label class="filter-field">
+                        <span>排序</span>
+                        <select v-model="selectedSort" class="form-select">
+                            <option value="createdAtDesc">建立時間：新 → 舊</option>
+                            <option value="createdAtAsc">建立時間：舊 → 新</option>
+                            <option value="amountDesc">金額：高 → 低</option>
+                            <option value="amountAsc">金額：低 → 高</option>
+                            <option value="orderIdDesc">訂單編號：新 → 舊</option>
+                        </select>
+                    </label>
 
-                        <!-- 物流狀態 -->
-                        <div class="col-12 col-md-6 col-xl-3">
-                            <label class="form-label fw-semibold">
-                                物流狀態
-                            </label>
-                            <select v-model="selectedShippingStatus" class="form-select">
-                                <option value="">所有物流狀態</option>
-                                <option value="PENDING">待出貨</option>
-                                <option value="SHIPPED">已出貨</option>
-                                <option value="DELIVERED">已送達</option>
-                                <option value="CANCELLED">已取消</option>
-                            </select>
-                        </div>
-                    </div>
-
-
-                    <!-- 第二排 -->
-
-                    <div class="row g-3 mt-1 align-items-end">
-                        <!-- 關鍵字 -->
-                        <div class="col-12 col-lg-3">
-                            <label class="form-label fw-semibold">
-                                關鍵字搜尋
-                            </label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-white">
-                                    🔍
-                                </span>
-
-                                <input v-model="searchKeyword" type="text" class="form-control"
-                                    placeholder="搜尋訂單 ID、商品名稱、收件人">
-                            </div>
-                        </div>
-                        <!-- 排序 -->
-                        <div class="col-12 col-md-6 col-lg-3">
-                            <label class="form-label fw-semibold">
-                                排序方式
-                            </label>
-                            <select v-model="selectedSort" class="form-select">
-                                <option value="createdAtDesc">建立時間：新 → 舊</option>
-                                <option value="createdAtAsc">建立時間：舊 → 新</option>
-                                <option value="amountDesc">金額：高 → 低</option>
-                                <option value="amountAsc">金額：低 → 高</option>
-                                <option value="orderIdDesc">訂單編號：新 → 舊</option>
-                            </select>
-                        </div>
-                        <!-- 按鈕 -->
-                        <div class="col-12 col-lg-1">
-                            <div class="d-flex gap-2">
-                                <button class="btn btn-outline-secondary flex-fill" type="button" @click="resetFilters">
-                                    重設
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                    <button class="btn btn-outline-secondary filter-reset-button" type="button" @click="resetFilters">
+                        重設
+                    </button>
                 </div>
             </section>
 
@@ -631,7 +737,7 @@ const formatPrice = (price) => {
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="order in filteredOrders" :key="order.orderId">
+                            <tr v-for="order in paginatedOrders" :key="order.orderId">
                                 <!-- 訂單 ID -->
                                 <td>
                                     <span class="fw-semibold">
@@ -736,6 +842,31 @@ const formatPrice = (price) => {
                         </tbody>
                     </table>
                 </div>
+                <footer v-if="filteredOrders.length > 0" class="order-pagination-footer">
+                    <span>
+                        顯示第 {{ firstDisplayedOrder }}–{{ lastDisplayedOrder }} 筆，共 {{ filteredOrders.length }} 筆
+                    </span>
+
+                    <nav class="order-pagination" aria-label="訂單分頁">
+                        <button type="button" :disabled="currentPage === 1" aria-label="上一頁"
+                            @click="goToPage(currentPage - 1)">
+                            ‹
+                        </button>
+
+                        <template v-for="page in visiblePageNumbers" :key="page">
+                            <span v-if="typeof page === 'string'" aria-hidden="true">…</span>
+                            <button v-else type="button" :class="{ active: currentPage === page }"
+                                :aria-current="currentPage === page ? 'page' : undefined" @click="goToPage(page)">
+                                {{ page }}
+                            </button>
+                        </template>
+
+                        <button type="button" :disabled="currentPage === totalPages" aria-label="下一頁"
+                            @click="goToPage(currentPage + 1)">
+                            ›
+                        </button>
+                    </nav>
+                </footer>
             </section>
 
         </div>
@@ -945,6 +1076,447 @@ const formatPrice = (price) => {
     .chart-card-body {
         padding-right: 10px;
         padding-left: 10px;
+    }
+}
+
+.order-admin-page {
+    background: #f4f5f2;
+}
+
+.order-page-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.order-page-header h1 {
+    margin: 0.25rem 0 0;
+    color: #1e252d;
+    font-size: clamp(1.75rem, 3vw, 2.25rem);
+    font-weight: 700;
+}
+
+.order-breadcrumb {
+    margin: 0;
+    color: #69717c;
+    font-size: 0.85rem;
+}
+
+.order-kpi-grid {
+    display: grid;
+    grid-template-columns: 1.15fr 1fr 0.85fr;
+    gap: 0.875rem;
+}
+
+.order-kpi-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-width: 0;
+    min-height: 160px;
+    padding: 1.25rem;
+    border: 1px solid #e0e4df;
+    border-radius: 1rem;
+    color: #1e252d;
+    background: #fff;
+}
+
+.order-kpi-heading,
+.order-kpi-content,
+.order-kpi-label {
+    display: flex;
+    align-items: center;
+}
+
+.order-kpi-heading,
+.order-kpi-content {
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.order-kpi-content {
+    align-items: flex-end;
+}
+
+.order-kpi-label {
+    gap: 0.6rem;
+    color: #69717c;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.order-kpi-icon {
+    display: inline-grid;
+    width: 2.35rem;
+    height: 2.35rem;
+    place-items: center;
+    border-radius: 0.7rem;
+    font-size: 1.05rem;
+}
+
+.order-kpi-icon-warning {
+    color: #b87900;
+    background: rgb(223 160 12 / 13%);
+}
+
+.order-kpi-icon-blue {
+    color: #3978d4;
+    background: rgb(57 120 212 / 11%);
+}
+
+.pending-shipment-card {
+    border-color: #f0cf86;
+    background: #fff8e8;
+}
+
+.attention-badge {
+    padding: 0.3rem 0.55rem;
+    border-radius: 999px;
+    color: #b87900;
+    background: rgb(223 160 12 / 13%);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.order-kpi-content strong,
+.order-kpi-card > div > strong {
+    font-size: clamp(2rem, 3.4vw, 2.55rem);
+    line-height: 1;
+}
+
+.order-kpi-content strong + span,
+.total-orders-card strong span,
+.revenue-card strong span {
+    color: #69717c;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.order-kpi-card small {
+    display: block;
+    margin-top: 0.55rem;
+    color: #69717c;
+    font-size: 0.8rem;
+}
+
+.shipment-filter-button {
+    padding: 0.5rem 0;
+    border: 0;
+    color: #9b6800;
+    background: transparent;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.revenue-card {
+    border-color: #cfe0f7;
+    background: #edf5ff;
+}
+
+.revenue-card .order-kpi-label {
+    color: #4f6f97;
+}
+
+.revenue-card > div,
+.total-orders-card > div {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.order-overview-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: center;
+    margin-top: 0.875rem;
+    padding: 1.25rem;
+    border: 1px solid #e0e4df;
+    border-radius: 1rem;
+    background: #fff;
+}
+
+.order-status-overview {
+    display: grid;
+    grid-template-columns: 9rem minmax(0, 1fr);
+    gap: 1.1rem;
+    align-items: center;
+}
+
+.order-status-donut {
+    display: grid;
+    width: 8.75rem;
+    aspect-ratio: 1;
+    place-items: center;
+    border-radius: 50%;
+}
+
+.order-status-donut > div {
+    display: grid;
+    width: 5.15rem;
+    aspect-ratio: 1;
+    place-content: center;
+    border-radius: 50%;
+    text-align: center;
+    background: #fff;
+}
+
+.order-status-donut strong {
+    font-size: 1.8rem;
+    line-height: 1;
+}
+
+.order-status-donut span {
+    margin-top: 0.25rem;
+    color: #69717c;
+    font-size: 0.75rem;
+}
+
+.order-status-legend h2 {
+    margin: 0 0 0.9rem;
+    color: #1e252d;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.order-status-row {
+    display: grid;
+    grid-template-columns: 0.7rem 1fr auto auto;
+    gap: 0.6rem;
+    align-items: center;
+    margin-top: 0.65rem;
+    font-size: 0.85rem;
+}
+
+.order-status-row small {
+    min-width: 2.4rem;
+    color: #69717c;
+    text-align: right;
+}
+
+.status-square {
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 0.2rem;
+}
+
+.status-square-completed {
+    background: #1f9569;
+}
+
+.status-square-pending {
+    background: #dfa00c;
+}
+
+.status-square-cancelled {
+    background: #9ca7b0;
+}
+
+.order-flow-overview {
+    display: grid;
+    gap: 1.2rem;
+    padding-left: 1.5rem;
+    border-left: 1px solid #e0e4df;
+}
+
+.order-flow-overview header {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.55rem;
+}
+
+.order-flow-overview h3 {
+    margin: 0;
+    color: #4d5965;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.order-flow-overview header span {
+    color: #69717c;
+    font-size: 0.78rem;
+    text-align: right;
+}
+
+.statistics-track {
+    display: flex;
+    height: 0.55rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #e8ece9;
+}
+
+.statistics-segment {
+    display: block;
+    height: 100%;
+}
+
+.payment-paid,
+.shipping-shipped {
+    background: #3978d4;
+}
+
+.payment-unpaid {
+    background: #df868d;
+}
+
+.statistics-other,
+.shipping-cancelled {
+    background: #9ca7b0;
+}
+
+.shipping-pending {
+    background: #dfa00c;
+}
+
+.shipping-delivered {
+    background: #1f9569;
+}
+
+.filter-card {
+    padding: 1rem;
+    border: 1px solid #e0e4df !important;
+    background: #fff;
+}
+
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(130px, 1fr)) minmax(220px, 1.5fr) minmax(175px, 1.2fr) auto;
+    gap: 0.75rem;
+    align-items: end;
+}
+
+.filter-field {
+    display: grid;
+    min-width: 0;
+    gap: 0.4rem;
+}
+
+.filter-field > span {
+    color: #69717c;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.filter-card .form-select,
+.filter-card .form-control,
+.filter-reset-button {
+    min-height: 42px;
+}
+
+.filter-reset-button {
+    min-width: 4.5rem;
+}
+
+.order-pagination-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 58px;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid #e0e4df;
+    color: #69717c;
+    font-size: 0.82rem;
+}
+
+.order-pagination {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.order-pagination button {
+    min-width: 2rem;
+    height: 2rem;
+    padding: 0 0.45rem;
+    border: 1px solid #e0e4df;
+    border-radius: 0.45rem;
+    color: #69717c;
+    background: #fff;
+}
+
+.order-pagination button.active {
+    border-color: #1d2b3a;
+    color: #fff;
+    background: #1d2b3a;
+}
+
+.order-pagination button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+@media (max-width: 1399.98px) {
+    .filter-grid {
+        grid-template-columns: repeat(4, minmax(140px, 1fr));
+    }
+
+    .filter-search-field {
+        grid-column: span 2;
+    }
+}
+
+@media (max-width: 991.98px) {
+    .order-page-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .order-kpi-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .pending-shipment-card {
+        grid-column: 1 / -1;
+    }
+
+    .order-overview-card {
+        grid-template-columns: 1fr;
+    }
+
+    .order-flow-overview {
+        padding-top: 1.25rem;
+        padding-left: 0;
+        border-top: 1px solid #e0e4df;
+        border-left: 0;
+    }
+
+    .filter-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .filter-search-field {
+        grid-column: auto;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .order-kpi-grid,
+    .filter-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .pending-shipment-card {
+        grid-column: auto;
+    }
+
+    .order-status-overview {
+        grid-template-columns: 1fr;
+        justify-items: center;
+    }
+
+    .order-status-legend {
+        width: 100%;
+    }
+
+    .order-flow-overview header,
+    .order-pagination-footer {
+        align-items: flex-start;
+        flex-direction: column;
     }
 }
 </style>
