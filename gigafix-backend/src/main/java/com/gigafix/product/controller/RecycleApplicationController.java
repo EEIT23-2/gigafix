@@ -22,7 +22,9 @@ import com.gigafix.common.util.SecurityUtils;
 import org.springframework.security.core.Authentication;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 public class RecycleApplicationController {
@@ -34,6 +36,29 @@ public class RecycleApplicationController {
     public ResponseEntity<Page<RecycleResponse>> getApplyForms(@Valid RecycleQueryParams recycleQueryParams){
         Page<RecycleResponse> resultList = recycleApplicationService.getApplyForms(recycleQueryParams);
         return ResponseEntity.status(HttpStatus.OK).body(resultList);
+    }
+
+    /**
+     * 後台快速建立 Demo 回收單。
+     * 成功時回傳匯入筆數；JSON 欄位不合法回傳 400，外鍵不存在回傳 409。
+     */
+    @PostMapping("/api/admin/recycle-applications/import")
+    public ResponseEntity<Map<String, Object>> importApplyForms() throws IOException {
+        try {
+            int count = recycleApplicationService.importApplyForms();
+            Map<String, Object> result = new HashMap<>();
+            result.put("message", "回收單匯入成功");
+            result.put("applicationCount", count);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "message", exception.getMessage()
+            ));
+        } catch (IllegalStateException exception) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                    "message", exception.getMessage()
+            ));
+        }
     }
 
     //將全部回收單匯出為 JSON 檔
