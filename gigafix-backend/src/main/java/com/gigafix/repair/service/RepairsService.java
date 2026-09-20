@@ -235,24 +235,6 @@ public class RepairsService {
 		return toResponse(repair);
 	}
 	
-////	查全部，沒用到了
-//	public List<RepairsResponse> selectAll() {
-//
-//		List<Repairs> list = rRepos.findAll();
-//		List<RepairsResponse> result = new ArrayList<RepairsResponse>();
-//		for(Repairs r : list) {
-//			result.add(toResponse(r));
-//		}
-//		return result;
-//	}
-	
-//	查全部(另一種寫法)
-//	public List<RepairsResponse> findAll() {
-//		return rRepos.findAll().stream()
-//				.map(this::toResponse)
-//				.collect(Collectors.toList());
-//	}
-	
 //	可依 維修單id/客戶id/客戶姓名/技師id/技師姓名/狀態 組合查詢，全部不填就是查全部
 	@Transactional(readOnly = true) // ★改
 	public List<RepairsResponse> search(Long id, Long memberId, String memberName,
@@ -528,7 +510,7 @@ public class RepairsService {
 	}
 
 //	客戶選取件方式＋付款方式，只能送出一次，送出後如需更動要請技師改(見updateRecipient/技師手動更新付款狀態)
-//	選「寄件」要附收件人姓名/電話/地址；選「線上付款」先標記付款中，等綠界NotifyURL回調確認才會變已付款(目前尚未串接綠界，先由技師手動更新付款狀態代替)
+//	選「寄件」要附收件人姓名/電話/地址；選「線上付款」先標記付款中，等綠界ReturnURL回調確認才會變已付款(技師仍可在後台手動標記已付款，當作備用) ★改
 	public RepairsResponse submitPickupPayment(Long id, Long memberId, PickupPaymentRequest req) {
 		Repairs r = findRepairOrThrow(id); // ★改
 
@@ -615,7 +597,7 @@ public class RepairsService {
 	}
 
 	
-//	技師手動更新付款狀態
+//	更新付款狀態(技師手動標記，或綠界回調確認付款後由 RepairEcpayPaymentService 呼叫) ★改
 	public RepairsResponse updatePayStatus(Long id, RepairPayStatus payStatus) {
 		Repairs r = findRepairOrThrow(id); // ★改
 		r.setRepairPayStatus(payStatus);
@@ -706,7 +688,7 @@ public class RepairsService {
 	}
 
 //	全部9種repairStatus各自的筆數與佔全部的百分比，依RepairStatus.values()宣告順序(維修流程順序)排列，
-//	即使某狀態目前0筆(例如CANCELLED，目前沒有任何流程會設成這個狀態)也要列出來，不能漏掉
+//	即使某狀態目前0筆也要列出來，不能漏掉 ★改
 	private List<RepairStatusCountResp> buildStatusBreakdown(List<Repairs> all, long total) {
 		Map<RepairStatus, Long> countByStatus = all.stream()
 				.collect(Collectors.groupingBy(Repairs::getRepairStatus, Collectors.counting()));

@@ -12,7 +12,5 @@ public enum RepairStatus {
 	CLOSED,                  // 6 結案（顧客已取件/已收到貨/報價後不維修）
 	CANCELLED,               // 7 已取消
 	NOT_DROPPED_OFF          // 8 未送檢
-	
-//	目前先只有到店取貨付款
 
 }

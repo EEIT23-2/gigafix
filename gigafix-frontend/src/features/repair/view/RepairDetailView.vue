@@ -364,7 +364,7 @@ async function handleSaveRecipient() {
   );
 }
 
-// ===== 線上付款：目前尚未串接綠界，先讓技師在確認客戶已經付款後手動標記 =====
+// ===== 線上付款：正常由綠界回調更新；若回調沒收到，技師確認客戶已付款後可手動標記（備用） ===== ★改
 async function handleMarkOnlinePaid() {
   if (!window.confirm("確定客戶已經完成線上付款了嗎？")) return;
   await runAction(() => updatePayStatus(repair.value.id, "PAID"));
@@ -882,7 +882,7 @@ onMounted(() => {
               <option value="PAID">已付款</option>
             </select>
           </div>
-          <!-- 線上付款：尚未串接綠界，先讓技師確認後手動標記已付款 -->
+          <!-- 線上付款：正常由綠界回調更新，這個按鈕是回調沒收到時的備用 ★改 -->
           <div
             class="col-md-4 info-field"
             v-else-if="

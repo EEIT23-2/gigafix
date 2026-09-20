@@ -98,7 +98,7 @@ async function handleSubmitPickupPayment() {
       recipientAddress: form.pickupType === "COURIER" ? form.recipientAddress : null,
     });
     // 選線上付款：後端已經把repairPayStatus標記PENDING，整頁導去綠界付款頁面(不是ajax)，
-    // 付款完成的狀態更新依據是綠界打後端的NotifyURL，不是這裡的導頁
+    // 付款完成的狀態更新依據是綠界打後端的ReturnURL，不是這裡的導頁 ★改
     if (form.repairPay === "ONLINE") {
       redirectToEcpayPayment(repair.value.id);
       return;
