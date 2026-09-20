@@ -303,6 +303,16 @@ export const confirmImportStores = async (rows) => {
   return response.data;
 };
 
+// ★新增：取「本地時間」今天的日期字串(yyyy-MM-dd)
+// 不用 new Date().toISOString()：它是 UTC 時間，台灣凌晨 0~8 點會變成昨天
+export function getTodayString() {
+  const now = new Date();
+  // getMonth() 從 0 開始(一月是 0)所以要 +1；padStart(2, "0")：不足2位數，前面補0
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
 // 把後端回傳的 Blob 觸發瀏覽器下載，三個匯出頁面共用
 export function downloadBlob(blob, filename) {
   const downloadUrl = URL.createObjectURL(blob);

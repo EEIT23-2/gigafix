@@ -6,6 +6,7 @@ import {
   downloadBlob,
   exportRepairs,
   getTechnicians,
+  getTodayString, // ★改：新增
   searchRepairs,
 } from "../api";
 import { useExportMenu } from "../useExportMenu";
@@ -128,7 +129,7 @@ async function handleExport(format) {
   errorMessage.value = "";
   try {
     const blob = await exportRepairs(format, buildParams());
-    downloadBlob(blob, `repairs-${new Date().toISOString().slice(0, 10)}.${format}`);
+    downloadBlob(blob, `repairs-${getTodayString()}.${format}`);
   } catch (error) {
     console.error(error);
     errorMessage.value = error.response

@@ -9,6 +9,7 @@ import {
   exportStores,
   formatFromFileName,
   getStores,
+  getTodayString, // ★改：新增
   previewImportStores,
   updateStore,
 } from "../api";
@@ -32,7 +33,7 @@ async function handleExport(format) {
   errorMessage.value = "";
   try {
     const blob = await exportStores(format);
-    downloadBlob(blob, `stores-${new Date().toISOString().slice(0, 10)}.${format}`);
+    downloadBlob(blob, `stores-${getTodayString()}.${format}`);
   } catch (error) {
     console.error(error);
     errorMessage.value = error.response

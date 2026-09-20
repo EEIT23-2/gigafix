@@ -10,6 +10,7 @@ import {
   formatFromFileName,
   getStores,
   getTechnicians,
+  getTodayString, // ★改：新增
   previewImportTechnicians,
   updateTechnician,
 } from "../api";
@@ -37,7 +38,7 @@ async function handleExport(format) {
     const blob = await exportTechnicians(format);
     downloadBlob(
       blob,
-      `technicians-${new Date().toISOString().slice(0, 10)}.${format}`,
+      `technicians-${getTodayString()}.${format}`,
     );
   } catch (error) {
     console.error(error);
