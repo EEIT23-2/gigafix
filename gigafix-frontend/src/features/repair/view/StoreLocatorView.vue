@@ -3,10 +3,12 @@ import { onMounted, ref } from "vue";
 import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 import { getStores } from "../api";
 import { STORE_COORDINATES } from "../storeCoordinates";
+import { useSwalMessages } from "../../../utils/swal";
 
 const stores = ref([]);
 const loading = ref(false);
 const errorMessage = ref("");
+useSwalMessages(errorMessage, null);
 const selectedStore = ref(null);
 
 const mapContainer = ref(null);
@@ -72,9 +74,6 @@ onMounted(async () => {
 
     <div v-if="loading" class="text-center py-5">
       <div class="spinner-border text-primary" role="status"></div>
-    </div>
-    <div v-else-if="errorMessage" class="alert alert-danger">
-      {{ errorMessage }}
     </div>
 
     <div v-else class="row g-3">

@@ -10,11 +10,13 @@ import { PieChart, BarChart } from "echarts/charts";
 import { GridComponent, TooltipComponent, LegendComponent } from "echarts/components";
 import VChart from "vue-echarts";
 import { getRepairStats } from "../api";
+import { useSwalMessages } from "../../../utils/swal";
 
 use([CanvasRenderer, PieChart, BarChart, GridComponent, TooltipComponent, LegendComponent]);
 
 const loading = ref(true);
 const errorMessage = ref("");
+useSwalMessages(errorMessage, null);
 const stats = ref(null);
 
 // 強制拉高canvas的實際解析度，避免瀏覽器縮放/非整數dpr時圖表文字模糊
@@ -208,7 +210,6 @@ onMounted(() => {
   <main class="container-fluid px-3 px-lg-4 py-4">
     <h1 class="fw-bold mb-4">維修單統計</h1>
 
-    <div v-if="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
 
     <div v-if="loading" class="text-center py-5">
       <div class="spinner-border text-primary" role="status"></div>

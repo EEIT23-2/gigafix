@@ -2,12 +2,14 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { getMyRepairs } from "../api";
+import { swalInfo, useSwalMessages } from "../../../utils/swal";
 
 const router = useRouter();
 
 const repairs = ref([]);
 const loading = ref(false);
 const errorMessage = ref("");
+useSwalMessages(errorMessage, null);
 
 // 狀態的中文顯示，跟 RepairDetailView 用同一套對照表
 const STATUS_LABELS = {
@@ -46,6 +48,12 @@ async function fetchRepairs() {
   errorMessage.value = "";
   try {
     repairs.value = await getMyRepairs();
+    if (needsResponseCount.value > 0) {
+      swalInfo(
+        `您有 ${needsResponseCount.value} 張維修單已完成報價，請點進去確認是否維修。`,
+        "報價待確認",
+      );
+    }
   } catch (error) {
     console.error(error);
     errorMessage.value = error.response
@@ -101,10 +109,6 @@ onMounted(() => {
   <main>
     <h1 class="fw-bold mb-4">維修進度</h1>
 
-    <div v-if="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
-    <div v-if="needsResponseCount > 0" class="alert alert-info">
-      您有 {{ needsResponseCount }} 張維修單已完成報價，請點進去確認是否維修。
-    </div>
 
     <!-- 分頁：選每頁筆數、上一頁/下一頁，放在列表上方 -->
     <div

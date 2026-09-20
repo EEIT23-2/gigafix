@@ -9,6 +9,7 @@ import {
   submitPickupPayment,
 } from "../api";
 import RepairStatusStepper from "../components/RepairStatusStepper.vue";
+import { swalConfirm, swalWarn, useSwalMessages } from "../../../utils/swal";
 
 const props = defineProps({
   repairId: { type: [String, Number], required: true },
@@ -19,6 +20,7 @@ const router = useRouter();
 const repair = ref(null);
 const loading = ref(false);
 const errorMessage = ref("");
+useSwalMessages(errorMessage, null);
 
 // ===== 中文對照表：跟後台 RepairDetailView 用同一套，確保狀態顯示一致 =====
 // (狀態流程列已抽成 RepairStatusStepper 元件自己管理，這裡不用再放 STATUS_LABELS/STATUS_BADGE_CLASS)
@@ -75,17 +77,17 @@ const needsPickupPaymentChoice = computed(
 async function handleSubmitPickupPayment() {
   const form = pickupPaymentForm.value;
   if (!form.pickupType || !form.repairPay) {
-    alert("請選擇取件方式與付款方式");
+    swalWarn("請選擇取件方式與付款方式");
     return;
   }
   if (
     form.pickupType === "COURIER" &&
     (!form.recipientName || !form.recipientPhone || !form.recipientAddress)
   ) {
-    alert("寄件需要填寫收件人姓名、電話、地址");
+    swalWarn("寄件需要填寫收件人姓名、電話、地址");
     return;
   }
-  if (!window.confirm("確定送出後如需更動需聯繫技師")) return;
+  if (!(await swalConfirm("確定送出後如需更動需聯繫技師"))) return;
 
   submittingPickupPayment.value = true;
   errorMessage.value = "";
@@ -123,7 +125,7 @@ async function handleRespond(approve) {
   const confirmMsg = approve
     ? "確定要同意這份報價，開始維修嗎？"
     : "確定要拒絕這份報價嗎？拒絕後技師會再跟你聯繫確認費用。";
-  if (!window.confirm(confirmMsg)) return;
+  if (!(await swalConfirm(confirmMsg, { danger: !approve }))) return;
 
   responding.value = true;
   errorMessage.value = "";
@@ -153,7 +155,7 @@ const canCancel = computed(
 );
 
 async function handleCancel() {
-  if (!window.confirm("確定要取消這張維修預約嗎？取消後無法復原。")) return;
+  if (!(await swalConfirm("確定要取消這張維修預約嗎？取消後無法復原。", { danger: true }))) return;
 
   cancelling.value = true;
   errorMessage.value = "";
@@ -228,9 +230,6 @@ onMounted(() => {
         </button>
       </div>
 
-      <div v-if="errorMessage" class="alert alert-danger">
-        {{ errorMessage }}
-      </div>
 
       <!-- 已報價、尚未回應：提示客戶要確認是否維修 -->
       <div

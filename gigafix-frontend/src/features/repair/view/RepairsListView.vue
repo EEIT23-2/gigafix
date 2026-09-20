@@ -10,6 +10,7 @@ import {
   searchRepairs,
 } from "../api";
 import { useExportMenu } from "../useExportMenu";
+import { swalConfirm, useSwalMessages } from "../../../utils/swal";
 
 const router = useRouter();
 
@@ -28,7 +29,7 @@ async function handleAssign(repair, technicianId, selectEl) {
     (t) => String(t.id) === String(technicianId),
   );
   const techLabel = tech ? `${tech.id} - ${tech.name}` : technicianId;
-  if (!window.confirm(`確定要指派技師「${techLabel}」認領這張維修單嗎？`)) {
+  if (!(await swalConfirm(`確定要指派技師「${techLabel}」認領這張維修單嗎？`))) {
     if (selectEl) selectEl.value = "";
     return;
   }
@@ -55,6 +56,7 @@ const searchStatus = ref("");
 const repairs = ref([]);
 const loading = ref(false);
 const errorMessage = ref("");
+useSwalMessages(errorMessage, null);
 
 // 狀態的中文顯示，跟後端 RepairStatus enum 對應
 const statusOptions = [
@@ -306,7 +308,6 @@ onMounted(() => {
       </nav>
     </div>
 
-    <div v-if="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
 
     <section class="card section-card overflow-hidden">
       <div class="card-header fw-bold section-card-header">

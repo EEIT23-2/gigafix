@@ -23,6 +23,7 @@ import {
   getItemPrice,
   formatPrice,
 } from "../priceTable";
+import { swalConfirm, swalWarn, swalSuccess, useSwalMessages } from "../../../utils/swal";
 
 const props = defineProps({
   repairId: { type: [String, Number], required: true },
@@ -34,6 +35,7 @@ const repair = ref(null);
 const loading = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
+useSwalMessages(errorMessage, successMessage);
 
 // ===== 中文對照表 =====
 // (狀態流程列已抽成 RepairStatusStepper 元件自己管理，這裡不用再放 STATUS_LABELS/STATUS_BADGE_CLASS)
@@ -217,7 +219,7 @@ function openQuoteConfirmModal() {
     quoteItems: quoteItems.value.length === 0,
   };
   if (Object.values(quoteFieldErrors.value).some(Boolean)) {
-    alert("需填寫完整才能送出報價");
+    swalWarn("需填寫完整才能送出報價");
     return;
   }
   quoteConfirmModalInstance.show();
@@ -251,13 +253,13 @@ async function handleSaveQuoteDraft() {
     }),
   );
   if (!errorMessage.value) {
-    alert("儲存成功");
+    swalSuccess("儲存成功");
   }
 }
 
 // ===== 未送檢（僅限待估價、已認領時，按鈕放在最上方狀態旁邊） =====
 async function handleUndelivered() {
-  if (!window.confirm("確定要標記這張維修單為「未送檢」嗎？")) return;
+  if (!(await swalConfirm("確定要標記這張維修單為「未送檢」嗎？"))) return;
   await runAction(() =>
     markUndelivered(repair.value.id, repair.value.technicianId),
   );
@@ -278,11 +280,11 @@ const inspectionResultChanged = computed(
 
 async function handleSaveInspectionResult() {
   if (!inspectionResultForm.value) {
-    alert("請填寫檢測結果");
+    swalWarn("請填寫檢測結果");
     return;
   }
   if (!inspectionResultChanged.value) {
-    alert("內容沒有變更，不用儲存");
+    swalWarn("內容沒有變更，不用儲存");
     return;
   }
   await runAction(() =>
@@ -298,7 +300,7 @@ async function handleSaveInspectionResult() {
 const completeForm = ref({ finalCost: null, adjustmentNote: "" });
 
 async function handleComplete() {
-  if (!window.confirm("確定要送出嗎？")) return;
+  if (!(await swalConfirm("確定要送出嗎？"))) return;
   await runAction(() =>
     completeRepair(repair.value.id, {
       technicianId: repair.value.technicianId,
@@ -313,7 +315,7 @@ async function handleComplete() {
 
 // ===== 已通知客戶取件（維修完成時） =====
 async function handleNotify() {
-  if (!window.confirm("確定已經通知客戶取件了嗎？")) return;
+  if (!(await swalConfirm("確定已經通知客戶取件了嗎？"))) return;
   await runAction(() =>
     markNotified(repair.value.id, repair.value.technicianId),
   );
@@ -323,7 +325,7 @@ async function handleNotify() {
 const rejectedFee = ref(null);
 
 async function handleSubmitRejected() {
-  if (!window.confirm("確定要送出嗎？")) return;
+  if (!(await swalConfirm("確定要送出嗎？"))) return;
   await runAction(() =>
     notifyRejected(
       repair.value.id,
@@ -351,7 +353,7 @@ function loadRecipientForm(r) {
 async function handleSaveRecipient() {
   const f = recipientForm.value;
   if (!f.recipientName || !f.recipientPhone || !f.recipientAddress) {
-    alert("收件人姓名、電話、地址都要填寫");
+    swalWarn("收件人姓名、電話、地址都要填寫");
     return;
   }
   await runAction(() =>
@@ -366,7 +368,7 @@ async function handleSaveRecipient() {
 
 // ===== 線上付款：正常由綠界回調更新；若回調沒收到，技師確認客戶已付款後可手動標記（備用） ===== ★改
 async function handleMarkOnlinePaid() {
-  if (!window.confirm("確定客戶已經完成線上付款了嗎？")) return;
+  if (!(await swalConfirm("確定客戶已經完成線上付款了嗎？"))) return;
   await runAction(() => updatePayStatus(repair.value.id, "PAID"));
 }
 
@@ -383,7 +385,7 @@ const canFinalClose = computed(() => {
 
 async function handleFinalClose() {
   if (!canFinalClose.value) return;
-  if (!window.confirm("確定要結案嗎？")) return;
+  if (!(await swalConfirm("確定要結案嗎？", { danger: true }))) return;
   await runAction(() =>
     closeRepair(repair.value.id, repair.value.technicianId),
   );
@@ -471,12 +473,6 @@ onMounted(() => {
         </button>
       </div>
 
-      <div v-if="errorMessage" class="alert alert-danger">
-        {{ errorMessage }}
-      </div>
-      <div v-if="successMessage" class="alert alert-success">
-        {{ successMessage }}
-      </div>
       <!-- 已報價：等客戶回應提示 -->
       <div
         v-if="repair.repairStatus === 'QUOTED'"

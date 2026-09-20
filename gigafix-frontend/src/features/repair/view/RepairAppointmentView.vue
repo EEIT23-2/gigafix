@@ -5,6 +5,7 @@ import { useRouter } from "vue-router";
 import { useFetchMemberInfoStore } from "@/stores/member";
 import { createAppointment, getBookedSlots, getStores, getTodayString } from "../api"; // ★改：多 import getTodayString
 import { REPAIR_ITEMS } from "../priceTable";
+import { useSwalMessages } from "../../../utils/swal";
 
 const router = useRouter();
 
@@ -15,6 +16,7 @@ const { memberInfo } = storeToRefs(fetchMemberInfoStore);
 const stores = ref([]);
 const submitting = ref(false);
 const errorMessage = ref("");
+useSwalMessages(errorMessage, null);
 // 選好分店+日期後，去後端查回來的「當天已被預約時段」清單，畫面上要把這些時段設為不可選
 const bookedSlots = ref([]);
 
@@ -248,10 +250,6 @@ onMounted(async () => {
     </div>
 
     <template v-else>
-      <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show" role="alert">
-        {{ errorMessage }}
-        <button type="button" class="btn-close" @click="errorMessage = ''"></button>
-      </div>
       <form @submit.prevent="handleSubmit">
         <p class="text-danger small text-end mb-2">*為必填</p>
 

@@ -16,6 +16,7 @@ import {
 } from "../api";
 import { useExportMenu } from "../useExportMenu";
 import ImportPreviewModal from "../components/ImportPreviewModal.vue";
+import { swalConfirm, useSwalMessages } from "../../../utils/swal";
 
 const technicians = ref([]);
 const stores = ref([]);
@@ -23,6 +24,7 @@ const filterStoreId = ref("");
 const loading = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
+useSwalMessages(errorMessage, successMessage);
 
 // ===== 匯出/匯入 =====
 const exportMenu = useExportMenu();
@@ -194,7 +196,7 @@ async function handleSave() {
 }
 
 async function handleDelete(t) {
-  if (!window.confirm(`確定要刪除技師「${t.name}」嗎？`)) return;
+  if (!(await swalConfirm(`確定要刪除技師「${t.name}」嗎？`, { danger: true }))) return;
   errorMessage.value = "";
   try {
     await deleteTechnician(t.id);
@@ -352,26 +354,6 @@ onMounted(async () => {
       </nav>
     </div>
 
-    <div v-if="errorMessage" class="alert alert-danger alert-dismissible">
-      {{ errorMessage }}
-      <button
-        type="button"
-        class="btn-close"
-        @click="errorMessage = ''"
-      ></button>
-    </div>
-    <div
-      v-if="successMessage"
-      class="alert alert-success alert-dismissible"
-      role="alert"
-    >
-      {{ successMessage }}
-      <button
-        class="btn-close"
-        type="button"
-        @click="successMessage = ''"
-      ></button>
-    </div>
 
     <section class="card section-card overflow-hidden">
       <div class="card-header fw-bold section-card-header">
