@@ -97,6 +97,11 @@ public class RepairsService {
 				.build();
 	}
 	
+//	★新增：釋出時段的狀態。客戶取消、未送修這兩種之後不會再有後續，不佔用預約時段，
+//	同一分店同一時段可以再被預約(畫面上不特別標示，客戶只是看到該時段又能選了)
+	private static final List<RepairStatus> RELEASED_STATUSES =
+			List.of(RepairStatus.CANCELLED, RepairStatus.NOT_DROPPED_OFF);
+
 //	★新增：用id查維修單，找不到就丟 404
 	private Repairs findRepairOrThrow(Long id) {
 		return rRepos.findById(id)
@@ -125,7 +130,9 @@ public class RepairsService {
 //	Long excludeId:修改時用維修單id排除自己，新增時傳null
 	private void checkTimeConflict(Byte storeId, LocalDate bookingDate, LocalTime timeSlot, Long excludeId) {
 		// 先 repairs 表查有沒有同分店、同日期、同時段的記錄
-		Optional<Repairs> find = rRepos.findByStore_IdAndBookingDateAndTimeSlot(storeId, bookingDate, timeSlot);
+		// ★改：已取消/未送修的單不算佔用時段
+		Optional<Repairs> find = rRepos.findByStore_IdAndBookingDateAndTimeSlotAndRepairStatusNotIn(
+				storeId, bookingDate, timeSlot, RELEASED_STATUSES);
 		
 		// 空的沒人預約
 		if(find.isEmpty()) {
@@ -143,7 +150,7 @@ public class RepairsService {
 	
 //	檢查時段衝突(另一種寫法)
 //	private void checkTimeConflict(Byte storeId, LocalDate bookingDate, LocalTime timeSlot, Long excludeId) {
-//		rRepos.findByStore_IdAndBookingDateAndTimeSlot(storeId, bookingDate, timeSlot)
+//		rRepos.findByStore_IdAndBookingDateAndTimeSlotAndRepairStatusNotIn(storeId, bookingDate, timeSlot, RELEASED_STATUSES) // ★改：方法名跟著新版本
 //		.filter(r -> excludeId == null || !r.getId().equals(excludeId))
 //		.ifPresent(r -> {
 //			throw new TimeConflictException("這個時段已經被預約，請選擇其他時段");
@@ -266,7 +273,8 @@ public class RepairsService {
 //	查某分店、某一天已經被預約的時段，讓客戶預約時知道哪些時段不能選
 	@Transactional(readOnly = true) // ★改
 	public List<LocalTime> getBookedSlots(Byte storeId, LocalDate bookingDate) {
-		List<Repairs> list = rRepos.findByStore_IdAndBookingDate(storeId, bookingDate);
+		// ★改：已取消/未送修的時段已釋出，不算被預約
+		List<Repairs> list = rRepos.findByStore_IdAndBookingDateAndRepairStatusNotIn(storeId, bookingDate, RELEASED_STATUSES);
 		List<LocalTime> result = new ArrayList<>();
 		for (Repairs r : list) {
 			result.add(r.getTimeSlot());
