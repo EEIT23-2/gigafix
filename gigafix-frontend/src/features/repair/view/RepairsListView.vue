@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import {
   assignRepair,
@@ -10,6 +10,7 @@ import {
   searchRepairs,
 } from "../api";
 import { useExportMenu } from "../useExportMenu";
+import { hasUnseenChange, initSeenBaseline } from "../repairSeen";
 import { swalConfirm, useSwalMessages } from "../../../utils/swal";
 
 const router = useRouter();
@@ -106,11 +107,15 @@ function buildParams() {
   return params;
 }
 
+let lastSearchParams = {}; //最近一次按「查詢」用的條件，背景自動更新沿用它，不受輸入框打到一半的內容影響
+
 async function fetchRepairs() {
   loading.value = true;
   errorMessage.value = "";
   try {
-    repairs.value = await searchRepairs(buildParams());
+    lastSearchParams = buildParams();
+    repairs.value = await searchRepairs(lastSearchParams);
+    initSeenBaseline(repairs.value);
   } catch (error) {
     console.error(error);
     errorMessage.value = error.response
@@ -118,6 +123,25 @@ async function fetchRepairs() {
       : "無法連線到後端伺服器";
   } finally {
     loading.value = false;
+  }
+}
+
+// ===== 背景自動更新：每 30 秒安靜地重抓一次，客戶有新操作時紅點才會自己冒出來 =====
+// 不顯示載入中、資料沒變就不動、停留在原本的頁碼，避免技師操作到一半畫面跳掉
+const REFRESH_INTERVAL_MS = 30000;
+let refreshTimer = null;
+
+async function refreshQuietly() {
+  if (loading.value) return;
+  try {
+    const latest = await searchRepairs(lastSearchParams);
+    if (JSON.stringify(latest) === JSON.stringify(repairs.value)) return;
+    const page = currentPage.value;
+    repairs.value = latest;
+    await nextTick(); //等 watch 把頁碼重設成第1頁之後，再切回原本的頁碼
+    currentPage.value = Math.min(page, totalPages.value);
+  } catch (error) {
+    console.error(error); //背景更新失敗不打擾使用者，下一輪再試
   }
 }
 
@@ -184,6 +208,11 @@ function goToPage(page) {
 onMounted(() => {
   fetchRepairs();
   fetchTechnicians();
+  refreshTimer = setInterval(refreshQuietly, REFRESH_INTERVAL_MS);
+});
+
+onUnmounted(() => {
+  clearInterval(refreshTimer);
 });
 </script>
 
@@ -364,9 +393,18 @@ onMounted(() => {
               <span v-else class="text-secondary">—</span>
             </td>
             <td>
-              <span class="badge" :class="statusBadgeClass(r.repairStatus)">{{
-                statusLabel(r.repairStatus)
-              }}</span>
+              <!-- 客戶造成的新異動：徽章右上角亮紅點，打開詳情頁後消失 -->
+              <span class="position-relative d-inline-block">
+                <span class="badge" :class="statusBadgeClass(r.repairStatus)">{{
+                  statusLabel(r.repairStatus)
+                }}</span>
+                <span
+                  v-if="hasUnseenChange(r)"
+                  class="position-absolute start-100 translate-middle p-2 bg-danger border border-light rounded-circle"
+                  style="top: 25%"
+                  title="客戶有新的異動"
+                ></span>
+              </span>
             </td>
             <td>{{ r.storeName }}</td>
             <td>{{ r.repairBrand }} {{ r.repairModel }}</td>

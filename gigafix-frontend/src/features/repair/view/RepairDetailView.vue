@@ -24,6 +24,7 @@ import {
   formatPrice,
 } from "../priceTable";
 import { swalConfirm, swalWarn, swalSuccess, useSwalMessages } from "../../../utils/swal";
+import { markRepairSeen } from "../repairSeen";
 
 const props = defineProps({
   repairId: { type: [String, Number], required: true },
@@ -418,6 +419,7 @@ async function fetchRepair() {
   try {
     const data = await getAdminRepair(props.repairId);
     repair.value = data;
+    markRepairSeen(data); //看過這張單了，列表上的紅點就會消失
     loadQuoteForm(data);
     loadInspectionResultForm(data);
     loadRecipientForm(data);
