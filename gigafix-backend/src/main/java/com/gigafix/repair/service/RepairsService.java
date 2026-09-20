@@ -45,7 +45,7 @@ import com.gigafix.repair.repository.RepairsRepository;
 import com.gigafix.repair.repository.StoresRepository;
 import com.gigafix.repair.util.TableExportImport;
 
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional; // ★改：原本是 jakarta.transaction.Transactional
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -219,12 +219,14 @@ public class RepairsService {
 	}
 	
 //	id查
+	@Transactional(readOnly = true) // ★改：純查詢，唯讀交易
 	public RepairsResponse selectById(Long id) {
 		Repairs repair = findRepairOrThrow(id); // ★改
 		return toResponse(repair);
 	}
 
 	// 會員中心「維修進度」明細用：只能查自己的維修單，避免用網址猜id查到別人的單
+	@Transactional(readOnly = true) // ★改
 	public RepairsResponse selectByIdForMember(Long id, Long memberId) {
 		Repairs repair = findRepairOrThrow(id); // ★改
 		if (!repair.getMember().getId().equals(memberId)) {
@@ -252,6 +254,7 @@ public class RepairsService {
 //	}
 	
 //	可依 維修單id/客戶id/客戶姓名/技師id/技師姓名/狀態 組合查詢，全部不填就是查全部
+	@Transactional(readOnly = true) // ★改
 	public List<RepairsResponse> search(Long id, Long memberId, String memberName,
 			Integer technicianId, String technicianName, RepairStatus status) {
 		String memberNameLike = (memberName != null) ? "%" + memberName + "%" : null;
@@ -268,6 +271,7 @@ public class RepairsService {
 	}
 
 //	會員中心「維修進度」用：查登入會員自己的所有維修單
+	@Transactional(readOnly = true) // ★改
 	public List<RepairsResponse> selectByMember(Long memberId) {
 		List<Repairs> list = rRepos.findByMember_IdOrderByRepairCreatedTimeDesc(memberId);
 		List<RepairsResponse> result = new ArrayList<>();
@@ -278,6 +282,7 @@ public class RepairsService {
 	}
 
 //	查某分店、某一天已經被預約的時段，讓客戶預約時知道哪些時段不能選
+	@Transactional(readOnly = true) // ★改
 	public List<LocalTime> getBookedSlots(Byte storeId, LocalDate bookingDate) {
 		List<Repairs> list = rRepos.findByStore_IdAndBookingDate(storeId, bookingDate);
 		List<LocalTime> result = new ArrayList<>();
@@ -290,6 +295,7 @@ public class RepairsService {
 
 
 //	技師查詢：某分店「待估價」且尚未被認領的維修清單
+	@Transactional(readOnly = true) // ★改
 	public List<RepairsResponse> selectUnassigned(Byte storeId) {
 		List<Repairs> list = rRepos.findByStore_IdAndRepairStatusAndRepairTechniciansIsNull(storeId, RepairStatus.PENDING_QUOTE);
 		List<RepairsResponse> result = new ArrayList<RepairsResponse>();
@@ -300,6 +306,7 @@ public class RepairsService {
 	}
 
 //	技師查詢：自己名下的維修單，status可不傳（查全部）或傳入指定狀態
+	@Transactional(readOnly = true) // ★改
 	public List<RepairsResponse> selectByTechnician(Integer technicianId, RepairStatus status) {
 		List<Repairs> list;
 		if (status != null) {
@@ -618,6 +625,7 @@ public class RepairsService {
 //	後台統計：拒絕維修數／結案數／各自佔全部的百分比，以及已結案單的建立到結案耗時
 //	拒絕維修用approvalStatus=REJECTED判斷（客戶曾拒絕報價，不論該單目前是否已結案），不是用repairStatus=QUOTE_REJECTED（那只是過渡狀態）
 //	結案耗時沒有獨立欄位，用repairUpdatedTime-repairCreatedTime近似結案時間
+	@Transactional(readOnly = true) // ★改
 	public RepairStatsResp getStats() {
 		List<Repairs> all = rRepos.findAll();
 		long total = all.size();
@@ -783,6 +791,7 @@ public class RepairsService {
 			"repairCreatedTime", "repairUpdatedTime");
 
 //	匯出：format = json / xml / xlsx，沿用查詢條件，匯出的是目前搜尋結果(不填條件就是全部)
+	@Transactional(readOnly = true) // ★改
 	public byte[] export(String format, Long id, Long memberId, String memberName,
 			Integer technicianId, String technicianName, RepairStatus status) {
 		List<RepairsResponse> list = search(id, memberId, memberName, technicianId, technicianName, status);
