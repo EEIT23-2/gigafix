@@ -97,6 +97,30 @@ public class RepairsService {
 				.build();
 	}
 	
+//	★新增：用id查維修單，找不到就丟 404
+	private Repairs findRepairOrThrow(Long id) {
+		return rRepos.findById(id)
+				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
+	}
+
+//	★新增：檢查這張單「已有人認領」而且「就是這位技師」；notOwnerMsg 由各方法傳入，保留原本各自的錯誤訊息
+	private void requireTechnician(Repairs r, Integer technicianId, String notOwnerMsg) {
+//		null檢查:.getId() 對null呼叫會直接NPE噴錯
+		if (r.getRepairTechnicians() == null) {
+			throw new InvalidRepairStatusException("尚未有技師認領此維修單，請先認領");
+		}
+		if (!r.getRepairTechnicians().getId().equals(technicianId)) {
+			throw new InvalidRepairStatusException(notOwnerMsg);
+		}
+	}
+
+//	★新增：狀態不是預期的就丟 409（只支援單一狀態；允許多個狀態的方法仍用原本的 if）
+	private void requireStatus(Repairs r, RepairStatus expected, String msg) {
+		if (r.getRepairStatus() != expected) {
+			throw new InvalidRepairStatusException(msg);
+		}
+	}
+
 //	檢查時段衝突
 //	Long excludeId:修改時用維修單id排除自己，新增時傳null
 	private void checkTimeConflict(Byte storeId, LocalDate bookingDate, LocalTime timeSlot, Long excludeId) {
@@ -160,8 +184,8 @@ public class RepairsService {
 	
 //	修改
 	public RepairsResponse updateById(Long id, AppointmentRequest req) {
-		Repairs r = rRepos.findById(id).orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
-		
+		Repairs r = findRepairOrThrow(id); // ★改
+
 		// 排除自己這一筆，不然會誤判成跟自己衝突
 		checkTimeConflict(req.getStoreId(), req.getBookingDate(), req.getTimeSlot(), id);
 		
@@ -179,8 +203,9 @@ public class RepairsService {
 		r.setContactPhone(req.getContactPhone());
 		// member 通常送出後不會再改，所以修改這裡沒有
 		
-		// 這裡不用手動呼叫 save()，因為 repair 是從 rRepos.findById 查出來的，
-		// 在 @Transactional 方法內修改它的欄位，交易結束時 Hibernate 會自動偵測到變更並更新（Dirty Checking）
+		// ★改：這裡的 save() 其實可以省略，因為 r 是從資料庫查出來的（findRepairOrThrow），
+		// 在 @Transactional 方法內修改它的欄位，交易結束時 Hibernate 會自動偵測到變更並更新（Dirty Checking）；
+		// 這裡仍呼叫 save() 只是保險，效果相同
 		return toResponse(rRepos.save(r));
 	}
 	
@@ -195,15 +220,13 @@ public class RepairsService {
 	
 //	id查
 	public RepairsResponse selectById(Long id) {
-		Repairs repair =  rRepos.findById(id)
-				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
+		Repairs repair = findRepairOrThrow(id); // ★改
 		return toResponse(repair);
 	}
 
 	// 會員中心「維修進度」明細用：只能查自己的維修單，避免用網址猜id查到別人的單
 	public RepairsResponse selectByIdForMember(Long id, Long memberId) {
-		Repairs repair =  rRepos.findById(id)
-				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
+		Repairs repair = findRepairOrThrow(id); // ★改
 		if (!repair.getMember().getId().equals(memberId)) {
 			throw new NotEligibleException("此維修單不是你的，無法查看");
 		}
@@ -293,13 +316,10 @@ public class RepairsService {
 
 //	技師認領：維修單必須是「待估價」且尚未被任何技師認領
 	public RepairsResponse assign(Long id, Integer technicianId) {
-		Repairs r = rRepos.findById(id)
-				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
+		Repairs r = findRepairOrThrow(id); // ★改
 
-		if (r.getRepairStatus() != RepairStatus.PENDING_QUOTE) {
-//			例如:還沒認領就被客戶退掉/未送檢
-			throw new InvalidRepairStatusException("此維修單目前狀態非待估價，無法認領");
-		}
+//		例如:還沒認領就被客戶退掉/未送檢
+		requireStatus(r, RepairStatus.PENDING_QUOTE, "此維修單目前狀態非待估價，無法認領"); // ★改
 		if (r.getRepairTechnicians() != null) {
 			throw new InvalidRepairStatusException("此維修單已被其他技師認領");
 		}
@@ -314,20 +334,11 @@ public class RepairsService {
 
 //	技師填寫、修改檢測報價（可能部分更新）：要先認領，且狀態還是待估價才能修改
 	public RepairsResponse updateQuote(Long id, QuotationRequest req) {
-		Repairs r = rRepos.findById(id)
-				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
+		Repairs r = findRepairOrThrow(id); // ★改
 
-//		null檢查:.getId() 對null呼叫會直接NPE噴錯
-		if (r.getRepairTechnicians() == null) {
-			throw new InvalidRepairStatusException("尚未有技師認領此維修單，請先認領");
-		}
-		if (!r.getRepairTechnicians().getId().equals(req.getTechnicianId())) {
-		    throw new InvalidRepairStatusException("此維修單不是你認領的，不能修改");
-		}
-		if (r.getRepairStatus() != RepairStatus.PENDING_QUOTE) {
-			throw new InvalidRepairStatusException("此階段無法報價");
-		}
-		
+		requireTechnician(r, req.getTechnicianId(), "此維修單不是你認領的，不能修改"); // ★改
+		requireStatus(r, RepairStatus.PENDING_QUOTE, "此階段無法報價"); // ★改
+
 //		都要判斷null，避免有些資訊沒更新到被null覆蓋
 		if (req.getSerialNumber() != null) {
 			r.setSerialNumber(req.getSerialNumber());
@@ -347,18 +358,10 @@ public class RepairsService {
 
 //	技師送出報價：repairStatus 待估價->已報價，approvalStatus 無->待確認
 	public RepairsResponse submitQuote(Long id, Integer technicianId) {
-	    Repairs r = rRepos.findById(id)
-	    		.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
+	    Repairs r = findRepairOrThrow(id); // ★改
 
-	    if (r.getRepairTechnicians() == null) {
-	        throw new InvalidRepairStatusException("尚未有技師認領此維修單，請先認領");
-	    }
-	    if (!r.getRepairTechnicians().getId().equals(technicianId)) {
-	        throw new InvalidRepairStatusException("此維修單不是你認領的，不能送出報價");
-	    }
-	    if (r.getRepairStatus() != RepairStatus.PENDING_QUOTE) {
-	        throw new InvalidRepairStatusException("此階段無法報價");
-	    }
+	    requireTechnician(r, technicianId, "此維修單不是你認領的，不能送出報價"); // ★改
+	    requireStatus(r, RepairStatus.PENDING_QUOTE, "此階段無法報價"); // ★改
 	    if (r.getSerialNumber() == null || r.getInspectionResult() == null 
 	    		|| r.getRepairItems() == null || r.getEstimatedCost() == null) {
 	        throw new InvalidRepairStatusException("序號、檢測結果、維修項目、估價金額都要填寫完才能送出報價");
@@ -377,15 +380,12 @@ public class RepairsService {
 //	repairStatus 已報價->維修中(同意)
 //	已報價->報價後不維修(拒絕)
 	public RepairsResponse respondToQuote(Long id, Long memberId, boolean approve) {
-	    Repairs r = rRepos.findById(id)
-	    		.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
+	    Repairs r = findRepairOrThrow(id); // ★改
 
 	    if (!r.getMember().getId().equals(memberId)) {
 	        throw new NotEligibleException("此維修單不是你的，無法回應報價");
 	    }
-	    if (r.getRepairStatus() != RepairStatus.QUOTED) {
-	        throw new InvalidRepairStatusException("此階段無法回應報價");
-	    }
+	    requireStatus(r, RepairStatus.QUOTED, "此階段無法回應報價"); // ★改
 
 	    if (approve) {
 	        r.setApprovalStatus(ApprovalStatus.APPROVED);
@@ -401,15 +401,12 @@ public class RepairsService {
 //	客戶自行取消：僅限待估價、且尚未有技師認領時才能取消，避免技師已經在處理的單被抽掉
 //	repairStatus 待估價->已取消
 	public RepairsResponse cancel(Long id, Long memberId) {
-	    Repairs r = rRepos.findById(id)
-	    		.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
+	    Repairs r = findRepairOrThrow(id); // ★改
 
 	    if (!r.getMember().getId().equals(memberId)) {
 	        throw new NotEligibleException("此維修單不是你的，無法取消");
 	    }
-	    if (r.getRepairStatus() != RepairStatus.PENDING_QUOTE) {
-	        throw new InvalidRepairStatusException("此階段無法取消");
-	    }
+	    requireStatus(r, RepairStatus.PENDING_QUOTE, "此階段無法取消"); // ★改
 	    if (r.getRepairTechnicians() != null) {
 	        throw new InvalidRepairStatusException("已有技師認領，無法自行取消，請聯繫門市");
 	    }
@@ -423,16 +420,10 @@ public class RepairsService {
 //	技師在維修中補充/更新檢測備註（例如發現新問題、電話聯絡客戶溝通後記錄、客戶拒絕維修後只收檢測費/不收費）
 //	跟 updateQuote 不同：這裡只能改 inspectionResult
 	public RepairsResponse updateInspectionResult(Long id, InspectionResultRequest req) {
-		Repairs r = rRepos.findById(id)
-				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
-	
-		if (r.getRepairTechnicians() == null) {
-			throw new InvalidRepairStatusException("尚未有技師認領此維修單，請先認領");
-		}
-		if (!r.getRepairTechnicians().getId().equals(req.getTechnicianId())) {
-			throw new InvalidRepairStatusException("此維修單不是你負責的，不能修改");
-		}
-		if (r.getRepairStatus() != RepairStatus.IN_REPAIR 
+		Repairs r = findRepairOrThrow(id); // ★改
+
+		requireTechnician(r, req.getTechnicianId(), "此維修單不是你負責的，不能修改"); // ★改
+		if (r.getRepairStatus() != RepairStatus.IN_REPAIR
 				&& r.getRepairStatus() != RepairStatus.REPAIR_COMPLETED
 				&& r.getRepairStatus() != RepairStatus.QUOTE_REJECTED) {
 			throw new InvalidRepairStatusException("此階段無法更新檢測備註");
@@ -448,18 +439,10 @@ public class RepairsService {
 //	finalCost 沒傳就沿用 estimatedCost
 //	金額異動的話 adjustmentNote 必填，並直接覆蓋 inspectionResult
 	public RepairsResponse completeRepair(Long id, CompleteRepairRequest req) {
-		Repairs r = rRepos.findById(id)
-				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
-	
-		if (r.getRepairTechnicians() == null) {
-			throw new InvalidRepairStatusException("尚未有技師認領此維修單，請先認領");
-		}
-		if (!r.getRepairTechnicians().getId().equals(req.getTechnicianId())) {
-			throw new InvalidRepairStatusException("此維修單不是你負責的，不能標記完工");
-		}
-		if (r.getRepairStatus() != RepairStatus.IN_REPAIR) {
-			throw new InvalidRepairStatusException("此階段無法標記完工");
-		}
+		Repairs r = findRepairOrThrow(id); // ★改
+
+		requireTechnician(r, req.getTechnicianId(), "此維修單不是你負責的，不能標記完工"); // ★改
+		requireStatus(r, RepairStatus.IN_REPAIR, "此階段無法標記完工"); // ★改
 	
         // 不只檢查有沒有填，還要檢查「跟目前存的檢測結果是不是真的不一樣」
 		Integer finalCost = (req.getFinalCost() != null) ? req.getFinalCost() : r.getEstimatedCost();
@@ -487,18 +470,10 @@ public class RepairsService {
 	
 //	技師已電話通知客戶：repairStatus 維修完成->等待取件
 	public RepairsResponse markNotified(Long id, Integer technicianId) {
-		Repairs r = rRepos.findById(id)
-				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
+		Repairs r = findRepairOrThrow(id); // ★改
 
-		if (r.getRepairTechnicians() == null) {
-			throw new InvalidRepairStatusException("尚未有技師認領此維修單，請先認領");
-		}
-		if (!r.getRepairTechnicians().getId().equals(technicianId)) {
-			throw new InvalidRepairStatusException("此維修單不是你負責的，不能標記通知");
-		}
-		if (r.getRepairStatus() != RepairStatus.REPAIR_COMPLETED) {
-			throw new InvalidRepairStatusException("此階段無法標記已通知");
-		}
+		requireTechnician(r, technicianId, "此維修單不是你負責的，不能標記通知"); // ★改
+		requireStatus(r, RepairStatus.REPAIR_COMPLETED, "此階段無法標記已通知"); // ★改
 
 		r.setRepairStatus(RepairStatus.AWAITING_PICKUP);
 
@@ -509,18 +484,10 @@ public class RepairsService {
 
 //	客戶預約後未送修（沒到店/沒寄件）：repairStatus 待估價->未送修
 	public RepairsResponse undelivered(Long id, Integer technicianId) {
-		Repairs r = rRepos.findById(id)
-				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
+		Repairs r = findRepairOrThrow(id); // ★改
 
-		if (r.getRepairTechnicians() == null) {
-			throw new InvalidRepairStatusException("尚未有技師認領此維修單，請先認領");
-		}
-		if (!r.getRepairTechnicians().getId().equals(technicianId)) {
-			throw new InvalidRepairStatusException("此維修單不是你負責的，不能標記未送修");
-		}
-		if (r.getRepairStatus() != RepairStatus.PENDING_QUOTE) {
-			throw new InvalidRepairStatusException("此階段無法標記未送修");
-		}
+		requireTechnician(r, technicianId, "此維修單不是你負責的，不能標記未送修"); // ★改
+		requireStatus(r, RepairStatus.PENDING_QUOTE, "此階段無法標記未送修"); // ★改
 
 		r.setRepairStatus(RepairStatus.NOT_DROPPED_OFF);
 
@@ -531,15 +498,9 @@ public class RepairsService {
 //	線上付款要已經確認付款完成(repairPayStatus=PAID)才能結案
 //	repairStatus 等待取件 -> 已結案
 	public RepairsResponse closeRepair(Long id, Integer technicianId) {
-		Repairs r = rRepos.findById(id)
-				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
+		Repairs r = findRepairOrThrow(id); // ★改
 
-		if (r.getRepairTechnicians() == null) {
-			throw new InvalidRepairStatusException("尚未有技師認領此維修單，請先認領");
-		}
-		if (!r.getRepairTechnicians().getId().equals(technicianId)) {
-			throw new InvalidRepairStatusException("此維修單不是你負責的，不能結案");
-		}
+		requireTechnician(r, technicianId, "此維修單不是你負責的，不能結案"); // ★改
 //		不用通知，狀態停留在REPAIR_COMPLETED，例如:技師可能修完當下客戶剛好就在店裡等
 		if (r.getRepairStatus() != RepairStatus.REPAIR_COMPLETED
 				&& r.getRepairStatus() != RepairStatus.AWAITING_PICKUP) {
@@ -562,8 +523,7 @@ public class RepairsService {
 //	客戶選取件方式＋付款方式，只能送出一次，送出後如需更動要請技師改(見updateRecipient/技師手動更新付款狀態)
 //	選「寄件」要附收件人姓名/電話/地址；選「線上付款」先標記付款中，等綠界NotifyURL回調確認才會變已付款(目前尚未串接綠界，先由技師手動更新付款狀態代替)
 	public RepairsResponse submitPickupPayment(Long id, Long memberId, PickupPaymentRequest req) {
-		Repairs r = rRepos.findById(id)
-				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
+		Repairs r = findRepairOrThrow(id); // ★改
 
 		if (!r.getMember().getId().equals(memberId)) {
 			throw new NotEligibleException("此維修單不是你的，無法設定取件付款方式");
@@ -596,15 +556,9 @@ public class RepairsService {
 
 //	技師編輯收件人資訊：結案前都可以改，僅限客戶選「寄件」的單才能用
 	public RepairsResponse updateRecipient(Long id, RecipientRequest req) {
-		Repairs r = rRepos.findById(id)
-				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
+		Repairs r = findRepairOrThrow(id); // ★改
 
-		if (r.getRepairTechnicians() == null) {
-			throw new InvalidRepairStatusException("尚未有技師認領此維修單，請先認領");
-		}
-		if (!r.getRepairTechnicians().getId().equals(req.getTechnicianId())) {
-			throw new InvalidRepairStatusException("此維修單不是你負責的，不能修改");
-		}
+		requireTechnician(r, req.getTechnicianId(), "此維修單不是你負責的，不能修改"); // ★改
 		if (r.getRepairStatus() == RepairStatus.CLOSED) {
 			throw new InvalidRepairStatusException("已結案，收件資訊不能再修改");
 		}
@@ -621,18 +575,10 @@ public class RepairsService {
 	
 //	repairStatus 報價後不維修->已結案
 	public RepairsResponse closeRejectedRepair(Long id, Integer technicianId, Integer finalCost) {
-		Repairs r = rRepos.findById(id)
-				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
+		Repairs r = findRepairOrThrow(id); // ★改
 
-		if (r.getRepairTechnicians() == null) {
-			throw new InvalidRepairStatusException("尚未有技師認領此維修單，請先認領");
-		}
-		if (!r.getRepairTechnicians().getId().equals(technicianId)) {
-			throw new InvalidRepairStatusException("此維修單不是你負責的，不能結案");
-		}
-		if (r.getRepairStatus() != RepairStatus.QUOTE_REJECTED) {
-			throw new InvalidRepairStatusException("此階段無法結案");
-		}
+		requireTechnician(r, technicianId, "此維修單不是你負責的，不能結案"); // ★改
+		requireStatus(r, RepairStatus.QUOTE_REJECTED, "此階段無法結案"); // ★改
 
 		// 不填就當作 0 元（沒收檢測費）
 		Integer fee = (finalCost != null) ? finalCost : 0;
@@ -648,18 +594,10 @@ public class RepairsService {
 	
 //	報價後不維修：技師填最終金額(檢測費)送出，狀態推進到尚未取件
 	public RepairsResponse notifyRejected(Long id, Integer technicianId, Integer finalCost) {
-		Repairs r = rRepos.findById(id)
-				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
+		Repairs r = findRepairOrThrow(id); // ★改
 
-		if (r.getRepairTechnicians() == null) {
-			throw new InvalidRepairStatusException("尚未有技師認領此維修單，請先認領");
-		}
-		if (!r.getRepairTechnicians().getId().equals(technicianId)) {
-			throw new InvalidRepairStatusException("此維修單不是你負責的，不能送出");
-		}
-		if (r.getRepairStatus() != RepairStatus.QUOTE_REJECTED) {
-			throw new InvalidRepairStatusException("此階段無法送出");
-		}
+		requireTechnician(r, technicianId, "此維修單不是你負責的，不能送出"); // ★改
+		requireStatus(r, RepairStatus.QUOTE_REJECTED, "此階段無法送出"); // ★改
 
 		r.setFinalCost(finalCost != null ? finalCost : 0);
 		r.setRepairStatus(RepairStatus.AWAITING_PICKUP);
@@ -672,8 +610,7 @@ public class RepairsService {
 	
 //	技師手動更新付款狀態
 	public RepairsResponse updatePayStatus(Long id, RepairPayStatus payStatus) {
-		Repairs r = rRepos.findById(id)
-				.orElseThrow(() -> new RepairNotFoundException("找不到維修單，id=" + id));
+		Repairs r = findRepairOrThrow(id); // ★改
 		r.setRepairPayStatus(payStatus);
 		return toResponse(rRepos.save(r));
 	}
