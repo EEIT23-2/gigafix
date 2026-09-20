@@ -1,12 +1,23 @@
 package com.gigafix.order.service;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import com.gigafix.cart.entity.CartItem;
 import com.gigafix.cart.repository.CartItemRepository;
@@ -19,6 +30,7 @@ import com.gigafix.order.constant.PaymentStatus;
 import com.gigafix.order.constant.ShippingStatus;
 import com.gigafix.order.dto.AdminCreateOrderRequest;
 import com.gigafix.order.dto.AdminOrderCreateOptionsResponse;
+import com.gigafix.order.dto.AdminOrderStatisticsResponse;
 import com.gigafix.order.dto.CreateOrderRequest;
 import com.gigafix.order.dto.OrderItemResponse;
 import com.gigafix.order.dto.OrderResponse;
@@ -68,6 +80,12 @@ public class OrderServiceImpl implements OrderService {
 
         // 管理員預設的配送方式
         private static final String ADMIN_SHIPPING_METHOD = "HOME";
+
+        private static final int DEMO_ORDER_COUNT = 50;
+
+        private static final DateTimeFormatter EXCEL_DATE_TIME_FORMATTER =
+                        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
         // ---------------會員前台功能----------------------
 
         // 會員從購物車結帳建立訂單
@@ -500,6 +518,315 @@ public class OrderServiceImpl implements OrderService {
                 }
                 // 回傳訂單資料
                 return toOrderResponse(savedOrder);
+        }
+
+        // 一次產生 50 筆後台 Demo 訂單
+        @Transactional
+        @Override
+        public int generateDemoOrders() {
+
+                List<Member> members = memberRepository.findAll();
+
+                if (members.isEmpty()) {
+                        throw new IllegalStateException(
+                                        "目前沒有會員資料，無法產生 Demo 訂單");
+                }
+
+                List<Product> products = productDao.findAll();
+
+                if (products.isEmpty()) {
+                        throw new IllegalStateException(
+                                        "目前沒有商品資料，無法產生 Demo 訂單");
+                }
+
+                for (int index = 0; index < DEMO_ORDER_COUNT; index++) {
+                        Member member = members.get(index % members.size());
+                        Product product = products.get(index % products.size());
+
+                        Order order = new Order();
+                        order.setMember(member);
+                        order.setTotalAmount(product.getPrice());
+                        order.setPaymentMethod(ADMIN_PAYMENT_METHOD);
+                        order.setReceiverName(member.getRealName());
+                        order.setReceiverPhone(member.getPhone());
+                        order.setReceiverAddress(member.getAddress());
+                        order.setShippingMethod(ADMIN_SHIPPING_METHOD);
+                        order.setCustomerRemark("後台 Demo 訂單");
+
+                        applyDemoStatusTemplate(order, index % 5);
+
+                        Order savedOrder = orderRepository.save(order);
+                        LocalDateTime eventTime = savedOrder.getCreatedAt();
+
+                        if (PaymentStatus.PAID.name().equals(savedOrder.getPaymentStatus())) {
+                                savedOrder.setTransactionId(
+                                                "DEMO-PAY-" + savedOrder.getOrderId());
+                                savedOrder.setPaidAt(eventTime);
+                        }
+
+                        if (ShippingStatus.SHIPPED.name().equals(savedOrder.getShippingStatus())
+                                        || ShippingStatus.DELIVERED.name().equals(savedOrder.getShippingStatus())) {
+                                savedOrder.setTrackingNumber(
+                                                "DEMO-SHIP-" + savedOrder.getOrderId());
+                                savedOrder.setShippedAt(eventTime);
+                        }
+
+                        if (ShippingStatus.DELIVERED.name().equals(savedOrder.getShippingStatus())) {
+                                savedOrder.setDeliveredAt(eventTime);
+                        }
+
+                        orderRepository.save(savedOrder);
+
+                        OrderItem orderItem = new OrderItem();
+                        orderItem.setOrderId(savedOrder.getOrderId());
+                        orderItem.setProductId(product.getProductId());
+                        orderItem.setProductName(product.getProductName());
+                        orderItem.setUnitPrice(product.getPrice());
+
+                        orderItemRepository.save(orderItem);
+                }
+
+                return DEMO_ORDER_COUNT;
+        }
+
+        private void applyDemoStatusTemplate(
+                        Order order,
+                        int templateIndex) {
+
+                switch (templateIndex) {
+                        case 0 -> {
+                                order.setOrderStatus(OrderStatus.PENDING.name());
+                                order.setPaymentStatus(PaymentStatus.UNPAID.name());
+                                order.setShippingStatus(ShippingStatus.PENDING.name());
+                        }
+                        case 1 -> {
+                                order.setOrderStatus(OrderStatus.PENDING.name());
+                                order.setPaymentStatus(PaymentStatus.PAID.name());
+                                order.setShippingStatus(ShippingStatus.PENDING.name());
+                        }
+                        case 2 -> {
+                                order.setOrderStatus(OrderStatus.PENDING.name());
+                                order.setPaymentStatus(PaymentStatus.PAID.name());
+                                order.setShippingStatus(ShippingStatus.SHIPPED.name());
+                        }
+                        case 3 -> {
+                                order.setOrderStatus(OrderStatus.COMPLETED.name());
+                                order.setPaymentStatus(PaymentStatus.PAID.name());
+                                order.setShippingStatus(ShippingStatus.DELIVERED.name());
+                        }
+                        case 4 -> {
+                                order.setOrderStatus(OrderStatus.CANCELLED.name());
+                                order.setPaymentStatus(PaymentStatus.UNPAID.name());
+                                order.setShippingStatus(ShippingStatus.PENDING.name());
+                        }
+                        default -> throw new IllegalArgumentException(
+                                        "不支援的 Demo 訂單狀態模板");
+                }
+        }
+
+        // 查詢後台訂單統計
+        @Transactional(readOnly = true)
+        @Override
+        public AdminOrderStatisticsResponse getOrderStatistics() {
+
+                List<Order> orders = orderRepository.findAll();
+
+                long completedOrders = orders.stream()
+                                .filter(order -> OrderStatus.COMPLETED.name()
+                                                .equals(order.getOrderStatus()))
+                                .count();
+
+                long pendingShipmentOrders = orders.stream()
+                                .filter(order -> PaymentStatus.PAID.name()
+                                                .equals(order.getPaymentStatus()))
+                                .filter(order -> ShippingStatus.PENDING.name()
+                                                .equals(order.getShippingStatus()))
+                                .filter(order -> !OrderStatus.CANCELLED.name()
+                                                .equals(order.getOrderStatus()))
+                                .count();
+
+                long totalRevenue = orders.stream()
+                                .filter(order -> PaymentStatus.PAID.name()
+                                                .equals(order.getPaymentStatus()))
+                                .mapToLong(order -> order.getTotalAmount() == null
+                                                ? 0L
+                                                : order.getTotalAmount())
+                                .sum();
+
+                long pendingOrders = orders.stream()
+                                .filter(order -> OrderStatus.PENDING.name()
+                                                .equals(order.getOrderStatus()))
+                                .count();
+
+                long cancelledOrders = orders.stream()
+                                .filter(order -> OrderStatus.CANCELLED.name()
+                                                .equals(order.getOrderStatus()))
+                                .count();
+
+                return AdminOrderStatisticsResponse.builder()
+                                .totalOrders(orders.size())
+                                .completedOrders(completedOrders)
+                                .pendingShipmentOrders(pendingShipmentOrders)
+                                .totalRevenue(totalRevenue)
+                                .pendingOrders(pendingOrders)
+                                .cancelledOrders(cancelledOrders)
+                                .build();
+        }
+
+        // 匯出全部後台訂單為 Excel
+        @Transactional(readOnly = true)
+        @Override
+        public byte[] exportOrders() throws IOException {
+
+                List<Order> orders = orderRepository.findAll();
+                String[] headers = {
+                                "訂單編號", "會員 ID", "訂單金額", "訂單狀態", "付款方式",
+                                "付款狀態", "物流方式", "物流狀態", "物流追蹤編號", "收件人", "建立時間"
+                };
+
+                try (Workbook workbook = new XSSFWorkbook();
+                                ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+
+                        Sheet sheet = workbook.createSheet("訂單資料");
+                        Font headerFont = workbook.createFont();
+                        headerFont.setBold(true);
+
+                        CellStyle headerStyle = workbook.createCellStyle();
+                        headerStyle.setFont(headerFont);
+
+                        Row headerRow = sheet.createRow(0);
+
+                        for (int index = 0; index < headers.length; index++) {
+                                Cell cell = headerRow.createCell(index);
+                                cell.setCellValue(headers[index]);
+                                cell.setCellStyle(headerStyle);
+                        }
+
+                        for (int index = 0; index < orders.size(); index++) {
+                                Order order = orders.get(index);
+                                Row row = sheet.createRow(index + 1);
+
+                                setExcelNumberCell(row, 0, order.getOrderId());
+                                setExcelNumberCell(
+                                                row,
+                                                1,
+                                                order.getMember() == null
+                                                                ? null
+                                                                : order.getMember().getId());
+                                setExcelNumberCell(row, 2, order.getTotalAmount());
+                                setExcelTextCell(row, 3, translateOrderStatus(order.getOrderStatus()));
+                                setExcelTextCell(row, 4, translatePaymentMethod(order.getPaymentMethod()));
+                                setExcelTextCell(row, 5, translatePaymentStatus(order.getPaymentStatus()));
+                                setExcelTextCell(row, 6, translateShippingMethod(order.getShippingMethod()));
+                                setExcelTextCell(row, 7, translateShippingStatus(order.getShippingStatus()));
+                                setExcelTextCell(row, 8, order.getTrackingNumber());
+                                setExcelTextCell(row, 9, order.getReceiverName());
+                                setExcelTextCell(
+                                                row,
+                                                10,
+                                                order.getCreatedAt() == null
+                                                                ? null
+                                                                : order.getCreatedAt().format(EXCEL_DATE_TIME_FORMATTER));
+                        }
+
+                        for (int index = 0; index < headers.length; index++) {
+                                sheet.autoSizeColumn(index);
+                        }
+
+                        workbook.write(outputStream);
+                        return outputStream.toByteArray();
+                }
+        }
+
+        private void setExcelTextCell(
+                        Row row,
+                        int columnIndex,
+                        String value) {
+
+                row.createCell(columnIndex)
+                                .setCellValue(value == null ? "" : value);
+        }
+
+        private void setExcelNumberCell(
+                        Row row,
+                        int columnIndex,
+                        Number value) {
+
+                Cell cell = row.createCell(columnIndex);
+
+                if (value == null) {
+                        cell.setCellValue("");
+                        return;
+                }
+
+                cell.setCellValue(value.doubleValue());
+        }
+
+        private String translateOrderStatus(String value) {
+
+                if (value == null) {
+                        return "";
+                }
+
+                return switch (value) {
+                        case "PENDING" -> "待處理";
+                        case "COMPLETED" -> "已完成";
+                        case "CANCELLED" -> "已取消";
+                        default -> value;
+                };
+        }
+
+        private String translatePaymentMethod(String value) {
+
+                if (value == null) {
+                        return "";
+                }
+
+                return switch (value) {
+                        case "CREDIT_CARD" -> "信用卡";
+                        case "CASH_ON_DELIVERY" -> "貨到付款";
+                        default -> value;
+                };
+        }
+
+        private String translatePaymentStatus(String value) {
+
+                if (value == null) {
+                        return "";
+                }
+
+                return switch (value) {
+                        case "UNPAID" -> "未付款";
+                        case "PAID" -> "已付款";
+                        default -> value;
+                };
+        }
+
+        private String translateShippingMethod(String value) {
+
+                if (value == null) {
+                        return "";
+                }
+
+                return switch (value) {
+                        case "HOME" -> "宅配";
+                        case "STORE" -> "超商取貨";
+                        default -> value;
+                };
+        }
+
+        private String translateShippingStatus(String value) {
+
+                if (value == null) {
+                        return "";
+                }
+
+                return switch (value) {
+                        case "PENDING" -> "待出貨";
+                        case "SHIPPED" -> "已出貨";
+                        case "DELIVERED" -> "已送達";
+                        default -> value;
+                };
         }
 
         // 查詢所有會員訂單

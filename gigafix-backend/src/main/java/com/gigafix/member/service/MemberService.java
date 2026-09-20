@@ -137,13 +137,13 @@ public class MemberService {
 
 	public RegisterAndLoginResult FakeMemberRegisterAndLogin() {
 		Member member;
-		if (!memberRepository.existsByEmail("JavaJava5241@gmail.com")) {
+		if (!memberRepository.existsByEmail("javajava5241@outlook.com")) {
 			// 如果資料庫裡面有真的member，就創建一個
 			member = Member.builder()
 					.password("GigafixJava520")
 					.realName("江村諺")
 					.nickName("政寶<3")
-					.email("JavaJava5241@gmail.com")
+					.email("javajava5241@outlook.com")
 					.phone("0900000000")
 					.address("臺北市信義區安康里松勇路66號")
 					.gender(Gender.FEMALE)

@@ -1,13 +1,15 @@
 <script setup>
 defineOptions({ name: "MallTable" });
 
-defineProps({
+const props = defineProps({
   products: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false },
   errorMessage: { type: String, default: "" },
   pageNumber: { type: Number, default: 0 },
   totalPages: { type: Number, default: 0 },
   visiblePages: { type: Array, default: () => [] },
+  cartProductIds: { type: Set, default: () => new Set() },
+  addingProductIds: { type: Set, default: () => new Set() },
 });
 
 const emit = defineEmits([
@@ -38,6 +40,18 @@ function categoryLabel(category) {
     category ??
     "精選商品"
   );
+}
+
+function productIdKey(product) {
+  return String(product.productId);
+}
+
+function isInCart(product) {
+  return props.cartProductIds.has(productIdKey(product));
+}
+
+function isAddingToCart(product) {
+  return props.addingProductIds.has(productIdKey(product));
 }
 </script>
 
@@ -98,11 +112,33 @@ function categoryLabel(category) {
         <button
           class="add-to-cart-button"
           type="button"
+          :disabled="isInCart(product) || isAddingToCart(product)"
+          :aria-label="
+            isInCart(product)
+              ? `${productName(product)} 已加入購物車`
+              : undefined
+          "
           @click.stop="emit('add-to-cart', product)"
           @keydown.enter.stop
         >
-          <i class="bi bi-cart-plus" aria-hidden="true"></i>
-          加入購物車
+          <span
+            v-if="isAddingToCart(product)"
+            class="spinner-border spinner-border-sm"
+            aria-hidden="true"
+          ></span>
+          <i
+            v-else
+            class="bi"
+            :class="isInCart(product) ? 'bi-check-lg' : 'bi-cart-plus'"
+            aria-hidden="true"
+          ></i>
+          {{
+            isAddingToCart(product)
+              ? "加入中..."
+              : isInCart(product)
+                ? "已加入購物車"
+                : "加入購物車"
+          }}
         </button>
       </article>
     </div>
@@ -249,11 +285,17 @@ function categoryLabel(category) {
     color 0.2s ease,
     background-color 0.2s ease;
 }
-.add-to-cart-button:hover,
-.add-to-cart-button:focus-visible {
+.add-to-cart-button:hover:not(:disabled),
+.add-to-cart-button:focus-visible:not(:disabled) {
   color: #1b1b1b;
   background: #fff;
   outline: none;
+}
+.add-to-cart-button:disabled {
+  border-color: #d6d6d6;
+  color: #777;
+  background: #e9e9e9;
+  cursor: not-allowed;
 }
 .loading-state,
 .empty-state {

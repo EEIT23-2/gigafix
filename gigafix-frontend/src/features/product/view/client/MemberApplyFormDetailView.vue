@@ -235,7 +235,9 @@ async function confirmAgreement() {
 async function cancelApplication() {
   if (!canCancelApplication.value) return;
 
-  const confirmed = window.confirm("確定要取消這筆回收申請嗎？取消後將無法繼續簽署流程。");
+  const confirmed = window.confirm(
+    "確定要取消這筆回收申請嗎？取消後將無法繼續簽署流程。",
+  );
   if (!confirmed) return;
 
   cancellingApplication.value = true;
@@ -323,18 +325,17 @@ onMounted(fetchApplication);
       </header>
 
       <!-- 依回收單目前狀態顯示五個處理階段；取消時改顯示終止提示。 -->
-      <section class="recycle-progress" aria-labelledby="recycle-progress-title">
+      <section
+        class="recycle-progress"
+        aria-labelledby="recycle-progress-title"
+      >
         <div class="progress-heading">
           <div>
             <p class="progress-eyebrow">RECYCLE PROGRESS</p>
             <h2 id="recycle-progress-title">手機回收進度</h2>
           </div>
           <strong :class="{ cancelled: isCancelled }">
-            {{
-              isCancelled
-                ? "流程已取消"
-                : `${recycleProgressPercent}%`
-            }}
+            {{ isCancelled ? "流程已取消" : `${recycleProgressPercent}%` }}
           </strong>
         </div>
 
@@ -363,7 +364,9 @@ onMounted(fetchApplication);
               v-for="(step, index) in recycleProgressSteps"
               :key="step.status"
               :class="progressStepClass(index)"
-              :aria-current="index === currentProgressIndex ? 'step' : undefined"
+              :aria-current="
+                index === currentProgressIndex ? 'step' : undefined
+              "
             >
               <span class="step-marker" aria-hidden="true">
                 <i
@@ -379,10 +382,18 @@ onMounted(fetchApplication);
         </template>
       </section>
 
-      <p v-if="cancelError" class="agreement-message error-message" role="alert">
+      <p
+        v-if="cancelError"
+        class="agreement-message error-message"
+        role="alert"
+      >
         {{ cancelError }}
       </p>
-      <p v-if="cancelSuccess" class="agreement-message success-message" role="status">
+      <p
+        v-if="cancelSuccess"
+        class="agreement-message success-message"
+        role="status"
+      >
         <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
         {{ cancelSuccess }}
       </p>
@@ -461,7 +472,8 @@ onMounted(fetchApplication);
         </div>
 
         <p class="agreement-description">
-          請輸入 Email 中的 6 位數驗證碼，確認上方估價後完成電子簽名。
+          待檢驗完成收到驗證信函後，請輸入 Email 中的 6
+          位數驗證碼，確認上方估價後完成電子簽名。
         </p>
 
         <div class="agreement-content">
@@ -506,7 +518,11 @@ onMounted(fetchApplication);
           </div>
         </div>
 
-        <p v-if="agreementError" class="agreement-message error-message" role="alert">
+        <p
+          v-if="agreementError"
+          class="agreement-message error-message"
+          role="alert"
+        >
           {{ agreementError }}
         </p>
 
