@@ -418,6 +418,19 @@ const goToRepairAppointment = () => {
     openLoginModal();
   }
 };
+//★改：網址帶?login=1&redirect=xxx(例如通知信連結被路由守衛擋下)就自動開登入視窗，登入成功後導去redirect
+watch(
+  () => router.currentRoute.value.query.login,
+  (login) => {
+    if (login !== "1" || memberInfo.value) return;
+    const redirect = router.currentRoute.value.query.redirect;
+    afterLoginRedirect.value =
+      typeof redirect === "string" && redirect.startsWith("/") ? redirect : null;
+    openLoginModal();
+    router.replace({ path: router.currentRoute.value.path }); //清掉query，避免重新整理又跳一次
+  },
+  { immediate: true },
+);
 //==購物車相關==
 const goToCart = () => {
   if (memberInfo.value) {
