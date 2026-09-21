@@ -3,8 +3,9 @@ import { computed, onMounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useRouter } from "vue-router";
 import { useFetchMemberInfoStore } from "@/stores/member";
-import { createAppointment, getBookedSlots, getStores } from "../api";
+import { createAppointment, getBookedSlots, getStores, getTodayString } from "../api"; // ★改：多 import getTodayString
 import { REPAIR_ITEMS } from "../priceTable";
+import { useSwalMessages } from "../../../utils/swal";
 
 const router = useRouter();
 
@@ -15,6 +16,7 @@ const { memberInfo } = storeToRefs(fetchMemberInfoStore);
 const stores = ref([]);
 const submitting = ref(false);
 const errorMessage = ref("");
+useSwalMessages(errorMessage, null);
 // 選好分店+日期後，去後端查回來的「當天已被預約時段」清單，畫面上要把這些時段設為不可選
 const bookedSlots = ref([]);
 
@@ -45,7 +47,7 @@ const form = ref({
 });
 
 // 今天的日期字串(yyyy-MM-dd)，讓日期欄位不能選過去的日期
-const todayStr = new Date().toISOString().slice(0, 10);
+const todayStr = getTodayString(); // ★改：原本用 toISOString()（UTC，台灣凌晨會變昨天）
 
 // 預約時段只開放 9:00~21:00 整點，共13個按鈕
 const timeSlotOptions = [];
@@ -248,14 +250,14 @@ onMounted(async () => {
     </div>
 
     <template v-else>
-      <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show" role="alert">
-        {{ errorMessage }}
-        <button type="button" class="btn-close" @click="errorMessage = ''"></button>
-      </div>
-      <form class="card card-body" @submit.prevent="handleSubmit">
+      <form @submit.prevent="handleSubmit">
         <p class="text-danger small text-end mb-2">*為必填</p>
 
-        <h2 class="h5 mb-3">聯絡資訊</h2>
+        <section class="card section-card mb-4">
+          <div class="card-header fw-bold section-card-header">
+            <i class="bi bi-person-vcard"></i> 聯絡資訊
+          </div>
+          <div class="card-body">
         <div class="row g-3 mb-3">
           <div class="col-md-6">
             <label class="form-label">聯絡姓名<span class="text-danger">*</span></label>
@@ -286,7 +288,7 @@ onMounted(async () => {
           </div>
         </div>
 
-        <div class="form-check mb-3">
+        <div class="form-check mb-0">
           <input
             id="useMemberContact"
             :checked="useMemberContact"
@@ -299,8 +301,14 @@ onMounted(async () => {
             使用會員資料的姓名/電話(自行修改姓名或電話會自動取消勾選；取消勾選會清空欄位，重新勾選可帶回會員資料)
           </label>
         </div>
+          </div>
+        </section>
 
-        <h2 class="h5 mb-3">維修資訊</h2>
+        <section class="card section-card mb-4">
+          <div class="card-header fw-bold section-card-header">
+            <i class="bi bi-tools"></i> 維修資訊
+          </div>
+          <div class="card-body">
         <div class="row g-3 mb-3">
           <div class="col-md-6">
             <label class="form-label">分店<span class="text-danger">*</span></label>
@@ -444,9 +452,11 @@ onMounted(async () => {
             </p>
           </div>
         </div>
+          </div>
+        </section>
 
-        <button type="submit" class="btn btn-primary" :disabled="submitting">
-          {{ submitting ? "送出中..." : "送出預約" }}
+        <button type="submit" class="btn btn-primary rounded-pill px-4" :disabled="submitting">
+          <i class="bi bi-send me-1"></i>{{ submitting ? "送出中..." : "送出預約" }}
         </button>
       </form>
     </template>
@@ -454,6 +464,23 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* 區塊卡片：圓角+柔和陰影，跟維修單管理同一套風格 */
+.section-card {
+  border: none;
+  border-radius: 1rem;
+  box-shadow: 0 2px 10px rgba(30, 53, 87, 0.08);
+}
+
+/* 區塊標題色塊：跟站內品牌藍統一風格 */
+.section-card-header {
+  background-color: #a8cdf0;
+  color: #14263d;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 20px;
+}
+
 .time-slot-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);

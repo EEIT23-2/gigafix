@@ -1,20 +1,29 @@
 package com.gigafix.repair.service;
 
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.StringJoiner;
 import java.util.TreeMap;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.HtmlUtils;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -43,6 +52,7 @@ public class RepairEcpayPaymentService {
 
 	private final RepairsRepository repairsRepository;
 	private final RepairsService repairsService;
+	private final RestTemplate restTemplate;
 
 	@Value("${ecpay.payment.merchant-id}")
 	private String merchantId;
@@ -55,6 +65,9 @@ public class RepairEcpayPaymentService {
 
 	@Value("${ecpay.payment.url}")
 	private String paymentUrl;
+
+	@Value("${ecpay.payment.query-url}")
+	private String queryUrl;
 
 	@Value("${ecpay.repair-payment.return-url}")
 	private String returnUrl;
@@ -71,8 +84,20 @@ public class RepairEcpayPaymentService {
 	 */
 	public String buildPaymentHtml(Long memberId, Long repairId) {
 		Repairs repair = getPayableRepair(memberId, repairId);
+
+		// 客戶按「重新付款」時才會走到這裡：先跟綠界查上一筆交易是不是其實已經付款成功，
+		// 避免客戶已經付過款、只是通知還沒到，卻又被導去刷第二次卡
+		if (repair.getRepairPayStatus() == RepairPayStatus.PENDING && repair.getLastPaymentTradeNo() != null
+				&& isAlreadyPaidAtEcpay(repair)) {
+			return buildAlreadyPaidHtml(repair.getId());
+		}
+
 		Map<String, String> parameters = buildPaymentParameters(repair);
 		parameters.put("CheckMacValue", calculateCheckMacValue(parameters));
+
+		repair.setLastPaymentTradeNo(parameters.get("MerchantTradeNo"));
+		repairsRepository.save(repair);
+
 		return buildAutoSubmitHtml(parameters);
 	}
 
@@ -137,6 +162,77 @@ public class RepairEcpayPaymentService {
 		String repairLine = "維修單編號" + repair.getId();
 		String modelLine = repair.getRepairBrand() + " " + repair.getRepairModel();
 		return repairLine + "#" + modelLine;
+	}
+
+	/**
+	 * 用上一次的 MerchantTradeNo 問綠界「查詢訂單」API，確認是不是其實已經付款成功。
+	 * 如果是，順便直接把維修單標記已付款，回傳 true。
+	 */
+	private boolean isAlreadyPaidAtEcpay(Repairs repair) {
+		Map<String, String> parameters = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+		parameters.put("MerchantID", merchantId);
+		parameters.put("MerchantTradeNo", repair.getLastPaymentTradeNo());
+		parameters.put("TimeStamp", String.valueOf(Instant.now().getEpochSecond()));
+		parameters.put("CheckMacValue", calculateCheckMacValue(parameters));
+
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+		MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+		parameters.forEach(body::add);
+
+		String response = restTemplate.postForObject(queryUrl, new HttpEntity<>(body, headers), String.class);
+		Map<String, String> result = parseQueryString(response);
+
+		if ("1".equals(result.get("TradeStatus"))) {
+			repairsService.updatePayStatus(repair.getId(), RepairPayStatus.PAID);
+			return true;
+		}
+
+		return false;
+	}
+
+	// ECPay 查詢類 API 回傳的是 "key1=value1&key2=value2..." 這種query string格式，不是JSON
+	private Map<String, String> parseQueryString(String raw) {
+		Map<String, String> result = new HashMap<>();
+		if (raw == null || raw.isBlank()) {
+			return result;
+		}
+
+		for (String pair : raw.split("&")) {
+			String[] keyValue = pair.split("=", 2);
+			if (keyValue.length == 2) {
+				result.put(keyValue[0], URLDecoder.decode(keyValue[1], StandardCharsets.UTF_8));
+			}
+		}
+
+		return result;
+	}
+
+	// 查證上一筆其實已經付款成功時，回傳這段讓瀏覽器導回維修單頁面，不用真的再刷一次卡
+	private String buildAlreadyPaidHtml(Long repairId) {
+		String redirectUrl = UriComponentsBuilder
+				.fromUriString(frontendBaseUrl)
+				.path("/member-center/repair/{repairId}")
+				.queryParam("payment", "already-paid")
+				.buildAndExpand(repairId)
+				.encode()
+				.toUriString();
+
+		return """
+				<!DOCTYPE html>
+				<html lang="zh-Hant">
+				<head>
+				    <meta charset="UTF-8">
+				    <title>已完成付款</title>
+				</head>
+				<body>
+				    <p>這筆維修單其實已經付款成功了，正在返回維修單頁面...</p>
+				    <script>
+				        window.location.href = "%s";
+				    </script>
+				</body>
+				</html>
+				""".formatted(HtmlUtils.htmlEscape(redirectUrl));
 	}
 
 	/**

@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { Modal } from "bootstrap";
 import {
   confirmImportTechnicians,
@@ -10,11 +10,13 @@ import {
   formatFromFileName,
   getStores,
   getTechnicians,
+  getTodayString, // ★改：新增
   previewImportTechnicians,
   updateTechnician,
 } from "../api";
 import { useExportMenu } from "../useExportMenu";
 import ImportPreviewModal from "../components/ImportPreviewModal.vue";
+import { swalConfirm, useSwalMessages } from "../../../utils/swal";
 
 const technicians = ref([]);
 const stores = ref([]);
@@ -22,6 +24,7 @@ const filterStoreId = ref("");
 const loading = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
+useSwalMessages(errorMessage, successMessage);
 
 // ===== 匯出/匯入 =====
 const exportMenu = useExportMenu();
@@ -37,7 +40,7 @@ async function handleExport(format) {
     const blob = await exportTechnicians(format);
     downloadBlob(
       blob,
-      `technicians-${new Date().toISOString().slice(0, 10)}.${format}`,
+      `technicians-${getTodayString()}.${format}`,
     );
   } catch (error) {
     console.error(error);
@@ -193,7 +196,7 @@ async function handleSave() {
 }
 
 async function handleDelete(t) {
-  if (!window.confirm(`確定要刪除技師「${t.name}」嗎？`)) return;
+  if (!(await swalConfirm(`確定要刪除技師「${t.name}」嗎？`, { danger: true }))) return;
   errorMessage.value = "";
   try {
     await deleteTechnician(t.id);
@@ -207,6 +210,30 @@ async function handleDelete(t) {
         ? `刪除失敗：HTTP ${error.response.status}`
         : "無法連線到後端伺服器";
   }
+}
+
+// ===== 分頁：10/20筆一頁或顯示全部，純前端切分，不用重打API =====
+const pageSize = ref(10); // 10 | 20 | "all"
+const currentPage = ref(1);
+
+const totalPages = computed(() => {
+  if (pageSize.value === "all") return 1;
+  return Math.max(1, Math.ceil(technicians.value.length / pageSize.value));
+});
+
+const pagedTechnicians = computed(() => {
+  if (pageSize.value === "all") return technicians.value;
+  const start = (currentPage.value - 1) * pageSize.value;
+  return technicians.value.slice(start, start + pageSize.value);
+});
+
+watch([pageSize, technicians], () => {
+  currentPage.value = 1;
+});
+
+function goToPage(page) {
+  if (page < 1 || page > totalPages.value) return;
+  currentPage.value = page;
 }
 
 onMounted(async () => {
@@ -227,7 +254,7 @@ onMounted(async () => {
         <!-- 匯出：下拉選格式 -->
         <div class="dropdown" :ref="(el) => (exportMenu.containerRef.value = el)">
           <button
-            class="btn btn-outline-secondary dropdown-toggle"
+            class="btn btn-outline-secondary dropdown-toggle rounded-pill px-3"
             type="button"
             :disabled="exporting"
             @click="exportMenu.toggle"
@@ -255,7 +282,7 @@ onMounted(async () => {
 
         <!-- 匯入：直接跳檔案選擇，格式從副檔名判斷 -->
         <button
-          class="btn btn-outline-secondary"
+          class="btn btn-outline-secondary rounded-pill px-3"
           type="button"
           :disabled="importing"
           @click="openImportFilePicker"
@@ -272,7 +299,10 @@ onMounted(async () => {
       </div>
     </div>
 
-    <section class="card mb-4">
+    <section class="card section-card mb-4">
+      <div class="card-header fw-bold section-card-header">
+        <i class="bi bi-funnel"></i> 篩選
+      </div>
       <div class="card-body d-flex gap-3 align-items-center">
         <label class="form-label mb-0">依分店篩選：</label>
         <select
@@ -286,62 +316,84 @@ onMounted(async () => {
             {{ s.name }}
           </option>
         </select>
-        <button class="btn btn-primary ms-auto" @click="openCreateModal">
-          ＋ 新增技師
+        <button class="btn btn-primary ms-auto rounded-pill px-4" @click="openCreateModal">
+          <i class="bi bi-plus-lg me-1"></i>新增技師
         </button>
       </div>
     </section>
 
-    <div v-if="errorMessage" class="alert alert-danger alert-dismissible">
-      {{ errorMessage }}
-      <button
-        type="button"
-        class="btn-close"
-        @click="errorMessage = ''"
-      ></button>
-    </div>
+    <!-- 分頁：選每頁筆數、上一頁/下一頁，位置跟維修單管理統一放在篩選卡片下方、列表上方 -->
     <div
-      v-if="successMessage"
-      class="alert alert-success alert-dismissible"
-      role="alert"
+      v-if="!loading && technicians.length > 0"
+      class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"
     >
-      {{ successMessage }}
-      <button
-        class="btn-close"
-        type="button"
-        @click="successMessage = ''"
-      ></button>
+      <div class="d-flex align-items-center gap-2">
+        <span class="text-secondary">每頁顯示</span>
+        <select v-model="pageSize" class="form-select form-select-sm page-size-select">
+          <option :value="10">10 筆</option>
+          <option :value="20">20 筆</option>
+          <option value="all">全部</option>
+        </select>
+      </div>
+      <nav v-if="pageSize !== 'all' && totalPages > 1">
+        <ul class="pagination pagination-pill mb-0">
+          <li class="page-item" :class="{ disabled: currentPage === 1 }">
+            <button class="page-link" @click="goToPage(currentPage - 1)">
+              <i class="bi bi-chevron-left"></i>
+            </button>
+          </li>
+          <li class="page-item disabled">
+            <span class="page-link">顯示第 {{ currentPage }} 頁，共 {{ totalPages }} 頁</span>
+          </li>
+          <li class="page-item" :class="{ disabled: currentPage === totalPages }">
+            <button class="page-link" @click="goToPage(currentPage + 1)">
+              <i class="bi bi-chevron-right"></i>
+            </button>
+          </li>
+        </ul>
+      </nav>
     </div>
 
-    <section class="card overflow-hidden">
+
+    <section class="card section-card overflow-hidden">
+      <div class="card-header fw-bold section-card-header">
+        <i class="bi bi-person-lines-fill"></i> 技師列表
+      </div>
       <div v-if="loading" class="text-center py-5">
         <div class="spinner-border text-primary" role="status"></div>
       </div>
-      <table v-else class="table table-hover mb-0 align-middle">
+      <table v-else class="table table-hover mb-0 align-middle data-table">
+        <colgroup>
+          <col style="width: 8%">
+          <col style="width: 23%">
+          <col style="width: 23%">
+          <col style="width: 23%">
+          <col style="width: 23%">
+        </colgroup>
         <thead class="table-light">
           <tr>
             <th>id</th>
             <th>姓名</th>
             <th>電話</th>
             <th>分店</th>
-            <th class="text-end">操作</th>
+            <th>操作</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="t in technicians" :key="t.id">
+          <tr v-for="t in pagedTechnicians" :key="t.id">
             <td>{{ t.id }}</td>
             <td>{{ t.name }}</td>
             <td>{{ t.phone }}</td>
             <td>{{ t.storeName }}</td>
-            <td class="text-end">
+            <td>
               <button
-                class="btn btn-sm btn-outline-primary me-2"
+                class="btn btn-sm btn-outline-primary me-2 rounded-pill px-3"
                 @click="openEditModal(t)"
               >
                 修改
               </button>
               <button
-                class="btn btn-sm btn-outline-danger"
+                class="btn btn-sm btn-outline-danger rounded-pill px-3"
                 @click="handleDelete(t)"
               >
                 刪除
@@ -407,7 +459,7 @@ onMounted(async () => {
           <div class="modal-footer">
             <button
               type="button"
-              class="btn btn-secondary"
+              class="btn btn-secondary rounded-pill px-4"
               data-bs-dismiss="modal"
               :disabled="saving"
             >
@@ -415,11 +467,11 @@ onMounted(async () => {
             </button>
             <button
               type="button"
-              class="btn btn-primary"
+              class="btn btn-primary rounded-pill px-4"
               :disabled="saving"
               @click="handleSave"
             >
-              {{ saving ? "儲存中..." : "儲存" }}
+              <i class="bi bi-save me-1"></i>{{ saving ? "儲存中..." : "儲存" }}
             </button>
           </div>
         </div>
@@ -441,5 +493,64 @@ onMounted(async () => {
 .dropdown-menu {
   right: 0;
   left: auto;
+}
+
+/* 區塊卡片：圓角+柔和陰影，跟維修單管理同一套風格 */
+.section-card {
+  border: none;
+  border-radius: 1rem;
+  box-shadow: 0 2px 10px rgba(30, 53, 87, 0.08);
+}
+
+/* 區塊標題色塊：跟站內品牌藍統一風格 */
+.section-card-header {
+  background-color: #a8cdf0;
+  color: #14263d;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 20px;
+}
+
+/* 欄寬固定(搭配上面的 colgroup)，除了id欄，其他欄位平均分配寬度 */
+.data-table {
+  table-layout: fixed;
+}
+.data-table td {
+  word-break: break-word;
+}
+
+/* 表格文字放大、加粗，跟維修單管理同一個級距 */
+.data-table th {
+  font-size: 16px;
+}
+.data-table td {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1d324b;
+}
+
+/* 每頁筆數選單固定寬度，不會因為選到的文字長度不同而跑位 */
+.page-size-select {
+  width: 90px;
+}
+
+/* 分頁按鈕改藥丸形+品牌藍，跟維修單管理同一套風格 */
+.pagination-pill .page-link {
+  border: none;
+  border-radius: 999px;
+  margin: 0 3px;
+  color: #14263d;
+  background-color: #edf5fc;
+  font-weight: 600;
+}
+.pagination-pill .page-item:not(.disabled) .page-link:hover {
+  background-color: #a8cdf0;
+}
+.pagination-pill .page-item.disabled .page-link {
+  background-color: transparent;
+  color: var(--bs-secondary-color, #6c757d);
+  font-weight: 500;
+  box-shadow: none;
 }
 </style>

@@ -24,7 +24,7 @@ import com.gigafix.repair.repository.StoresRepository;
 import com.gigafix.repair.util.ExcelExportOptions;
 import com.gigafix.repair.util.TableExportImport;
 
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional; // ★改：原本是 jakarta.transaction.Transactional
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -84,6 +84,7 @@ public class StoresService {
 	}
 	
 //	id查詢
+	@Transactional(readOnly = true) // ★改：純查詢，唯讀交易
 	public StoresResponse selectById(Byte id) {
 //		lambda 寫法
 		Stores store = storesRepos.findById(id)
@@ -99,6 +100,7 @@ public class StoresService {
 	}
 	
 //	查詢全部
+	@Transactional(readOnly = true) // ★改
 	public List<StoresResponse> selectAll(){
 		List<Stores> list = storesRepos.findAll();
 	    List<StoresResponse> result = new ArrayList<>();
@@ -123,6 +125,7 @@ public class StoresService {
 	}
 
 //	匯出：format = json / xml / xlsx
+	@Transactional(readOnly = true) // ★改
 	public byte[] export(String format) {
 		List<LinkedHashMap<String, String>> rows = new ArrayList<>();
 		for (Stores s : storesRepos.findAll()) {
@@ -204,6 +207,7 @@ public class StoresService {
 	}
 
 //	匯入預覽：只解析、比對，不寫入資料庫
+	@Transactional(readOnly = true) // ★改：預覽只比對資料，不寫入
 	public ImportPreview previewImport(MultipartFile file, String format) {
 		List<Map<String, String>> rows = parseRows(file, format);
 		List<ImportPreviewRow> result = new ArrayList<>();

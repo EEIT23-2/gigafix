@@ -16,11 +16,15 @@ public interface RepairsRepository extends JpaRepository<Repairs, Long> {
 
 	// 檢查同一分店、同一天、同一時段是否已經有維修單
 	// 時段衝突邏輯不是「同一技師」而是「同一分店」
-	Optional<Repairs> findByStore_IdAndBookingDateAndTimeSlot(Byte storeId, LocalDate bookingDate,
-			LocalTime timeSlot);
+	// ★改：多一個參數 releasedStatuses，這些狀態(已取消/未送修)的單不算佔用時段，
+	//      查詢就先排除，才能保證同一時段最多只查到一筆有效的單(Optional 才不會噴錯)
+	Optional<Repairs> findByStore_IdAndBookingDateAndTimeSlotAndRepairStatusNotIn(Byte storeId, LocalDate bookingDate,
+			LocalTime timeSlot, List<RepairStatus> releasedStatuses);
 
-	// 查某分店、某一天所有的維修單，讓前端知道當天哪些時段已經被訂走
-	List<Repairs> findByStore_IdAndBookingDate(Byte storeId, LocalDate bookingDate);
+	// 查某分店、某一天「佔用時段」的維修單，讓前端知道當天哪些時段已經被訂走
+	// ★改：同樣排除已釋出時段的狀態
+	List<Repairs> findByStore_IdAndBookingDateAndRepairStatusNotIn(Byte storeId, LocalDate bookingDate,
+			List<RepairStatus> releasedStatuses);
 
 	// 技師查詢:某分店、指定狀態、且尚未指派技師的維修單（技師可認領的清單）
 	List<Repairs> findByStore_IdAndRepairStatusAndRepairTechniciansIsNull(Byte storeId, RepairStatus repairStatus);

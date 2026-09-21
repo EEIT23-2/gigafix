@@ -26,7 +26,7 @@ import com.gigafix.repair.repository.StoresRepository;
 import com.gigafix.repair.util.ExcelExportOptions;
 import com.gigafix.repair.util.TableExportImport;
 
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional; // ★改：原本是 jakarta.transaction.Transactional
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -93,6 +93,7 @@ public class RepairTechniciansService {
     }
 
     // id查詢
+    @Transactional(readOnly = true) // ★改：純查詢，唯讀交易
     public RepairTechniciansResponse selectById(Integer id) {
     	RepairTechnicians rt = rtRepos.findById(id)
                 .orElseThrow(() -> new RepairNotFoundException("找不到技師，ID: " + id));
@@ -100,6 +101,7 @@ public class RepairTechniciansService {
     }
 
     // 查詢全部技師
+    @Transactional(readOnly = true) // ★改
     public List<RepairTechniciansResponse> selectAll() {
     	List<RepairTechnicians> list = rtRepos.findAll();
 	    List<RepairTechniciansResponse> result = new ArrayList<>();
@@ -110,6 +112,7 @@ public class RepairTechniciansService {
     }
     
 	// 查詢：某分店底下的所有技師
+    @Transactional(readOnly = true) // ★改
     public List<RepairTechniciansResponse> selectByStore(Byte storeId) {
     	List<RepairTechnicians> list = rtRepos.findByStore_Id(storeId);
     	List<RepairTechniciansResponse> result = new ArrayList<>();
@@ -129,6 +132,7 @@ public class RepairTechniciansService {
 	}
 
 //	匯出：format = json / xml / xlsx
+	@Transactional(readOnly = true) // ★改
 	public byte[] export(String format) {
 		List<LinkedHashMap<String, String>> rows = new ArrayList<>();
 		for (RepairTechnicians rt : rtRepos.findAll()) {
@@ -218,6 +222,7 @@ public class RepairTechniciansService {
 	}
 
 //	匯入預覽：只解析、比對，不寫入資料庫
+	@Transactional(readOnly = true) // ★改：預覽只比對資料，不寫入
 	public ImportPreview previewImport(MultipartFile file, String format) {
 		List<Map<String, String>> rows = parseRows(file, format);
 		List<ImportPreviewRow> result = new ArrayList<>();

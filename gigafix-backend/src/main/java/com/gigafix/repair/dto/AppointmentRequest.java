@@ -6,6 +6,7 @@ import java.time.LocalTime;
 import com.gigafix.repair.entity.status.DropoffType;
 
 import jakarta.validation.constraints.FutureOrPresent;
+import jakarta.validation.constraints.NotBlank; // ★改：新增（字串欄位用）
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -16,23 +17,23 @@ public class AppointmentRequest {
 	@NotNull(message = "請選擇分店")
 	private Byte storeId;
 
-	@NotNull(message = "請填寫連絡姓名")
+	@NotBlank(message = "請填寫連絡姓名") // ★改：原本 @NotNull，空字串/純空白也要擋
 	@Size(max = 50)
 	private String contactName;
 
-	@NotNull(message = "請填寫連絡電話")
+	@NotBlank(message = "請填寫連絡電話") // ★改
 	@Size(max = 20)
 	private String contactPhone;
 	
-	@NotNull(message = "請填寫手機品牌")
+	@NotBlank(message = "請填寫手機品牌") // ★改
 	@Size(max = 20)
 	private String repairBrand;
 	
-	@NotNull(message = "請填寫手機型號")
+	@NotBlank(message = "請填寫手機型號") // ★改
 	@Size(max = 50)
 	private String repairModel;
 	
-	@NotNull(message = "請描述故障狀況")
+	@NotBlank(message = "請描述故障狀況") // ★改
 	@Size(max = 200)
 	private String issueDescription;
 	
