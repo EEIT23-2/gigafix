@@ -10,6 +10,7 @@ import { Placeholder } from '@tiptap/extensions'
 // 必須放行 span 與 style，否則使用者選了卻會被默默清掉
 import { TextStyle, Color, FontSize, BackgroundColor } from '@tiptap/extension-text-style'
 import ColorPopover from './ColorPopover.vue'
+import { IMAGE_ACCEPT, uploadImageFile } from '../imageUpload'
 
 // 字級上下限。後端 HtmlSanitizer 的 font-size 比對也收斂在同一個範圍，
 // 兩邊要一起改，否則會出現「前端選得到、存進去卻被濾掉」
@@ -43,7 +44,9 @@ const props = defineProps({
   placeholder: { type: String, default: '開始撰寫內文...' },
 })
 
-const emit = defineEmits(['update:modelValue'])
+// error：上傳圖片失敗時往上丟，由使用這個編輯器的頁面決定要顯示在哪裡
+// （ArticleFormView 有自己的 errorMessage 欄位，編輯器不該自己決定用 alert 還是別的）
+const emit = defineEmits(['update:modelValue', 'error'])
 
 const editor = useEditor({
   content: props.modelValue,
@@ -76,6 +79,13 @@ const editor = useEditor({
   // 游標移到別段時，字級輸入框要跟著顯示該處的實際字級；有沒有選取文字也要跟著更新，
   // 「複製格式」「套用格式」按鈕能不能按取決於此
   onSelectionUpdate: syncEditorState,
+  editorProps: {
+    // 直接貼上或拖曳圖片是論壇最順手的貼圖方式，攔下來自己走上傳。
+    // 不攔的話 ProseMirror 會把圖片塞成 base64 的 data URI，而前後端兩層消毒都只放行
+    // http/https，結果是「當下看得到、存檔後整張消失」
+    handlePaste: (view, event) => uploadFromDataTransfer(event.clipboardData),
+    handleDrop: (view, event) => uploadFromDataTransfer(event.dataTransfer),
+  },
 })
 
 // 外部值變動時才回寫（例如編輯模式載入既有文章）。
@@ -266,11 +276,54 @@ function clearBackground() {
   applyColorLikeStyle('background', DEFAULT_BACKGROUND_COLOR)
 }
 
+// 插入外部圖片網址。上傳功能做好之後仍然保留這條路——既有文章與種子資料用的都是
+// 外部網址（Unsplash 等），而且有時候使用者手上就只有一個網址
 function addImage() {
-  // 專案沒有上傳機制，圖片只收網址（規劃書：圖片存 URL 不存 Base64）
   const url = window.prompt('圖片網址')
   if (!url) return
   editor.value.chain().focus().setImage({ src: url }).run()
+}
+
+// ── 上傳圖片 ──
+// 檔案上傳到 Cloudinary 換成 HTTPS 網址後，插進來的一樣是 <img src="https://...">，
+// 跟貼網址的結果同一種形狀，所以消毒層與渲染端都不用改
+
+const imageInput = ref(null)
+const uploading = ref(false)
+
+function pickImage() {
+  imageInput.value?.click()
+}
+
+async function handleImageSelected(event) {
+  const file = event.target.files?.[0]
+  // 不論成功失敗都要清空，否則同一張圖第二次選不會觸發 change（value 沒變）
+  event.target.value = ''
+  if (file) await uploadAndInsert(file)
+}
+
+async function uploadAndInsert(file) {
+  if (uploading.value) return
+  uploading.value = true
+  try {
+    const url = await uploadImageFile(file)
+    editor.value.chain().focus().setImage({ src: url }).run()
+  } catch (error) {
+    emit('error', error.message)
+  } finally {
+    uploading.value = false
+  }
+}
+
+// 從剪貼簿／拖放資料裡撈圖片檔。有撈到就回 true，告訴 ProseMirror 這個事件我們處理掉了，
+// 它才不會再用預設行為插入一次
+function uploadFromDataTransfer(dataTransfer) {
+  const images = [...(dataTransfer?.files ?? [])].filter((file) => file.type.startsWith('image/'))
+  if (images.length === 0) return false
+
+  // 一次丟多張時依序上傳，插入順序才會跟使用者選的順序一致（同時發的話回來的順序不保證）
+  images.reduce((queue, file) => queue.then(() => uploadAndInsert(file)), Promise.resolve())
+  return true
 }
 
 // 複製/套用格式：只認字元級的行內樣式，不含標題/清單/引言等區塊層級樣式——
@@ -559,9 +612,27 @@ function applyRandomStyleToInsertedText(transaction, instance) {
       >
         <i class="bi bi-link-45deg"></i>
       </button>
-      <button type="button" class="tool" title="插入圖片網址" @click="addImage">
-        <i class="bi bi-image"></i>
+      <button
+        type="button"
+        class="tool"
+        title="上傳圖片（也可以直接貼上或拖曳）"
+        :disabled="uploading"
+        @click="pickImage"
+      >
+        <i :class="uploading ? 'bi bi-hourglass-split' : 'bi bi-image'"></i>
       </button>
+      <button type="button" class="tool" title="插入圖片網址" @click="addImage">
+        <i class="bi bi-globe"></i>
+      </button>
+      <!-- 刻意用隱藏的 input ＋ 按鈕觸發，而不是包一層 <label>：
+           label 會把點擊轉發給內部第一個可標記控制項，在工具列裡會變成誤按到別顆鈕 -->
+      <input
+        ref="imageInput"
+        class="file-input"
+        type="file"
+        :accept="IMAGE_ACCEPT"
+        @change="handleImageSelected"
+      />
 
       <span class="divider"></span>
 
@@ -641,6 +712,11 @@ function applyRandomStyleToInsertedText(transaction, instance) {
   height: 20px;
   background: #e3e6f0;
   margin: 0 4px;
+}
+
+/* 只負責開啟檔案選擇視窗，不該佔工具列的版面 */
+.file-input {
+  display: none;
 }
 
 .random-style-toggle {

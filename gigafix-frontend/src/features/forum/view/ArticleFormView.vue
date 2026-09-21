@@ -14,6 +14,7 @@ import {
 import CategorySelect from '../components/CategorySelect.vue'
 import RichTextEditor from '../components/RichTextEditor.vue'
 import { isHtmlEmpty } from '../htmlContent'
+import { IMAGE_ACCEPT, uploadImageFile } from '../imageUpload'
 import { DEMO_ARTICLE } from '../demoContent'
 import { useFetchMemberInfoStore } from '@/stores/member'
 import { normalizeTab, backToMemberForum } from '../utils/memberForumNav'
@@ -88,6 +89,32 @@ const discarding = ref(false)
 const autosaving = ref(false)
 const autosavedAt = ref('')
 const errorMessage = ref('')
+
+// 封面圖上傳。上傳成功只是把網址填進 form.coverImage，後續的預覽與自動存檔都由既有的
+// coverPreviewUrl 與 watch(form, ...) 接手，不需要另外接線
+const coverInput = ref(null)
+const coverUploading = ref(false)
+
+function pickCover() {
+  coverInput.value?.click()
+}
+
+async function handleCoverSelected(event) {
+  const file = event.target.files?.[0]
+  // 不論成功失敗都要清空，否則同一張圖第二次選不會觸發 change（value 沒變）
+  event.target.value = ''
+  if (!file || coverUploading.value) return
+
+  coverUploading.value = true
+  try {
+    form.value.coverImage = await uploadImageFile(file)
+    errorMessage.value = ''
+  } catch (error) {
+    errorMessage.value = error.message
+  } finally {
+    coverUploading.value = false
+  }
+}
 
 // 非響應式狀態：debounce 計時器與「還不算使用者編輯」的抑制旗標
 let debounceTimer = null
@@ -419,15 +446,15 @@ onBeforeUnmount(() => {
             <span class="field-label">內文</span>
             <span class="required">必填</span>
           </div>
-          <RichTextEditor v-model="form.content" />
+          <RichTextEditor v-model="form.content" @error="errorMessage = $event" />
         </div>
 
-        <!-- 封面圖：網址 ＋ 即時預覽，貼錯立刻看得出來。
+        <!-- 封面圖：上傳或貼網址 ＋ 即時預覽，貼錯立刻看得出來。
              樓層整個藏起來而不是停用——updateFloor 只收內文，留一個存不進去的欄位在畫面上只會誤導 -->
         <div v-if="!isFloor" class="field">
           <div class="field-head">
             <label class="field-label" for="article-cover">封面圖</label>
-            <span class="optional">選填 · 貼圖片網址</span>
+            <span class="optional">選填 · 上傳或貼圖片網址</span>
           </div>
           <div class="cover-row">
             <input
@@ -436,6 +463,22 @@ onBeforeUnmount(() => {
               class="cover-input"
               type="url"
               placeholder="https://..."
+            />
+            <button
+              type="button"
+              class="cover-upload"
+              :disabled="coverUploading"
+              @click="pickCover"
+            >
+              {{ coverUploading ? '上傳中...' : '上傳' }}
+            </button>
+            <!-- 隱藏的 input ＋ 按鈕觸發，不用 <label>：理由同上面內文欄位的註解 -->
+            <input
+              ref="coverInput"
+              class="file-input"
+              type="file"
+              :accept="IMAGE_ACCEPT"
+              @change="handleCoverSelected"
             />
             <div class="cover-preview">
               <img
@@ -728,6 +771,32 @@ onBeforeUnmount(() => {
   font-family: inherit;
   font-size: 14px;
   color: #555555;
+}
+
+.cover-upload {
+  flex-shrink: 0;
+  padding: 9px 16px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #555555;
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.cover-upload:hover:not(:disabled) {
+  background: #f1f3f7;
+}
+
+.cover-upload:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* 只負責開啟檔案選擇視窗，不該佔版面 */
+.file-input {
+  display: none;
 }
 
 /* 尺寸與 object-fit 刻意跟 ArticleCard 的 .thumb 一致（120×120 + contain），
