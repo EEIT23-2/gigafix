@@ -154,7 +154,7 @@ public class MemberService {
 			memberRepository.save(member);// 使用hibernate會讓物件變成永續狀態，不需要另外賦值
 		} else {
 			// 如果資料庫裡面已經有假的member就直接找member
-			member = memberRepository.findByEmail("JavaJava5241@gmail.com")
+			member = memberRepository.findByEmail("javajava5241@outlook.com")
 					.orElseThrow(() -> new MemberNotFoundException());
 		}
 		// 發放JWT(cookie組裝統一交給jwtUtils處理)
