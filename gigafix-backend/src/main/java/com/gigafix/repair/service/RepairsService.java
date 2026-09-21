@@ -450,7 +450,7 @@ public class RepairsService {
 					&& !req.getAdjustmentNote().isBlank()
 					&& !req.getAdjustmentNote().equals(r.getInspectionResult());
 			if (!noteChanged) {
-				throw new InvalidRepairStatusException("最終金額與報價不同，請先更新檢測結果說明原因");
+				throw new InvalidRepairStatusException("最終金額與報價不同，請填寫調整原因");
 			}
 			// 附加在原本的檢測結果後面，不覆蓋
 			String combined = (r.getInspectionResult() == null || r.getInspectionResult().isBlank())

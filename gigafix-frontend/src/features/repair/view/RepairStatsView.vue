@@ -48,15 +48,18 @@ const STATUS_COLORS = {
   NOT_DROPPED_OFF: "#e35d6a",
 };
 
+// 【改動】百分比統一四捨五入到整數顯示(後端給的是2位小數，這裡只負責顯示格式)
+const fmtPct = (v) => `${Math.round(Number(v))}%`;
+
 // 下面另外用文字列表列出每個狀態的精確筆數/百分比（0筆的狀態圓餅圖畫不出弧形，文字列表才看得到），所以圖表本身不用legend
 const statusPieOption = ref({
-  tooltip: { trigger: "item", formatter: "{b}：{c} 筆（{d}%）" },
+  tooltip: { trigger: "item", formatter: (p) => `${p.name}：${p.value} 筆（${fmtPct(p.percent)}）` },
   series: [
     {
       type: "pie",
       radius: ["45%", "70%"],
       avoidLabelOverlap: true,
-      label: { formatter: "{b}\n{d}%" },
+      label: { formatter: (p) => `${p.name}\n${fmtPct(p.percent)}` }, // 【改動】
       labelLine: { length: 8, length2: 8 },
       data: [],
     },
@@ -105,7 +108,7 @@ function buildStackedBarOption(items, nameOf) {
       axisPointer: { type: "shadow" },
       formatter: (params) => {
         const item = items[params[0].dataIndex];
-        return `${nameOf(item)}<br/>維修單量：${item.totalCount} 筆<br/>已結案：${item.closedCount} 筆<br/>結案率：${item.closedRate}%`;
+        return `${nameOf(item)}<br/>維修單量：${item.totalCount} 筆<br/>已結案：${item.closedCount} 筆<br/>結案率：${fmtPct(item.closedRate)}`; // 【改動】
       },
     },
     legend: { top: 0, textStyle: { fontSize: 18 } },
@@ -136,7 +139,7 @@ function buildStackedBarOption(items, nameOf) {
           position: "inside",
           color: "#0a3622",
           fontSize: 17,
-          formatter: (params) => (items[params.dataIndex].closedCount > 0 ? `${items[params.dataIndex].closedRate}%` : ""),
+          formatter: (params) => (items[params.dataIndex].closedCount > 0 ? fmtPct(items[params.dataIndex].closedRate) : ""), // 【改動】
         },
       },
       {
@@ -158,7 +161,8 @@ function buildStackedBarOption(items, nameOf) {
           formatter: (params) => {
             const item = items[params.dataIndex];
             const openCount = item.totalCount - item.closedCount;
-            return openCount > 0 ? `${Math.round((100 - item.closedRate) * 100) / 100}%` : "";
+            // 【改動】用100減掉「已結案」四捨五入後的整數，兩段加起來才會剛好100%(各自四捨五入可能變成101%)
+            return openCount > 0 ? `${100 - Math.round(item.closedRate)}%` : "";
           },
         },
       },
@@ -232,7 +236,7 @@ onMounted(() => {
             <div class="card-body">
               <div class="stat-label">拒絕維修</div>
               <div class="fs-3 fw-bold text-danger">
-                {{ stats.rejectedCount }}<small class="fs-6 fw-normal">（{{ stats.rejectedPercentage }}%）</small>
+                {{ stats.rejectedCount }}<small class="fs-6 fw-normal">（{{ fmtPct(stats.rejectedPercentage) }}）</small>
               </div>
             </div>
           </div>
@@ -242,7 +246,7 @@ onMounted(() => {
             <div class="card-body">
               <div class="stat-label">已結案</div>
               <div class="fs-3 fw-bold">
-                {{ stats.closedCount }}<small class="fs-6 fw-normal">（{{ stats.closedPercentage }}%）</small>
+                {{ stats.closedCount }}<small class="fs-6 fw-normal">（{{ fmtPct(stats.closedPercentage) }}）</small>
               </div>
             </div>
           </div>
@@ -275,7 +279,7 @@ onMounted(() => {
                   >
                     <span class="dot" :style="{ backgroundColor: STATUS_COLORS[b.status] }"></span>
                     <span class="flex-grow-1">{{ STATUS_LABELS[b.status] ?? b.status }}</span>
-                    <span class="text-secondary">{{ b.count }} 筆（{{ b.percentage }}%）</span>
+                    <span class="text-secondary">{{ b.count }} 筆（{{ fmtPct(b.percentage) }}）</span>
                   </li>
                 </ul>
                 <ul class="list-unstyled status-legend mb-0 small flex-fill">
@@ -286,7 +290,7 @@ onMounted(() => {
                   >
                     <span class="dot" :style="{ backgroundColor: STATUS_COLORS[b.status] }"></span>
                     <span class="flex-grow-1">{{ STATUS_LABELS[b.status] ?? b.status }}</span>
-                    <span class="text-secondary">{{ b.count }} 筆（{{ b.percentage }}%）</span>
+                    <span class="text-secondary">{{ b.count }} 筆（{{ fmtPct(b.percentage) }}）</span>
                   </li>
                 </ul>
               </div>
