@@ -10,7 +10,7 @@ import {
   formatFromFileName,
   getStores,
   getTechnicians,
-  getTodayString, // ★改：新增
+  getTodayString,
   previewImportTechnicians,
   updateTechnician,
 } from "../api";

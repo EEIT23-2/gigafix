@@ -9,7 +9,7 @@ import {
   exportStores,
   formatFromFileName,
   getStores,
-  getTodayString, // ★改：新增
+  getTodayString,
   previewImportStores,
   updateStore,
 } from "../api";

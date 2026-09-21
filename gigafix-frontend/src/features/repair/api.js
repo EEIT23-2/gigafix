@@ -303,7 +303,7 @@ export const confirmImportStores = async (rows) => {
   return response.data;
 };
 
-// ★新增：取「本地時間」今天的日期字串(yyyy-MM-dd)
+// 取「本地時間」今天的日期字串(yyyy-MM-dd)
 // 不用 new Date().toISOString()：它是 UTC 時間，台灣凌晨 0~8 點會變成昨天
 export function getTodayString() {
   const now = new Date();
