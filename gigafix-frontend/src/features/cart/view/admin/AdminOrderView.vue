@@ -1,6 +1,19 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import OrderStatusBadge from '../../components/OrderStatusBadge.vue'
+import { use } from 'echarts/core'
+import { PieChart } from 'echarts/charts'
+import { TooltipComponent } from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
+import VChart from 'vue-echarts'
+
+use([
+    CanvasRenderer,
+    PieChart,
+    TooltipComponent
+])
+
 import {
     getOrders,
     getOrdersByMember,
@@ -12,7 +25,6 @@ import {
     deliverOrder as deliverOrderApi,
     cancelOrder as cancelOrderApi
 } from '../../api/adminOrderApi'
-import OrderStatusBadge from '../../components/OrderStatusBadge.vue'
 
 //******訂單管理頁面******
 
@@ -342,17 +354,68 @@ const orderStatusStatistics = computed(() => {
     }
 })
 
-const orderStatusDonutStyle = computed(() => {
-    const total = orderStatusStatistics.value.total
-    const completedPercent = toPercentage(orderStatusStatistics.value.completed, total)
-    const pendingPercent = toPercentage(orderStatusStatistics.value.pending, total)
-    const completedEnd = completedPercent
-    const pendingEnd = completedPercent + pendingPercent
+const orderStatusChartOption = computed(() => ({
+    animationDuration: 650,
 
-    return {
-        background: `conic-gradient(#1f9569 0 ${completedEnd}%, #dfa00c ${completedEnd}% ${pendingEnd}%, #9ca7b0 ${pendingEnd}% 100%)`
-    }
-})
+    tooltip: {
+        trigger: 'item',
+        formatter: ({ name, value, percent }) =>
+            `${name}<br/><strong>${value} 筆（${percent}%）</strong>`
+    },
+
+    series: [
+        {
+            name: '訂單狀態',
+            type: 'pie',
+
+            // 內圈 / 外圈大小
+            radius: ['68%', '88%'],
+
+            center: ['50%', '50%'],
+
+            avoidLabelOverlap: true,
+
+            itemStyle: {
+                borderColor: '#fff',
+                borderWidth: 3,
+                borderRadius: 5
+            },
+
+            // 因為右邊已經有圖例，所以圓環本身不顯示文字
+            label: {
+                show: false
+            },
+
+            labelLine: {
+                show: false
+            },
+
+            data: [
+                {
+                    value: orderStatusStatistics.value.completed,
+                    name: '已完成',
+                    itemStyle: {
+                        color: '#1f9569'
+                    }
+                },
+                {
+                    value: orderStatusStatistics.value.pending,
+                    name: '待處理',
+                    itemStyle: {
+                        color: '#dfa00c'
+                    }
+                },
+                {
+                    value: orderStatusStatistics.value.cancelled,
+                    name: '已取消',
+                    itemStyle: {
+                        color: '#9ca7b0'
+                    }
+                }
+            ]
+        }
+    ]
+}))
 
 const paymentStatistics = computed(() => {
     const result = {
@@ -571,9 +634,11 @@ const formatPrice = (price) => {
 
                 <article class="order-overview-card" :aria-busy="isStatisticsLoading">
                     <div class="order-status-overview">
-                        <div class="order-status-donut" :style="orderStatusDonutStyle" role="img"
+                        <div class="order-status-donut" role="img"
                             :aria-label="`共 ${orderStatusStatistics.total} 筆訂單，已完成 ${orderStatusStatistics.completed} 筆、待處理 ${orderStatusStatistics.pending} 筆、已取消 ${orderStatusStatistics.cancelled} 筆`">
-                            <div>
+                            <v-chart class="order-status-chart" :option="orderStatusChartOption" autoresize />
+
+                            <div class="order-status-donut-center">
                                 <strong>{{ orderStatusStatistics.total }}</strong>
                                 <span>筆訂單</span>
                             </div>
@@ -585,19 +650,22 @@ const formatPrice = (price) => {
                                 <span class="status-square status-square-completed" aria-hidden="true"></span>
                                 <span>已完成</span>
                                 <strong>{{ orderStatusStatistics.completed }}</strong>
-                                <small>{{ toPercentage(orderStatusStatistics.completed, orderStatusStatistics.total) }}%</small>
+                                <small>{{ toPercentage(orderStatusStatistics.completed, orderStatusStatistics.total)
+                                    }}%</small>
                             </div>
                             <div class="order-status-row">
                                 <span class="status-square status-square-pending" aria-hidden="true"></span>
                                 <span>待處理</span>
                                 <strong>{{ orderStatusStatistics.pending }}</strong>
-                                <small>{{ toPercentage(orderStatusStatistics.pending, orderStatusStatistics.total) }}%</small>
+                                <small>{{ toPercentage(orderStatusStatistics.pending, orderStatusStatistics.total)
+                                    }}%</small>
                             </div>
                             <div class="order-status-row">
                                 <span class="status-square status-square-cancelled" aria-hidden="true"></span>
                                 <span>已取消</span>
                                 <strong>{{ orderStatusStatistics.cancelled }}</strong>
-                                <small>{{ toPercentage(orderStatusStatistics.cancelled, orderStatusStatistics.total) }}%</small>
+                                <small>{{ toPercentage(orderStatusStatistics.cancelled, orderStatusStatistics.total)
+                                    }}%</small>
                             </div>
                         </div>
                     </div>
@@ -608,7 +676,8 @@ const formatPrice = (price) => {
                                 <h3>付款狀態</h3>
                                 <span>
                                     已付款 {{ paymentStatistics.paid }}・未付款 {{ paymentStatistics.unpaid }}
-                                    <template v-if="paymentStatistics.other">・其他 {{ paymentStatistics.other }}</template>
+                                    <template v-if="paymentStatistics.other">・其他 {{ paymentStatistics.other
+                                        }}</template>
                                 </span>
                             </header>
                             <div class="statistics-track" role="img"
@@ -815,8 +884,9 @@ const formatPrice = (price) => {
                                         </button>
 
                                         <!-- 已出貨才可以確認送達 -->
-                                        <button v-if="order.shippingStatus === 'SHIPPED'" class="btn btn-sm btn-outline-success"
-                                            type="button" @click="deliverOrder(order.orderId)">
+                                        <button v-if="order.shippingStatus === 'SHIPPED'"
+                                            class="btn btn-sm btn-outline-success" type="button"
+                                            @click="deliverOrder(order.orderId)">
                                             確認送達
                                         </button>
 
@@ -955,7 +1025,7 @@ const formatPrice = (price) => {
     background: #d9a441;
 }
 
-.order-summary-card > span:nth-child(2) {
+.order-summary-card>span:nth-child(2) {
     overflow: hidden;
     color: #647486;
     font-size: 0.8rem;
@@ -1001,7 +1071,7 @@ const formatPrice = (price) => {
     font-weight: 800;
 }
 
-.chart-card-header > span {
+.chart-card-header>span {
     flex: 0 0 auto;
     padding: 5px 10px;
     border-radius: 999px;
@@ -1181,12 +1251,12 @@ const formatPrice = (price) => {
 }
 
 .order-kpi-content strong,
-.order-kpi-card > div > strong {
+.order-kpi-card>div>strong {
     font-size: clamp(2rem, 3.4vw, 2.55rem);
     line-height: 1;
 }
 
-.order-kpi-content strong + span,
+.order-kpi-content strong+span,
 .total-orders-card strong span,
 .revenue-card strong span {
     color: #69717c;
@@ -1219,8 +1289,8 @@ const formatPrice = (price) => {
     color: #4f6f97;
 }
 
-.revenue-card > div,
-.total-orders-card > div {
+.revenue-card>div,
+.total-orders-card>div {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -1239,60 +1309,89 @@ const formatPrice = (price) => {
 }
 
 .order-status-overview {
-    display: grid;
-    grid-template-columns: 9rem minmax(0, 1fr);
-    gap: 1.1rem;
+    display: flex;
     align-items: center;
+    justify-content: flex-start;
+    gap: 32px;
+    padding-left: 28px;
 }
 
 .order-status-donut {
-    display: grid;
-    width: 8.75rem;
-    aspect-ratio: 1;
-    place-items: center;
-    border-radius: 50%;
+    position: relative;
+    width: 150px;
+    height: 150px;
+    flex: 0 0 150px;
 }
 
-.order-status-donut > div {
-    display: grid;
-    width: 5.15rem;
-    aspect-ratio: 1;
-    place-content: center;
-    border-radius: 50%;
-    text-align: center;
-    background: #fff;
+.order-status-chart {
+    width: 100%;
+    height: 100%;
 }
 
-.order-status-donut strong {
-    font-size: 1.8rem;
+.order-status-donut-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 2;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.order-status-donut-center strong {
+    color: #1d324b;
+    font-size: 28px;
+    font-weight: 800;
     line-height: 1;
 }
 
-.order-status-donut span {
-    margin-top: 0.25rem;
-    color: #69717c;
-    font-size: 0.75rem;
+.order-status-donut-center span {
+    margin-top: 5px;
+    color: #7b8a99;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.order-status-legend {
+    flex: 0 0 auto;
+    min-width: 200px;
 }
 
 .order-status-legend h2 {
-    margin: 0 0 0.9rem;
-    color: #1e252d;
-    font-size: 1rem;
-    font-weight: 700;
+    margin-bottom: 14px;
+    font-size: 24px;
+    font-weight: 800;
+    color: #0f2747;
 }
 
 .order-status-row {
     display: grid;
-    grid-template-columns: 0.7rem 1fr auto auto;
-    gap: 0.6rem;
+    grid-template-columns: 12px 72px 40px 40px;
     align-items: center;
-    margin-top: 0.65rem;
-    font-size: 0.85rem;
+    column-gap: 10px;
+    margin-bottom: 10px;
+}
+
+.order-status-row span {
+    color: #1d324b;
+    font-size: 15px;
+}
+
+.order-status-row strong {
+    color: #0f2747;
+    font-size: 18px;
+    font-weight: 800;
+    text-align: right;
 }
 
 .order-status-row small {
-    min-width: 2.4rem;
-    color: #69717c;
+    color: #6f7f90;
+    font-size: 14px;
     text-align: right;
 }
 
@@ -1395,7 +1494,7 @@ const formatPrice = (price) => {
     gap: 0.4rem;
 }
 
-.filter-field > span {
+.filter-field>span {
     color: #69717c;
     font-size: 0.78rem;
     font-weight: 700;
@@ -1495,6 +1594,7 @@ const formatPrice = (price) => {
 }
 
 @media (max-width: 575.98px) {
+
     .order-kpi-grid,
     .filter-grid {
         grid-template-columns: 1fr;
@@ -1510,7 +1610,8 @@ const formatPrice = (price) => {
     }
 
     .order-status-legend {
-        width: 100%;
+        flex: 0 0 auto;
+        min-width: 220px;
     }
 
     .order-flow-overview header,
