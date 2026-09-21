@@ -19,7 +19,7 @@ Gigafix 拆分為五大系統，每個系統都有對應的前台（顧客使用
 | **會員系統**<br>member      | CRM 顧客關係管理 | 註冊/登入/會員中心     | 會員列表查詢、篩選、編輯、刪除，會員成長曲線與地區分布圖 |
 | **商品系統**<br>product     | 商品/庫存管理    | 商品瀏覽、篩選、搜尋   | 商品新增/編輯/刪除、進階篩選、JSON 匯入匯出              |
 | **訂單系統**<br>cart, order | 銷售/收銀管理    | 加入購物車、結帳       | 訂單建立、出貨、狀態管理                                 |
-| **維修系統**<br>repair      | 售後服務管理     | 線上預約維修           | 維修單狀態管理、分店管理、技師管理                       |
+| **維修系統**<br>repair      | 售後服務管理     | 線上預約維修、維修進度、線上付款 | 維修單狀態管理、分店管理、技師管理、維修統計圖表 |
 | **討論區系統**<br>forum     | 社群/行銷經營    | 發文、留言、按讚、收藏 | 文章/分類管理、檢舉處理                                  |
 
 ## 網站前後台畫面
@@ -64,8 +64,64 @@ Gigafix 是前後端分離的三層式架構：前端 SPA 透過 REST API 呼叫
 - **CI/CD**：Jenkins（後端 build image、push 到 DockerHub，人工確認後部署到 Azure）、Vercel（前端 GitHub 自動 build/deploy）
 - **容器化**：Docker、Docker Compose、DockerHub（image 倉庫）
 - **雲端部署**：Vercel（前端 Hosting）、Azure Container Apps（後端）、Azure SQL Database（資料庫）
-- **其他API串接**：reCAPTCHA、Google 一鍵登入（Google Client 後端/Google-login 前端）、Cloudinary（圖片上傳/管理）、Spring Mail（寄送 Email 通知，如 OTP、忘記密碼、訂單/維修/回收通知）、jjwt、echarts、bootstrap/bootstrap-icon、taiwan-atlas
+- **其他API串接**：reCAPTCHA、Google 一鍵登入（Google Client 後端/Google-login 前端）、Cloudinary（圖片上傳/管理）、綠界 ECPay（線上付款）、Google Maps（維修分店定位）、Spring Mail（寄送 Email 通知，如 OTP、忘記密碼、訂單/維修/回收通知）、jjwt、echarts、SweetAlert2、bootstrap/bootstrap-icon、taiwan-atlas
 - **版本控制**：Git、GitHub
+
+## 維修系統亮點
+
+維修系統涵蓋「客戶線上預約 → 技師報價與施工 → 線上付款 → 取件結案」完整售後流程，後台另有分店／技師管理與維修統計。
+
+### 維修單生命週期狀態機
+
+- 9 種維修狀態，並把「客戶是否同意報價」獨立成 `approvalStatus`，避免一個欄位承載兩種意義
+- 每次狀態轉換都會檢查「操作者是否為該單的擁有者／負責技師」與「目前狀態是否允許」，違規回傳 HTTP 409
+- 結案前須確認客戶已選擇取件與付款方式，選線上付款者須綠界確認付款完成
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING_QUOTE: 客戶預約
+    PENDING_QUOTE --> CANCELLED: 客戶取消（尚未被認領）
+    PENDING_QUOTE --> NOT_DROPPED_OFF: 未送修
+    PENDING_QUOTE --> QUOTED: 技師認領並送出報價
+    QUOTED --> IN_REPAIR: 客戶同意
+    QUOTED --> QUOTE_REJECTED: 客戶拒絕
+    IN_REPAIR --> REPAIR_COMPLETED: 技師完工
+    REPAIR_COMPLETED --> AWAITING_PICKUP: 通知取件（寄信）
+    REPAIR_COMPLETED --> CLOSED: 客戶在場，直接結案
+    AWAITING_PICKUP --> CLOSED: 取件並確認付款
+    QUOTE_REJECTED --> AWAITING_PICKUP: 收檢測費，通知取件
+    QUOTE_REJECTED --> CLOSED: 直接結案
+    CLOSED --> [*]
+    CANCELLED --> [*]
+    NOT_DROPPED_OFF --> [*]
+```
+
+### 綠界（ECPay）線上付款
+
+- 後端產生自動送出的表單導向綠界，金鑰不會出現在前端
+- CheckMacValue 驗證（SHA-256），比對使用固定時間比較
+- 以伺服器回調（ReturnURL）為準，驗證商店代號與金額；瀏覽器導回只負責顯示結果
+- 防重複付款：重新付款前先向綠界查詢上一筆交易是否已成功
+- 目前使用綠界 Stage 測試環境
+
+### 分店／技師匯入匯出
+
+- 支援 Excel（Apache POI）／JSON／XML，三種格式先轉成同一種中介結構再處理
+- 兩階段匯入：先預覽（新增／修改／不變／錯誤），確認後才寫入，單列失敗不影響其他列
+- XML 解析關閉 DOCTYPE，防範 XXE
+
+### 資料安全與權限
+
+- 被維修單參照的分店／技師無法刪除，以資料庫外鍵約束轉成 HTTP 409 與中文提示，避免「先查再刪」的競爭條件
+- 會員身分取自登入資訊，不信任前端傳入；查單時比對擁有者，防止以網址猜 id 讀取他人資料（IDOR）
+- 後台 `/api/admin/repair/**` 僅維修管理員／副管理員／總管理員可存取
+
+### 其他
+
+- 預約時段：同分店、同日期、同時段只能有一張單，已取消、未送修的單會釋出時段
+- 維修統計：狀態分布、結案耗時區間、各分店／各技師結案率
+- 後台維修單列表：客戶造成的異動會亮紅點，並於背景自動更新
+- 郵件通知：預約成功、報價完成、可取件三個節點自動寄信，寄信失敗不影響主流程
 
 ## 系統需求
 
@@ -178,3 +234,5 @@ gigafix/
 - **無多租戶(multi-tenant)設計**：目前一套系統對應一間店的資料，如果要賣給多間手機行，現階段做法是各自獨立部署一套（各自的資料庫、網域），還不是共用一套服務、資料互相隔離的 SaaS 架構
 - **無 API 文件**：目前沒有整合 Swagger/OpenAPI，API 規格需直接看各模組的 Controller
 - **測試覆蓋率低**：後端目前只有一個空的 Spring Boot context load 測試，前端沒有自動化測試，之後可以視情況補上單元測試/整合測試
+- **維修系統：技師身分由前端帶入**：計畫改為由登入資訊取得
+- **維修系統：預約時段衝突為「先查後存」**：計畫加上資料庫唯一約束（已取消、未送修的單釋出時段已完成）
