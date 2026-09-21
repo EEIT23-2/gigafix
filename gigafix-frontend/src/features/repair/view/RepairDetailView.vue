@@ -87,9 +87,10 @@ let quoteItemSeq = 0; // 給每一列一個遞增id當:key用，不需要真的�
 // 這張單之前如果已經存過報價，購物車一律從空的開始(不解析舊字串)，這裡只存來顯示參考用
 const previousQuote = ref({ repairItems: "", estimatedCost: null });
 
-// 送出報價按下去，手機序號沒填、或購物車一個項目都沒有，就要標示錯誤
+// 送出報價按下去，手機序號沒填、檢測結果沒填、或購物車一個項目都沒有，就要標示錯誤
 const quoteFieldErrors = ref({
   serialNumber: false,
+  inspectionResult: false, // [改動] 新增檢測結果必填
   quoteItems: false,
 });
 
@@ -103,7 +104,7 @@ function loadQuoteForm(r) {
     repairItems: r.repairItems ?? "",
     estimatedCost: r.estimatedCost ?? null,
   };
-  quoteFieldErrors.value = { serialNumber: false, quoteItems: false };
+  quoteFieldErrors.value = { serialNumber: false, inspectionResult: false, quoteItems: false }; // [改動]
 }
 
 // 手機序號補填之後，即時把紅框拿掉，不用等下一次按送出才清除
@@ -112,6 +113,15 @@ watch(
   (value) => {
     if (quoteFieldErrors.value.serialNumber && value) {
       quoteFieldErrors.value.serialNumber = false;
+    }
+  },
+);
+// [改動] 檢測結果補填之後，同樣即時把紅框拿掉
+watch(
+  () => quoteForm.value.inspectionResult,
+  (value) => {
+    if (quoteFieldErrors.value.inspectionResult && value?.trim()) {
+      quoteFieldErrors.value.inspectionResult = false;
     }
   },
 );
@@ -217,6 +227,7 @@ let quoteConfirmModalInstance = null;
 function openQuoteConfirmModal() {
   quoteFieldErrors.value = {
     serialNumber: !quoteForm.value.serialNumber,
+    inspectionResult: !quoteForm.value.inspectionResult?.trim(), // [改動]
     quoteItems: quoteItems.value.length === 0,
   };
   if (Object.values(quoteFieldErrors.value).some(Boolean)) {
@@ -713,6 +724,7 @@ onMounted(() => {
             <textarea
               v-model="quoteForm.inspectionResult"
               class="form-control result-textarea"
+              :class="{ 'is-invalid': quoteFieldErrors.inspectionResult }"
               rows="2"
             ></textarea>
           </div>
