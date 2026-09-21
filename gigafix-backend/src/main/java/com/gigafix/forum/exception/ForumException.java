@@ -30,4 +30,20 @@ public class ForumException extends RuntimeException {
 	public static ForumException badRequest(String message) {
 		return new ForumException("FORUM_BAD_REQUEST", message, HttpStatus.BAD_REQUEST);
 	}
+
+	// 檔案格式不支援（415）。目前用於圖片上傳的檔頭特徵碼（magic number）驗證失敗
+	public static ForumException unsupportedMediaType(String message) {
+		return new ForumException("FORUM_UNSUPPORTED_MEDIA_TYPE", message, HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+	}
+
+	// 上游服務（Cloudinary）連線或驗證失敗（502）。不是使用者的錯，也不是我們的程式壞掉，
+	// 用 502 而不是 500，讓前端訊息與維運判讀都能一眼看出是外部服務的問題
+	public static ForumException badGateway(String message) {
+		return new ForumException("FORUM_BAD_GATEWAY", message, HttpStatus.BAD_GATEWAY);
+	}
+
+	// 執行環境沒設定好（503）。與 502 刻意分開：502 是連得上但失敗，503 是根本沒有憑證可以連
+	public static ForumException serviceUnavailable(String message) {
+		return new ForumException("FORUM_SERVICE_UNAVAILABLE", message, HttpStatus.SERVICE_UNAVAILABLE);
+	}
 }

@@ -23,6 +23,7 @@ const role = ref('')
 const createErrorMsg = ref('')
 const createAdminLoading = ref(false)
 const createAdminErrorMsg = ref('')
+const quickFillNames = ['Alex', 'Jack', 'Vic', 'Gary', 'Yulin', 'Yeechang', 'Jose']
 // ====修改管理員腳色相關的宣告====
 const showUpdateRoleModal = ref(false)
 const updateAdminRole =ref('')
@@ -92,6 +93,12 @@ const createAdmin = async () => {
         createAdminLoading.value = false
     }
     
+}
+// 測試用：隨機從名單挑一個名稱，密碼統一帶入Test1234
+const quickFillCreateAdmin = () => {
+    adminName.value = quickFillNames[Math.floor(Math.random() * quickFillNames.length)]
+    password.value = 'Test1234'
+    checkCreateError()
 }
 // createErrorMsg
 const checkCreateError = () => {
@@ -287,6 +294,11 @@ onMounted(() => {
     <!-- 總管理員創建其他管理員的彈窗 -->
     <BaseModal v-model="showCreateModal">
         <template #title>管理員名稱</template>
+        <div class="d-flex justify-content-end mb-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm" :disabled="createAdminLoading" @click="quickFillCreateAdmin()">
+                <i class="bi bi-lightning-fill me-1"></i>快速輸入
+            </button>
+        </div>
         <label class="form-label">名稱</label>
         <input type="text" class="form-control" v-model="adminName" :disabled="createAdminLoading" @input="checkCreateError()">
         

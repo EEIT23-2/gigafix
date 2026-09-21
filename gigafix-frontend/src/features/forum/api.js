@@ -10,6 +10,17 @@ export function getCategories() {
   return http.get('/api/categories').then((res) => res.data)
 }
 
+// ---------------- 圖片上傳 ----------------
+
+// 內文插圖與封面圖共用這一支：先把檔案換成網址，再照原本的 JSON 表單送出，
+// 所以發文／編輯那幾支端點不用改成 multipart。
+// 不要手動設定 Content-Type——瀏覽器會自己補上帶 boundary 的 multipart/form-data
+export function uploadForumImage(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return http.post('/api/members/me/forum/images', formData).then((res) => res.data.url)
+}
+
 // ---------------- 文章 ----------------
 
 export function getArticles({ categoryId, keyword, sort = 'latest', page = 0, size = 10 } = {}) {

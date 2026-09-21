@@ -445,7 +445,7 @@ const goToCart = () => {
 <template>
   <header class="site-header-wrapper">
     <div class="top-announcement-bar">
-      <span>加入會員就送可愛奕婷寶寶一組</span>
+      <span>加入會員就送可愛政諺寶寶一組</span>
       <!-- 這個應該在layout或是抽成元件????? -->
     </div>
 
