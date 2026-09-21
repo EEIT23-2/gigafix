@@ -121,6 +121,13 @@ router.beforeEach(async (to) => {
   if (!fetchAdminInfoStore.adminInfo) {
     return { name: 'adminLogin' }
   }
+
+  //路由有設定meta.roles的頁面，角色不在清單內就彈回後台首頁(目前只有維修後台的路由有設定)
+  const allowedRoles = to.meta.roles
+  if (allowedRoles && !allowedRoles.includes(fetchAdminInfoStore.adminInfo.role)) {
+    alert('你的權限不足')
+    return { name: 'manager' }
+  }
 })
 
 const fetchMemberExcludedPaths = ['/admin']
