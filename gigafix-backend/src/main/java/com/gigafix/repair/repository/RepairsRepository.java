@@ -16,13 +16,16 @@ public interface RepairsRepository extends JpaRepository<Repairs, Long> {
 
 	// 檢查同一分店、同一天、同一時段是否已經有維修單
 	// 時段衝突邏輯不是「同一技師」而是「同一分店」
-	// ★改：多一個參數 releasedStatuses，這些狀態(已取消/未送修)的單不算佔用時段，
+	// releasedStatuses：這些狀態(已取消/未送修)的單不算佔用時段，
 	//      查詢就先排除，才能保證同一時段最多只查到一筆有效的單(Optional 才不會噴錯)
+	// 方法名要寫 Store_Id：store 是關聯物件（Stores）不是 Byte，只寫 findByStore 會被解析成
+	//      「比對 store 物件本身」，跟傳入的 Byte 參數對不上，啟動時就會噴錯；
+	//      Store_Id 才是「比對 store 底下的 id 欄位」
 	Optional<Repairs> findByStore_IdAndBookingDateAndTimeSlotAndRepairStatusNotIn(Byte storeId, LocalDate bookingDate,
 			LocalTime timeSlot, List<RepairStatus> releasedStatuses);
 
 	// 查某分店、某一天「佔用時段」的維修單，讓前端知道當天哪些時段已經被訂走
-	// ★改：同樣排除已釋出時段的狀態
+	// 同樣排除已釋出時段的狀態
 	List<Repairs> findByStore_IdAndBookingDateAndRepairStatusNotIn(Byte storeId, LocalDate bookingDate,
 			List<RepairStatus> releasedStatuses);
 
@@ -55,9 +58,3 @@ public interface RepairsRepository extends JpaRepository<Repairs, Long> {
 			@Param("technicianName") String technicianName,
 			@Param("status") RepairStatus status);
 }
-
-// 修改：原本寫 findByStore，這樣寫不出來
-// store 欄位是關聯物件（Stores），不是 Byte，Spring Data 會照方法名稱去對應 Entity 的欄位，
-// findByStore 只會被解析成「比對 store 這個關聯物件本身」，需要一個 Stores 型別的參數，
-// 跟你傳進來的 3 個參數（Byte, LocalDate, LocalTime）對不起來，啟動應用程式時就會噴錯。
-// 要指定成「比對 store 底下的 id 欄位」，寫法是 findByStore_IdAnd...

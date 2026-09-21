@@ -48,7 +48,7 @@ const STATUS_COLORS = {
   NOT_DROPPED_OFF: "#e35d6a",
 };
 
-// 【改動】百分比統一四捨五入到整數顯示(後端給的是2位小數，這裡只負責顯示格式)
+// 百分比統一四捨五入到整數顯示(後端給的是2位小數，這裡只負責顯示格式)
 const fmtPct = (v) => `${Math.round(Number(v))}%`;
 
 // 下面另外用文字列表列出每個狀態的精確筆數/百分比（0筆的狀態圓餅圖畫不出弧形，文字列表才看得到），所以圖表本身不用legend
@@ -59,7 +59,7 @@ const statusPieOption = ref({
       type: "pie",
       radius: ["45%", "70%"],
       avoidLabelOverlap: true,
-      label: { formatter: (p) => `${p.name}\n${fmtPct(p.percent)}` }, // 【改動】
+      label: { formatter: (p) => `${p.name}\n${fmtPct(p.percent)}` },
       labelLine: { length: 8, length2: 8 },
       data: [],
     },
@@ -108,7 +108,7 @@ function buildStackedBarOption(items, nameOf) {
       axisPointer: { type: "shadow" },
       formatter: (params) => {
         const item = items[params[0].dataIndex];
-        return `${nameOf(item)}<br/>維修單量：${item.totalCount} 筆<br/>已結案：${item.closedCount} 筆<br/>結案率：${fmtPct(item.closedRate)}`; // 【改動】
+        return `${nameOf(item)}<br/>維修單量：${item.totalCount} 筆<br/>已結案：${item.closedCount} 筆<br/>結案率：${fmtPct(item.closedRate)}`;
       },
     },
     legend: { top: 0, textStyle: { fontSize: 18 } },
@@ -139,7 +139,7 @@ function buildStackedBarOption(items, nameOf) {
           position: "inside",
           color: "#0a3622",
           fontSize: 17,
-          formatter: (params) => (items[params.dataIndex].closedCount > 0 ? fmtPct(items[params.dataIndex].closedRate) : ""), // 【改動】
+          formatter: (params) => (items[params.dataIndex].closedCount > 0 ? fmtPct(items[params.dataIndex].closedRate) : ""),
         },
       },
       {
@@ -161,7 +161,7 @@ function buildStackedBarOption(items, nameOf) {
           formatter: (params) => {
             const item = items[params.dataIndex];
             const openCount = item.totalCount - item.closedCount;
-            // 【改動】用100減掉「已結案」四捨五入後的整數，兩段加起來才會剛好100%(各自四捨五入可能變成101%)
+            // 用100減掉「已結案」四捨五入後的整數，兩段加起來才會剛好100%(各自四捨五入可能變成101%)
             return openCount > 0 ? `${100 - Math.round(item.closedRate)}%` : "";
           },
         },

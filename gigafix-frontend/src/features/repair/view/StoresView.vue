@@ -9,7 +9,7 @@ import {
   exportStores,
   formatFromFileName,
   getStores,
-  getTodayString, // ★改：新增
+  getTodayString,
   previewImportStores,
   updateStore,
 } from "../api";
@@ -112,6 +112,21 @@ const form = ref({ name: "", address: "", phone: "" });
 const formSnapshot = ref({ name: "", address: "", phone: "" });
 const saving = ref(false);
 const formError = ref("");
+
+// 展示用：一鍵帶入範例資料，每按一次換下一組
+const demoStores = [
+  { name: "台中分店", address: "台中市西屯區台灣大道三段99號", phone: "0422223456" },
+  { name: "高雄分店", address: "高雄市前鎮區中山二路5號", phone: "0733334567" },
+  { name: "台南分店", address: "台南市東區中華東路一段66號", phone: "0644445678" },
+  { name: "新北分店", address: "新北市板橋區縣民大道二段7號", phone: "0255556789" },
+];
+let demoIndex = 0;
+
+function fillDemo() {
+  form.value = { ...demoStores[demoIndex % demoStores.length] };
+  demoIndex++;
+  formError.value = "";
+}
 
 async function fetchStores() {
   loading.value = true;
@@ -363,6 +378,15 @@ onMounted(async () => {
             </p>
           </div>
           <div class="modal-footer">
+            <button
+              v-if="editingId === null"
+              type="button"
+              class="btn btn-outline-secondary rounded-pill px-3 me-auto"
+              :disabled="saving"
+              @click="fillDemo"
+            >
+              <i class="bi bi-magic me-1"></i>一鍵帶入
+            </button>
             <button
               type="button"
               class="btn btn-secondary rounded-pill px-4"
