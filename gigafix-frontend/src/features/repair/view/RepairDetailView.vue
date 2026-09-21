@@ -90,7 +90,7 @@ const previousQuote = ref({ repairItems: "", estimatedCost: null });
 // 送出報價按下去，手機序號沒填、檢測結果沒填、或購物車一個項目都沒有，就要標示錯誤
 const quoteFieldErrors = ref({
   serialNumber: false,
-  inspectionResult: false, // [改動] 新增檢測結果必填
+  inspectionResult: false,
   quoteItems: false,
 });
 
@@ -104,7 +104,7 @@ function loadQuoteForm(r) {
     repairItems: r.repairItems ?? "",
     estimatedCost: r.estimatedCost ?? null,
   };
-  quoteFieldErrors.value = { serialNumber: false, inspectionResult: false, quoteItems: false }; // [改動]
+  quoteFieldErrors.value = { serialNumber: false, inspectionResult: false, quoteItems: false };
 }
 
 // 手機序號補填之後，即時把紅框拿掉，不用等下一次按送出才清除
@@ -116,7 +116,7 @@ watch(
     }
   },
 );
-// [改動] 檢測結果補填之後，同樣即時把紅框拿掉
+// 檢測結果補填之後，同樣即時把紅框拿掉
 watch(
   () => quoteForm.value.inspectionResult,
   (value) => {
@@ -227,7 +227,7 @@ let quoteConfirmModalInstance = null;
 function openQuoteConfirmModal() {
   quoteFieldErrors.value = {
     serialNumber: !quoteForm.value.serialNumber,
-    inspectionResult: !quoteForm.value.inspectionResult?.trim(), // [改動]
+    inspectionResult: !quoteForm.value.inspectionResult?.trim(),
     quoteItems: quoteItems.value.length === 0,
   };
   if (Object.values(quoteFieldErrors.value).some(Boolean)) {
@@ -311,7 +311,7 @@ async function handleSaveInspectionResult() {
 // 維修中：走 completeRepair，會把狀態推進到「維修完成」
 const completeForm = ref({ finalCost: null, adjustmentNote: "" });
 
-// [改動] 最終金額跟估價不同、但調整原因沒填 -> 標紅框並擋下送出(後端也會擋，這裡是提早提示)
+// 最終金額跟估價不同、但調整原因沒填 -> 標紅框並擋下送出(後端也會擋，這裡是提早提示)
 // 最終金額沒填(null/"")後端會沿用估價，視為沒有異動
 const adjustmentNoteMissing = computed(() => {
   const finalCost = completeForm.value.finalCost;
@@ -393,7 +393,7 @@ async function handleSaveRecipient() {
   );
 }
 
-// ===== 線上付款：正常由綠界回調更新；若回調沒收到，技師確認客戶已付款後可手動標記（備用） ===== ★改
+// ===== 線上付款：正常由綠界回調更新；若回調沒收到，技師確認客戶已付款後可手動標記（備用） =====
 async function handleMarkOnlinePaid() {
   if (!(await swalConfirm("確定客戶已經完成線上付款了嗎？"))) return;
   await runAction(() => updatePayStatus(repair.value.id, "PAID"));
@@ -908,7 +908,7 @@ onMounted(() => {
               <option value="PAID">已付款</option>
             </select>
           </div>
-          <!-- 線上付款：正常由綠界回調更新，這個按鈕是回調沒收到時的備用 ★改 -->
+          <!-- 線上付款：正常由綠界回調更新，這個按鈕是回調沒收到時的備用 -->
           <div
             class="col-md-4 info-field"
             v-else-if="

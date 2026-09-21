@@ -10,7 +10,7 @@ import {
   formatFromFileName,
   getStores,
   getTechnicians,
-  getTodayString, // ★改：新增
+  getTodayString,
   previewImportTechnicians,
   updateTechnician,
 } from "../api";
@@ -118,6 +118,23 @@ const form = ref({ name: "", phone: "", storeId: "" });
 const formSnapshot = ref({ name: "", phone: "", storeId: "" });
 const saving = ref(false);
 const formError = ref("");
+
+// 展示用：一鍵帶入範例資料，每按一次換下一組；分店挑目前分店清單裡的
+const demoTechnicians = [
+  { name: "陳志豪", phone: "0911222333" },
+  { name: "林宥安", phone: "0922333444" },
+  { name: "黃品睿", phone: "0933444555" },
+  { name: "張家瑋", phone: "0944555666" },
+];
+let demoIndex = 0;
+
+function fillDemo() {
+  const demo = demoTechnicians[demoIndex % demoTechnicians.length];
+  const store = stores.value.length ? stores.value[demoIndex % stores.value.length] : null;
+  form.value = { ...demo, storeId: store ? store.id : "" };
+  demoIndex++;
+  formError.value = "";
+}
 
 async function fetchTechnicians() {
   loading.value = true;
@@ -457,6 +474,15 @@ onMounted(async () => {
             </p>
           </div>
           <div class="modal-footer">
+            <button
+              v-if="editingId === null"
+              type="button"
+              class="btn btn-outline-secondary rounded-pill px-3 me-auto"
+              :disabled="saving"
+              @click="fillDemo"
+            >
+              <i class="bi bi-magic me-1"></i>一鍵帶入
+            </button>
             <button
               type="button"
               class="btn btn-secondary rounded-pill px-4"

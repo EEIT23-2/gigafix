@@ -3,7 +3,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useRouter } from "vue-router";
 import { useFetchMemberInfoStore } from "@/stores/member";
-import { createAppointment, getBookedSlots, getStores, getTodayString } from "../api"; // ★改：多 import getTodayString
+import { createAppointment, getBookedSlots, getStores, getTodayString } from "../api";
 import { REPAIR_ITEMS } from "../priceTable";
 import { useSwalMessages } from "../../../utils/swal";
 
@@ -47,7 +47,8 @@ const form = ref({
 });
 
 // 今天的日期字串(yyyy-MM-dd)，讓日期欄位不能選過去的日期
-const todayStr = getTodayString(); // ★改：原本用 toISOString()（UTC，台灣凌晨會變昨天）
+// 用本地時間的 getTodayString，不用 toISOString()（UTC，台灣凌晨會變昨天）
+const todayStr = getTodayString();
 
 // 預約時段只開放 9:00~21:00 整點，共13個按鈕
 const timeSlotOptions = [];
