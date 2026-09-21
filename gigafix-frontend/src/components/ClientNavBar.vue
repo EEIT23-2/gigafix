@@ -7,6 +7,7 @@ import AddressSelect from "./AddressSelect.vue";
 import axios from "axios";
 import { useFetchMemberInfoStore } from "@/stores/member";
 import { storeToRefs } from "pinia";
+import { useAuthModalStore } from "@/stores/authModal";
 
 //跟登入有關的變數宣告
 const mail = ref("");
@@ -405,6 +406,23 @@ const forgotPassword = async () => {
     fpNewPassword.value = "";
   }
 };
+
+//==forum 登入視窗的註冊/忘記密碼代開==
+//forum 有自己的登入視窗，但註冊/忘記密碼那兩份表單(含reCAPTCHA跟OTP倒數)只有這裡有，不重做一份；
+//forum 那邊按下按鈕時只發一個訊號過來，由這裡打開既有的視窗
+const authModalStore = useAuthModalStore();
+watch(
+  () => authModalStore.request,
+  (request) => {
+    if (!request) return;
+    if (request === "register") {
+      openRegisterModal();
+    } else if (request === "forgotPassword") {
+      openForgotPasswordModal();
+    }
+    authModalStore.clear(); //一次性訊號，處理完立刻清掉，不然下次發同樣的請求時watch不會再觸發
+  },
+);
 
 const router = useRouter();
 
