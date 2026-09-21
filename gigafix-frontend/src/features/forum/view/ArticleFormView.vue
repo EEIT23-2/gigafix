@@ -119,6 +119,12 @@ async function handleCoverSelected(event) {
 // 非響應式狀態：debounce 計時器與「還不算使用者編輯」的抑制旗標
 let debounceTimer = null
 let suppressAutosave = true
+let leavingAfterFinish = false
+
+// 「使用者已經把事情做完了才離開」的一次性訊號，發布與捨棄草稿會設起來。
+// 需要它是因為建立模式下 isDraftFlow 恆為 true（見它的定義），發布完、草稿刪掉之後，
+// 離開守衛還是會走草稿分支，跳出「草稿已儲存」——發布的早就不是草稿，捨棄的更是已經沒了。
+// 跟 suppressAutosave 一樣用普通變數：只是給守衛看的旗標，不需要觸發渲染
 
 // 已發布文章編輯沒有自動存檔，需要自己追蹤有沒有改動，離開前才知道要不要提示。
 // 草稿流程不需要這個——草稿本來就會自動存檔，離開永遠是安全的
@@ -203,6 +209,9 @@ function handleBeforeUnload(event) {
 // 草稿：等自動存檔送完後單純告知已經存好、去哪裡找，不攔截離開——內容真的存了，沒有什麼好讓使用者取消的。
 // 非草稿（編輯已發布文章）：有改動就用問句攔，取消可以留在頁面上
 onBeforeRouteLeave(async (to) => {
+  // 發布／捨棄走到這裡時該做的都做完了，直接放行：不補存檔（會把剛刪掉的草稿寫回來）、也不提示
+  if (leavingAfterFinish) return
+
   if (isDraftFlow.value) {
     await flushPendingAutosave()
     // 回會員中心時不用跳提示：那篇草稿下一秒就出現在列表上了，再 alert 一次只是吵
@@ -232,6 +241,7 @@ async function handlePublish() {
     await flushPendingAutosave()
     if (!effectiveArticleId.value) await runAutosave()
     await updateArticleStatus(effectiveArticleId.value, 'PUBLISHED')
+    leavingAfterFinish = true
     router.push(leaveTo({ name: 'forumDetail', params: { articleId: effectiveArticleId.value } }))
   } catch {
     errorMessage.value = '發布失敗，請確認欄位是否都已正確填寫'
@@ -242,8 +252,11 @@ async function handlePublish() {
 
 async function handleDiscardDraft() {
   if (!confirm('捨棄後這篇草稿會被永久刪除，確定嗎？')) return
-  // 還沒存過任何一次的話，資料庫裡根本沒有這篇，直接離開就好
+  // 還沒存過任何一次的話，資料庫裡根本沒有這篇，直接離開就好。
+  // 旗標一定要設：debounce 計時器可能還沒到期，讓守衛去 flush 的話，
+  // 反而會把使用者正要捨棄的這篇草稿建立出來
   if (!effectiveArticleId.value) {
+    leavingAfterFinish = true
     router.push(leaveTo({ name: 'forumList' }))
     return
   }
@@ -257,6 +270,7 @@ async function handleDiscardDraft() {
     }
     await deleteDraft(effectiveArticleId.value)
     suppressAutosave = true
+    leavingAfterFinish = true
     router.push(leaveTo({ name: 'forumList' }))
   } catch (error) {
     const data = error.response?.data
