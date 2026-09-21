@@ -311,7 +311,22 @@ async function handleSaveInspectionResult() {
 // 維修中：走 completeRepair，會把狀態推進到「維修完成」
 const completeForm = ref({ finalCost: null, adjustmentNote: "" });
 
+// [改動] 最終金額跟估價不同、但調整原因沒填 -> 標紅框並擋下送出(後端也會擋，這裡是提早提示)
+// 最終金額沒填(null/"")後端會沿用估價，視為沒有異動
+const adjustmentNoteMissing = computed(() => {
+  const finalCost = completeForm.value.finalCost;
+  if (finalCost === null || finalCost === "") return false;
+  return (
+    Number(finalCost) !== Number(repair.value?.estimatedCost) &&
+    !completeForm.value.adjustmentNote?.trim()
+  );
+});
+
 async function handleComplete() {
+  if (adjustmentNoteMissing.value) {
+    swalWarn("最終金額與估價不同，請填寫調整原因");
+    return;
+  }
   if (!(await swalConfirm("確定要送出嗎？"))) return;
   await runAction(() =>
     completeRepair(repair.value.id, {
@@ -803,6 +818,7 @@ onMounted(() => {
               <textarea
                 v-model="completeForm.adjustmentNote"
                 class="form-control"
+                :class="{ 'is-invalid': adjustmentNoteMissing }"
                 rows="2"
               ></textarea>
             </div>
