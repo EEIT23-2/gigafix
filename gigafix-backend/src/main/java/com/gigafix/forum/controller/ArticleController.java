@@ -1,12 +1,19 @@
 package com.gigafix.forum.controller;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.data.domain.Page;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
+import com.gigafix.common.util.ImageValidator;
 import com.gigafix.forum.dto.ArticleResponse;
 import com.gigafix.forum.dto.CreateArticleRequest;
 import com.gigafix.forum.dto.CreateFloorRequest;
@@ -14,7 +21,9 @@ import com.gigafix.forum.dto.UpdateArticleRequest;
 import com.gigafix.forum.dto.UpdateArticleStatusRequest;
 import com.gigafix.forum.dto.UpdateFloorRequest;
 import com.gigafix.forum.dto.UpdatePinRequest;
+import com.gigafix.forum.dto.ForumImageResponse;
 import com.gigafix.forum.entity.Article;
+import com.gigafix.forum.exception.ForumException;
 import com.gigafix.forum.service.ArticleService;
 import com.gigafix.common.util.SecurityUtils;
 import com.gigafix.member.security.MemberUserDetails;
@@ -32,6 +41,12 @@ public class ArticleController {
 
 	// 文章 Service
 	private final ArticleService articleService;
+
+	// 圖片上傳用。共用的 Bean（common/config/CloudinaryConfig），憑證由 CLOUDINARY_URL 環境變數帶入
+	private final Cloudinary cloudinary;
+
+	// 討論區的圖片獨立一個資料夾，方便日後在 Cloudinary 後台按模組盤點
+	private static final String IMAGE_FOLDER = "gigafix/forum";
 
 	// 文章列表（公開）
 	@GetMapping("/api/articles")
@@ -141,6 +156,61 @@ public class ArticleController {
 		List<ArticleResponse> responses = articleService.getMyArticles(memberId);
 
 		return ResponseEntity.ok(responses);
+	}
+
+	// 圖片上傳，回傳可直接使用的 HTTPS 網址
+	//
+	// 內文插圖與封面圖共用這一支。上傳跟「某一篇文章」無關——它沒有 articleId，
+	// 而且建立流程裡使用者可能在草稿還沒被自動存檔建立之前就先插圖，所以做不成
+	// /articles/{id}/images，路徑改放在 /api/members/me/forum/images。
+	//
+	// 權限：路徑收在 /api/members/** 底下，由 SecurityConfig 的 member filter chain
+	// 以 anyRequest().authenticated() 要求有效的會員 JWT。刻意「不」放在 /api/articles/**，
+	// 那整段在 MemberPublicApiPaths 是完全公開的，放進去會變成任何人都能匿名丟檔案。
+	//
+	// 檔案大小上限由 application.properties 的 spring.servlet.multipart.max-file-size 控制（10MB），
+	// 超過時由 common 的 GlobalExceptionHandler 回 413，這裡不用再擋一次。
+	@PostMapping(value = "/api/members/me/forum/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	public ResponseEntity<ForumImageResponse> uploadImage(@RequestParam("file") MultipartFile file) {
+
+		if (file == null || file.isEmpty()) {
+			throw ForumException.badRequest("請選擇圖片檔案");
+		}
+
+		byte[] bytes = readBytes(file);
+
+		if (!ImageValidator.isSupportedImage(bytes)) {
+			throw ForumException.unsupportedMediaType("只支援 JPG／PNG／GIF／WebP 圖片");
+		}
+
+		// 先確認憑證齊全再打遠端 API，否則 SDK 會丟 IllegalArgumentException，
+		// 而 ForumExceptionHandler 把 IllegalArgumentException 一律對應成 404，訊息完全不對
+		if (cloudinary.config.cloudName == null
+				|| cloudinary.config.apiKey == null
+				|| cloudinary.config.apiSecret == null) {
+			throw ForumException.serviceUnavailable("圖片服務尚未設定，請聯繫管理員");
+		}
+
+		try {
+			Map<?, ?> uploadResult = cloudinary.uploader().upload(
+					bytes,
+					ObjectUtils.asMap("folder", IMAGE_FOLDER, "resource_type", "image"));
+
+			return ResponseEntity.ok(new ForumImageResponse((String) uploadResult.get("secure_url")));
+		} catch (IOException exception) {
+			throw ForumException.badGateway("圖片上傳失敗，請確認網路連線後再試一次");
+		}
+	}
+
+	// MultipartFile.getBytes() 的 IOException 是「連暫存檔都讀不到」，屬於伺服器端故障，
+	// 但對呼叫端來說一樣是「這次上傳沒成功」，統一收斂成 502
+	private byte[] readBytes(MultipartFile file) {
+
+		try {
+			return file.getBytes();
+		} catch (IOException exception) {
+			throw ForumException.badGateway("圖片讀取失敗，請重新選擇檔案");
+		}
 	}
 
 	// 樓層列表（公開；有登入的話套用與文章詳情相同的可見性規則）
