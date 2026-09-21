@@ -64,7 +64,7 @@ Gigafix 是前後端分離的三層式架構：前端 SPA 透過 REST API 呼叫
 - **CI/CD**：Jenkins（後端 build image、push 到 DockerHub，人工確認後部署到 Azure）、Vercel（前端 GitHub 自動 build/deploy）
 - **容器化**：Docker、Docker Compose、DockerHub（image 倉庫）
 - **雲端部署**：Vercel（前端 Hosting）、Azure Container Apps（後端）、Azure SQL Database（資料庫）
-- **其他API串接**：reCAPTCHA、Google 一鍵登入（Google Client 後端/Google-login 前端）、Cloudinary（圖片上傳/管理）、Spring Mail（寄送 Email 通知，如 OTP、忘記密碼、訂單/維修/回收通知）、jjwt、echarts、bootstrap/bootstrap-icon、taiwan-atlas
+- **其他API串接**：reCAPTCHA、Google 一鍵登入（Google Client 後端/Google-login 前端）、Cloudinary（圖片上傳/管理）、Spring Mail（寄送 Email 通知，如 OTP、忘記密碼、訂單/維修/回收通知）、jjwt、echarts、bootstrap/bootstrap-icon、taiwan-atlas、groq
 - **版本控制**：Git、GitHub
 
 ## 系統需求
