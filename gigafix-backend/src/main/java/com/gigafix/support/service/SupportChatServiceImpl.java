@@ -56,7 +56,7 @@ public class SupportChatServiceImpl implements SupportChatService {
 	void validateSupportChatConfig() {
 		if (apiKey == null || apiKey.isBlank()) {
 			throw new IllegalStateException(
-					"環境變數 GIGAFIX_SUPPORT_CHAT_API_KEY 是空的，AI 客服無法運作，請設定有效的 API Key");
+					"環境變數 AWS_BEARER_TOKEN_BEDROCK 是空的，AI 客服無法運作，請設定有效的 API Key");
 		}
 		log.info("AI 客服設定載入完成 model={} baseUrl={} apiKeyLength={}",
 				model, apiBaseUrl, apiKey.length());
