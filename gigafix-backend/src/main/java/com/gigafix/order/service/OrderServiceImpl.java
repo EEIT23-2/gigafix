@@ -83,8 +83,8 @@ public class OrderServiceImpl implements OrderService {
 
         private static final int DEMO_ORDER_COUNT = 50;
 
-        private static final DateTimeFormatter EXCEL_DATE_TIME_FORMATTER =
-                        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+        private static final DateTimeFormatter EXCEL_DATE_TIME_FORMATTER = DateTimeFormatter
+                        .ofPattern("yyyy-MM-dd HH:mm");
 
         // ---------------會員前台功能----------------------
 
@@ -532,16 +532,33 @@ public class OrderServiceImpl implements OrderService {
                                         "目前沒有會員資料，無法產生 Demo 訂單");
                 }
 
-                List<Product> products = productDao.findAll();
+                // 取得目前所有購物車中的商品 ID
+                List<Long> cartProductIds = cartItemRepository.findAll()
+                                .stream()
+                                .map(CartItem::getProductId)
+                                .toList();
+
+                // Demo 訂單只使用：
+                // 1. AVAILABLE
+                // 2. 不存在任何會員購物車中的商品
+                List<Product> products = productDao.findAll()
+                                .stream()
+                                .filter(product -> product.getSaleStatus() == ProductSaleStatus.AVAILABLE)
+                                .filter(product -> !cartProductIds.contains(product.getProductId()))
+                                .toList();
 
                 if (products.isEmpty()) {
                         throw new IllegalStateException(
-                                        "目前沒有商品資料，無法產生 Demo 訂單");
+                                        "目前沒有可販售商品，無法產生 Demo 訂單");
                 }
 
-                for (int index = 0; index < DEMO_ORDER_COUNT; index++) {
+                int createCount = Math.min(
+                                DEMO_ORDER_COUNT,
+                                products.size());
+
+                for (int index = 0; index < createCount; index++) {
                         Member member = members.get(index % members.size());
-                        Product product = products.get(index % products.size());
+                        Product product = products.get(index);
 
                         Order order = new Order();
                         order.setMember(member);
@@ -584,9 +601,27 @@ public class OrderServiceImpl implements OrderService {
                         orderItem.setUnitPrice(product.getPrice());
 
                         orderItemRepository.save(orderItem);
+                        // Demo 訂單建立後 依目前訂單狀態同步商品販售狀態
+                        if (PaymentStatus.PAID.name()
+                                        .equals(savedOrder.getPaymentStatus())) {
+
+                                // Demo 已付款訂單 AVAILABLE → SOLD
+                                productService.sellProduct(
+                                                product.getProductId());
+
+                        } else if (OrderStatus.PENDING.name()
+                                        .equals(savedOrder.getOrderStatus())) {
+
+                                // 未付款待處理訂單 先鎖定商品
+                                productService.reserveProduct(
+                                                product.getProductId());
+                        }
+
+                        // CANCELLED + UNPAID
+                        // 不修改商品，維持 AVAILABLE
                 }
 
-                return DEMO_ORDER_COUNT;
+                return createCount;
         }
 
         private void applyDemoStatusTemplate(
@@ -726,7 +761,8 @@ public class OrderServiceImpl implements OrderService {
                                                 10,
                                                 order.getCreatedAt() == null
                                                                 ? null
-                                                                : order.getCreatedAt().format(EXCEL_DATE_TIME_FORMATTER));
+                                                                : order.getCreatedAt()
+                                                                                .format(EXCEL_DATE_TIME_FORMATTER));
                         }
 
                         for (int index = 0; index < headers.length; index++) {
@@ -1186,8 +1222,8 @@ public class OrderServiceImpl implements OrderService {
                                                 .productId(item.getProductId())
                                                 .productName(item.getProductName())
                                                 .imageUrl(productDao.findById(item.getProductId())
-                                                .map(Product::getImageUrl)
-                                                .orElse(null))
+                                                                .map(Product::getImageUrl)
+                                                                .orElse(null))
                                                 .unitPrice(item.getUnitPrice())
                                                 .build())
                                 .toList();
