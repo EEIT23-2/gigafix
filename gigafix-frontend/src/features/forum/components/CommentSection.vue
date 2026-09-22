@@ -1,6 +1,5 @@
 <script setup>
 import { ref, watch, onMounted, computed, nextTick } from 'vue'
-import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import {
   getComments,
@@ -12,12 +11,12 @@ import {
 } from '../api'
 import MoreActionsMenu from './MoreActionsMenu.vue'
 import ReportForm from './ReportForm.vue'
-import { useForumLoginModalStore } from '../store/loginModal'
+import { useAuthModalStore } from '@/stores/authModal'
 import { useFetchMemberInfoStore } from '@/stores/member'
 import { DEMO_COMMENT } from '../demoContent'
 
-const route = useRoute()
-const loginModalStore = useForumLoginModalStore()
+// 登入視窗只有 ClientNavBar 有一份，這裡請它開窗就好；留言是就地操作，登入完要留在原頁，不帶 redirect
+const authModal = useAuthModalStore()
 const { memberInfo } = storeToRefs(useFetchMemberInfoStore())
 
 const props = defineProps({
@@ -134,7 +133,7 @@ function revealComment(commentId) {
 async function handleSubmit() {
   if (!newContent.value.trim()) return
   if (!memberInfo.value) {
-    loginModalStore.open(route.fullPath)
+    authModal.open('login')
     return
   }
   submitting.value = true
@@ -164,7 +163,7 @@ async function handleDelete(commentId) {
 
 async function handleLike(comment) {
   if (!memberInfo.value) {
-    loginModalStore.open(route.fullPath)
+    authModal.open('login')
     return
   }
   try {
@@ -189,7 +188,7 @@ function toggleReportForm(commentId) {
 async function handleReportSubmit(commentId, reason) {
   if (!reason.trim()) return
   if (!memberInfo.value) {
-    loginModalStore.open(route.fullPath)
+    authModal.open('login')
     return
   }
   reportSubmitting.value = true
