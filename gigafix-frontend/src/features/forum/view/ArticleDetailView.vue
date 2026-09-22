@@ -20,15 +20,16 @@ import MoreActionsMenu from '../components/MoreActionsMenu.vue'
 import { sanitizeHtml, isHtmlEmpty } from '../htmlContent'
 import RichTextEditor from '../components/RichTextEditor.vue'
 import ReportForm from '../components/ReportForm.vue'
-import ForumLoginModal from '../components/ForumLoginModal.vue'
-import { useForumLoginModalStore } from '../store/loginModal'
+import { useAuthModalStore } from '@/stores/authModal'
 import { pushRecentViewed } from '../utils/recentViewed'
 import { DEMO_FLOOR } from '../demoContent'
 import { TAB_LABELS, normalizeTab, backToMemberForum, fromMemberForum } from '../utils/memberForumNav'
 
 const route = useRoute()
 const router = useRouter()
-const loginModalStore = useForumLoginModalStore()
+// 登入視窗只有 ClientNavBar 有一份，這裡請它開窗就好，不自己做一份表單；
+// 按讚/收藏/留言都是就地操作，登入完要留在這篇文章，所以不帶 redirect
+const authModal = useAuthModalStore()
 const { memberInfo } = storeToRefs(useFetchMemberInfoStore())
 
 const article = ref(null)
@@ -179,7 +180,7 @@ function isStateDesyncError(error) {
 // 樓層本身就是一篇 article，讚/收藏走的是同一組 API，只是帶該層自己的 articleId
 async function toggleLikeOn(target) {
   if (!memberInfo.value) {
-    loginModalStore.open(route.fullPath)
+    authModal.open('login')
     return
   }
   interactionError.value = ''
@@ -209,7 +210,7 @@ async function toggleLikeOn(target) {
 
 async function toggleBookmarkOn(target) {
   if (!memberInfo.value) {
-    loginModalStore.open(route.fullPath)
+    authModal.open('login')
     return
   }
   interactionError.value = ''
@@ -237,7 +238,7 @@ async function handleCreateFloor() {
   // 蓋樓內容也是 HTML 了，空編輯器輸出是 <p></p>，不能用 trim 判斷
   if (isHtmlEmpty(floorContent.value)) return
   if (!memberInfo.value) {
-    loginModalStore.open(route.fullPath)
+    authModal.open('login')
     return
   }
   floorSubmitting.value = true
@@ -321,7 +322,7 @@ function toggleReportForm(targetId) {
 async function handleReportSubmit(targetId, reason) {
   if (!reason.trim()) return
   if (!memberInfo.value) {
-    loginModalStore.open(route.fullPath)
+    authModal.open('login')
     return
   }
   reportSubmitting.value = true
@@ -362,7 +363,6 @@ async function handleDeleteFloor(floorId) {
 
 <template>
   <main class="article-detail-page">
-    <ForumLoginModal />
     <div class="page-shell mx-auto">
       <p v-if="loading" class="state-message">載入中...</p>
 

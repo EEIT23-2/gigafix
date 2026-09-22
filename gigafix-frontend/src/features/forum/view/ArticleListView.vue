@@ -5,13 +5,13 @@ import { storeToRefs } from 'pinia'
 import { getArticles } from '../api'
 import ArticleCard from '../components/ArticleCard.vue'
 import CategorySelect from '../components/CategorySelect.vue'
-import ForumLoginModal from '../components/ForumLoginModal.vue'
 import { useFetchMemberInfoStore } from '@/stores/member'
-import { useForumLoginModalStore } from '../store/loginModal'
+import { useAuthModalStore } from '@/stores/authModal'
 
 const router = useRouter()
 const { memberInfo } = storeToRefs(useFetchMemberInfoStore())
-const loginModalStore = useForumLoginModalStore()
+// 登入視窗只有 ClientNavBar 有一份，這裡請它開窗就好，不自己做一份表單
+const authModal = useAuthModalStore()
 
 const articles = ref([])
 const totalPages = ref(0)
@@ -66,7 +66,8 @@ function goToCreateArticle() {
   if (memberInfo.value) {
     router.push({ name: 'forumCreate' })
   } else {
-    loginModalStore.open('/forum/new')
+    // 使用者本來就是要去發文表單，登入成功後直接把他送過去
+    authModal.open('login', '/forum/new')
   }
 }
 </script>
@@ -88,8 +89,6 @@ function goToCreateArticle() {
       <button type="button" @click="handleSearch">搜尋</button>
       <button type="button" class="new-article-link" @click="goToCreateArticle">發表文章</button>
     </div>
-
-    <ForumLoginModal />
 
     <p v-if="loading">載入中...</p>
     <p v-else-if="errorMessage" class="error">{{ errorMessage }}</p>
