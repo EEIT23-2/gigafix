@@ -42,11 +42,6 @@ const logout = async () =>{
     <div class="main-wrapper">
       <!-- 頂部導航列 -->
       <header class="topbar">
-        <div class="search-box">
-          <input type="text" placeholder="Search for..." />
-          <button class="search-btn">🔍</button>
-        </div>
-
         <!-- 右上角使用者名稱 -->
         <div class="user-section">
           <span class="username">
@@ -147,33 +142,10 @@ const logout = async () =>{
   border-bottom: 1px solid #e3e6f0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  /* 頂部列現在只剩右上角的使用者區塊，直接靠右對齊 */
+  justify-content: flex-end;
   padding: 0 24px;
   flex-shrink: 0;
-}
-
-.search-box {
-  display: flex;
-  width: 300px;
-}
-
-.search-box input {
-  flex: 1;
-  background-color: #f8f9fc;
-  border: 1px solid #d1d3e2;
-  border-radius: 4px 0 0 4px;
-  padding: 6px 12px;
-  font-size: 13px;
-  outline: none;
-}
-
-.search-btn {
-  background-color: #4e73df;
-  border: none;
-  color: white;
-  padding: 0 12px;
-  border-radius: 0 4px 4px 0;
-  cursor: pointer;
 }
 
 /* 使用者名稱區塊 */

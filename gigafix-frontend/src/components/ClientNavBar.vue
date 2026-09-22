@@ -465,12 +465,6 @@ const goToCart = () => {
       <div class="header-inner">
         <!-- 右上方功能按鈕 -->
         <nav class="user-actions">
-          <RouterLink class="action-item">
-            <span class="icon-box">
-              <i class="bi bi-search icon"></i>
-            </span>
-          </RouterLink>
-
           <!-- 用使用者是否登入決定要顯示某個標籤 -->
           <button
             v-if="!memberInfo"
