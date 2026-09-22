@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.hibernate.Hibernate;
 import org.springframework.stereotype.Service;
 
 import com.gigafix.member.entity.Member;
@@ -367,6 +368,10 @@ public class RepairsService {
 	    r.setApprovalStatus(ApprovalStatus.PENDING);
 
 	    Repairs saved = rRepos.save(r);
+	    // 寄信改成@Async後會換到別的執行緒執行，member/store是LAZY關聯，要在交易還開著的這裡先初始化，
+	    // 不然背景執行緒沒有Hibernate Session會噴LazyInitializationException
+	    Hibernate.initialize(saved.getMember());
+	    Hibernate.initialize(saved.getStore());
 	    notificationService.sendQuoteReady(saved);
 	    return toResponse(saved);
 	}
@@ -474,6 +479,10 @@ public class RepairsService {
 		r.setRepairStatus(RepairStatus.AWAITING_PICKUP);
 
 		Repairs saved = rRepos.save(r);
+		// 寄信改成@Async後會換到別的執行緒執行，member/store是LAZY關聯，要在交易還開著的這裡先初始化，
+		// 不然背景執行緒沒有Hibernate Session會噴LazyInitializationException
+		Hibernate.initialize(saved.getMember());
+		Hibernate.initialize(saved.getStore());
 		notificationService.sendPickupReady(saved);
 		return toResponse(saved);
 	}
@@ -599,11 +608,15 @@ public class RepairsService {
 		r.setRepairStatus(RepairStatus.AWAITING_PICKUP);
 
 		Repairs saved = rRepos.save(r);
+		// 寄信改成@Async後會換到別的執行緒執行，member/store是LAZY關聯，要在交易還開著的這裡先初始化，
+		// 不然背景執行緒沒有Hibernate Session會噴LazyInitializationException
+		Hibernate.initialize(saved.getMember());
+		Hibernate.initialize(saved.getStore());
 		notificationService.sendPickupReady(saved);
 		return toResponse(saved);
 	}
 
-	
+
 //	更新付款狀態(技師手動標記，或綠界回調確認付款後由 RepairEcpayPaymentService 呼叫)
 	public RepairsResponse updatePayStatus(Long id, RepairPayStatus payStatus) {
 		Repairs r = findRepairOrThrow(id);

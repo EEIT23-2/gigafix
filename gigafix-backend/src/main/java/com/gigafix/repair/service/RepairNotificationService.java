@@ -3,6 +3,7 @@ package com.gigafix.repair.service;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.HtmlUtils;
 
@@ -22,6 +23,7 @@ public class RepairNotificationService {
     private String frontendBaseUrl;
 
     // 預約成功通知
+    @Async("mailTaskExecutor")
     public void sendBookingConfirmed(Repairs r) {
 
         try {
@@ -51,6 +53,7 @@ public class RepairNotificationService {
     }
 
     // 已報價通知
+    @Async("mailTaskExecutor")
     public void sendQuoteReady(Repairs r) {
 
         try {
@@ -79,6 +82,7 @@ public class RepairNotificationService {
     }
 
     // 可取件通知（維修完成待取件 / 拒絕報價後取回，共用同一封信）
+    @Async("mailTaskExecutor")
     public void sendPickupReady(Repairs r) {
 
         try {
