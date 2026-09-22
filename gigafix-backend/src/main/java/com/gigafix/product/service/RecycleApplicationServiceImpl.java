@@ -264,7 +264,7 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
      * 5. @Transactional：套用在本 Service 類別，
      *    讓狀態、回收單及商品庫存異動在同一交易中提交或回滾。
      *
-     * 主要狀態順序為：APPLIED → INSPECTING → WIPING → COMPLETED；
+     * 主要狀態順序為：APPLIED → INSPECTING → WAITING_FOR_AGREEMENT → WIPING → COMPLETED；
      * APPLIED、INSPECTING 或 WAITING_FOR_AGREEMENT 階段可以取消為 CANCELLED。
      */
 
@@ -307,19 +307,25 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
             return false;
         }
 
-        // 完成現場檢測且已有估價後，才可請客戶進行 OTP 與簽名確認。
-        if (applyForm.getRecycleStatus() != RecycleStatus.INSPECTING) {
-            throw new IllegalStateException("只有現場檢測評估中的回收單可以寄送同意驗證碼");
+        // 完成現場檢測且已有估價後才可寄送；待簽署階段允許在 OTP 逾時後重寄。
+        RecycleStatus currentStatus = applyForm.getRecycleStatus();
+        if (currentStatus != RecycleStatus.INSPECTING
+                && currentStatus != RecycleStatus.WAITING_FOR_AGREEMENT) {
+            throw new IllegalStateException("只有現場檢測或待簽署同意的回收單可以寄送同意驗證碼");
         }
         if (applyForm.getEstimatedPrice() == null) {
             throw new IllegalStateException("請先完成回收估價再寄送同意驗證碼");
         }
 
         String otp = String.format("%06d", OTP_RANDOM.nextInt(1_000_000));
+        // OTP 寄出後即代表檢測與估價皆已完成，正式進入等待會員簽署階段。
+        applyForm.setRecycleStatus(RecycleStatus.WAITING_FOR_AGREEMENT);
+        applyForm.setLastModifiedTime(LocalDateTime.now());
         recycleApplicationNotificationService.sendAgreementOtp(applyForm, otp);
 
         // 沿用組長設定的 5 分鐘 Caffeine 快取，以前綴隔離註冊 OTP 與回收同意 OTP。
         getOtpCache().put(agreementOtpKey(applyId), new AgreementOtpEntry(otp));
+        recycleApplicationDao.save(applyForm);
         return true;
     }
 
@@ -342,8 +348,8 @@ public class RecycleApplicationServiceImpl implements RecycleApplicationService{
             return null;
         }
 
-        if (applyForm.getRecycleStatus() != RecycleStatus.INSPECTING) {
-            throw new IllegalStateException("只有現場檢測評估中的回收單可以確認估價同意");
+        if (applyForm.getRecycleStatus() != RecycleStatus.WAITING_FOR_AGREEMENT) {
+            throw new IllegalStateException("只有待簽署同意的回收單可以確認估價同意");
         }
 
         validateSignature(request.getSignatureDataUrl());

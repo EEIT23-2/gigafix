@@ -30,10 +30,10 @@ const cancelSuccess = ref("");
 
 let drawingSignature = false;
 
-// 後台完成估價並寄出 OTP 後，資料庫狀態仍維持 INSPECTING，直到會員簽署成功。
+// 後台完成估價並寄出 OTP 後，會員即可輸入驗證碼並簽署同意。
 const canSignAgreement = computed(
   () =>
-    application.value?.recycleStatus === "INSPECTING" &&
+    application.value?.recycleStatus === "WAITING_FOR_AGREEMENT" &&
     application.value?.estimatedPrice != null,
 );
 
