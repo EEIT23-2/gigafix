@@ -202,6 +202,11 @@ const deleteAdmin = async () => {
         fetchAllAdmin()
     }
 }
+// 測試用：快速帶入總管理員密碼，密碼統一帶入Test1234
+const quickFillDeletePWD = () => {
+    superAdminComfirmPWD.value = 'Test1234'
+    checkDeleteError()
+}
 const checkDeleteError = () => {
     if (superAdminComfirmPWD.value === '') {
         deleteErrorMsg.value = '請輸入密碼'
@@ -361,6 +366,11 @@ onMounted(() => {
     <!-- 總管理員刪除其他管理員的彈窗 -->
     <BaseModal v-model="showDeleteModal" :adminInfo="updateOrDeleteAdmin" @closed="superAdminComfirmPWD = ''; updateOrDeleteAdmin = null">
         <template #title>確認刪除管理員</template>
+        <div class="d-flex justify-content-end mb-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm" @click="quickFillDeletePWD()">
+                <i class="bi bi-lightning-fill me-1"></i>快速輸入
+            </button>
+        </div>
         <input type="password" v-model="superAdminComfirmPWD" class="form-control" placeholder="請輸入密碼以確認要刪除該管理員" @input="checkDeleteError()">
         <template #footer>
             <p  v-if="deleteErrorMsg" class="text-danger small mb-3">{{ deleteErrorMsg }}</p>
