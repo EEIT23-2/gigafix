@@ -10,11 +10,11 @@ import { storeToRefs } from "pinia";
 import { useAuthModalStore } from "@/stores/authModal";
 
 //跟登入有關的變數宣告
+//視窗開關與「登入成功後要導去哪一頁」都放在authModal store，見下方showloginModal
 const mail = ref("");
 const password = ref("");
 const loginErrorMsg = ref("");
-const showloginModal = ref(false);
-const afterLoginRedirect = ref(null); //記住使用者是點了哪個需要登入的功能，登入成功後要導去哪一頁
+const loginLoading = ref(false); //登入請求進行中，用來鎖住輸入框與送出鈕，避免重複送出
 
 //跟註冊有關的變數宣告
 const regPassword = ref("");
@@ -31,7 +31,6 @@ const regOtp = ref("");
 const otpDigits = ref(["", "", "", "", "", ""]);
 const otpDigitRefs = ref([]);
 const registerErrorMsg = ref("");
-const showRegisterModal = ref(false);
 //註冊時使用reCAPTCHA檢查是否為機器人，其會回傳一個token給前端，因此設定一個變數來接
 let registerRecaptchaWidgetId = null;
 const captchaCompleted = ref(false); //使用者是否已經勾選完驗證框，用來擋住「寄送驗證碼」按鈕跟提示文字
@@ -46,36 +45,52 @@ const fpEmail = ref("");
 const fpNewPassword = ref("");
 const fpOtp = ref("");
 const fpErrorMsg = ref("");
-const showForgotPasswordModal = ref(false);
 
 //跟忘記密碼OTP寄送有關的變數宣告(跟註冊OTP分開一組，避免兩邊互相干擾)
 const fpOtpSending = ref(false);
 const fpOtpCooldown = ref(0);
 let fpOtpCooldownTimer = null;
 
-//登入/註冊/忘記密碼三個視窗共用同一層背景遮罩，只要其中一個開著就要顯示，
-//這樣互切的時候背景遮罩不會重新觸發淡入淡出，只有裡面的視窗內容在交叉淡出/淡入，感覺才會絲滑
-const anyModalOpen = computed(
-  () =>
-    showloginModal.value ||
-    showRegisterModal.value ||
-    showForgotPasswordModal.value,
+const router = useRouter();
+
+//==三個視窗的開關==
+//狀態放在authModal store而不是這裡的ref，其他模組(例如forum文章頁裡的按讚/留言)才有辦法叫得動這三個視窗，
+//不用各自再複製一份登入表單出來
+const authModal = useAuthModalStore();
+const showloginModal = computed(() => authModal.active === "login");
+const showRegisterModal = computed(() => authModal.active === "register");
+const showForgotPasswordModal = computed(
+  () => authModal.active === "forgotPassword",
 );
-const closeAllModals = () => {
-  showloginModal.value = false;
-  showRegisterModal.value = false;
-  showForgotPasswordModal.value = false;
-};
+//三個視窗共用同一層背景遮罩，只要其中一個開著就要顯示，
+//這樣互切的時候背景遮罩不會重新觸發淡入淡出，只有裡面的視窗內容在交叉淡出/淡入，感覺才會絲滑
+const anyModalOpen = computed(() => authModal.active !== null);
+const closeAllModals = () => authModal.close();
 
 //取得Member資料
 const fetchMemberInfoStore = useFetchMemberInfoStore();
 const { memberInfo } = storeToRefs(fetchMemberInfoStore);
+
+//==登入/註冊/忘記密碼共用的收尾==
+//四條登入成功的路徑(帳密登入、Google登入、一鍵註冊登入、註冊後自動登入)收尾動作都一樣，收斂成這一個：
+//重抓會員資料讓畫面即時切換 → 取出這次流程要導去的頁面 → 關窗 → 報喜 → 導頁
+const finishAuth = async (message) => {
+  await fetchMemberInfoStore.fetchMember(true);
+  const redirect = authModal.consumeRedirect(); //要先取，close()會把它清掉
+  authModal.close();
+  alert(message);
+  //有記錄才導頁：使用者是點了需要登入的功能(例如購物車)才跳出視窗的，登入完直接送他過去，
+  //不是的話就留在原頁，不要莫名其妙把人帶走
+  if (redirect) {
+    router.push(redirect);
+  }
+};
+
 //==登入相關==
-const openLoginModal = () => {
+const resetLoginForm = () => {
   password.value = "";
   mail.value = "";
   loginErrorMsg.value = "請輸入Email";
-  showloginModal.value = true;
 };
 //依序檢查Email、密碼有沒有填、密碼長度夠不夠，任一沒過就把對應訊息放進loginErrorMsg，讓送出鈕保持disabled防呆
 const checkLoginError = () => {
@@ -90,25 +105,20 @@ const checkLoginError = () => {
   }
 };
 const login = async () => {
+  loginLoading.value = true;
   try {
     const resp = await axios.post("/api/gigafix/login", {
       email: mail.value,
       password: password.value,
     });
-    await fetchMemberInfoStore.fetchMember(true); //登入成功後強制重抓一次會員資料，讓畫面上的icon等能即時切換
-    showloginModal.value = false;
-    alert(`${resp.data.nickName}您好~登入成功！`);
-    //如果是從需要登入的功能(例如維修手機)跳出來登入的，登入成功後直接導去該頁面，不用使用者自己再點一次
-    if (afterLoginRedirect.value) {
-      router.push(afterLoginRedirect.value);
-      afterLoginRedirect.value = null;
-    }
+    await finishAuth(`${resp.data.nickName}您好~登入成功！`);
   } catch (err) {
     //回傳4xx,5xx
     const message = err.response?.data?.message || "請稍後再試";
     alert(`登入失敗，原因: ${message}`);
   } finally {
     password.value = "";
+    loginLoading.value = false;
   }
 };
 
@@ -117,23 +127,19 @@ const login = async () => {
 //TODO: 在這裡實作拿到id_token之後的邏輯，細節請看對話裡的說明
 const handleGoogleCredential = async (response) => {
   // response就是使用者的id_token，直接給後端去驗證跟使用
+  loginLoading.value = true;
   try {
     const resp = await axios.post("/api/gigafix/login/google", {
       idToken: response.credential,
       //response.credential才是真正的id_token字串
     });
-    await fetchMemberInfoStore.fetchMember(true); //登入成功後強制重抓一次會員資料
-    showloginModal.value = false;
-    alert(`${resp.data.nickName}您好~登入成功！`);
-    //如果是從需要登入的功能(例如維修手機)跳出來登入的，登入成功後直接導去該頁面，不用使用者自己再點一次
-    if (afterLoginRedirect.value) {
-      router.push(afterLoginRedirect.value);
-      afterLoginRedirect.value = null;
-    }
+    await finishAuth(`${resp.data.nickName}您好~登入成功！`);
   } catch (err) {
     //回傳4xx,5xx
     const message = err.response?.data?.message || "請稍後再試";
     alert(`登入失敗，原因: ${message}`);
+  } finally {
+    loginLoading.value = false;
   }
 };
 
@@ -143,13 +149,7 @@ const registerOrLoginAFakeMember = async () => {
     const resp = await axios.post(
       "/api/gigafix/members/registerOrLoginAFakeMember",
     );
-    await fetchMemberInfoStore.fetchMember(true); //登入成功後強制重抓一次會員資料
-    showloginModal.value = false;
-    alert(`${resp.data.nickName}您好~登入成功！`);
-    if (afterLoginRedirect.value) {
-      router.push(afterLoginRedirect.value);
-      afterLoginRedirect.value = null;
-    }
+    await finishAuth(`${resp.data.nickName}您好~登入成功！`);
   } catch (err) {
     //回傳4xx,5xx
     const message = err.response?.data?.message || "請稍後再試";
@@ -158,7 +158,7 @@ const registerOrLoginAFakeMember = async () => {
 };
 
 //==註冊相關==
-const openRegisterModal = () => {
+const resetRegisterForm = () => {
   regPassword.value = "";
   regRealName.value = "";
   regNickName.value = "";
@@ -173,8 +173,6 @@ const openRegisterModal = () => {
   registerErrorMsg.value = "請輸入Email";
   clearInterval(otpCooldownTimer); //重開視窗時，把上一次殘留的倒數計時清掉
   otpCooldown.value = 0;
-  showloginModal.value = false; //關閉登入視窗，改開註冊視窗
-  showRegisterModal.value = true;
 };
 
 //==一鍵輸入資料相關(demo/測試用，快速把註冊表單填滿假資料；OTP仍須真的收信才能填寫，這裡不會動它)==
@@ -260,9 +258,8 @@ const register = async () => {
       gender: regGender.value,
       otp: regOtp.value,
     });
-    await fetchMemberInfoStore.fetchMember(true); //註冊成功後端會自動簽發JWT等同自動登入，強制重抓一次會員資料讓畫面同步
-    showRegisterModal.value = false;
-    alert(`${resp.data.nickName}註冊成功！`);
+    //註冊成功後端會直接簽發JWT等同自動登入，所以收尾跟登入完全一樣(含導去使用者原本要去的頁面)
+    await finishAuth(`${resp.data.nickName}註冊成功！`);
   } catch (err) {
     //回傳4xx,5xx
     const message = err.response?.data?.message || "請稍後再試";
@@ -330,15 +327,13 @@ const sendRegisterOtp = async () => {
 };
 
 //==忘記密碼相關==
-const openForgotPasswordModal = () => {
+const resetForgotPasswordForm = () => {
   fpEmail.value = "";
   fpNewPassword.value = "";
   fpOtp.value = "";
   fpErrorMsg.value = "請輸入Email";
   clearInterval(fpOtpCooldownTimer); //重開視窗時，把上一次殘留的倒數計時清掉
   fpOtpCooldown.value = 0;
-  showloginModal.value = false; //關閉登入視窗，改開忘記密碼視窗
-  showForgotPasswordModal.value = true;
 };
 //依序檢查Email、新密碼、OTP有沒有填、格式對不對，任一不通過就把對應訊息放進fpErrorMsg，讓送出鈕保持disabled防呆
 const checkForgotPasswordError = () => {
@@ -395,9 +390,10 @@ const forgotPassword = async () => {
       newPassword: fpNewPassword.value,
       otp: fpOtp.value,
     });
-    showForgotPasswordModal.value = false;
+    //重設完直接切回登入視窗，方便使用者用新密碼登入；
+    //用switchTo不是open，這樣「原本要去哪一頁」的記錄才不會在中途被清掉
+    authModal.switchTo("login");
     alert(`${resp.data.email} 密碼重設成功，請用新密碼登入`);
-    openLoginModal(); //重設完直接打開登入視窗，方便使用者用新密碼登入
   } catch (err) {
     //回傳4xx,5xx
     const message = err.response?.data?.message || "請稍後再試";
@@ -407,33 +403,31 @@ const forgotPassword = async () => {
   }
 };
 
-//==forum 登入視窗的註冊/忘記密碼代開==
-//forum 有自己的登入視窗，但註冊/忘記密碼那兩份表單(含reCAPTCHA跟OTP倒數)只有這裡有，不重做一份；
-//forum 那邊按下按鈕時只發一個訊號過來，由這裡打開既有的視窗
-const authModalStore = useAuthModalStore();
+//==表單重置==
+//視窗開關由store決定，這裡只負責「切到哪個視窗就把那份表單清乾淨」，
+//避免使用者看到上一次輸入到一半的殘留內容
 watch(
-  () => authModalStore.request,
-  (request) => {
-    if (!request) return;
-    if (request === "register") {
-      openRegisterModal();
-    } else if (request === "forgotPassword") {
-      openForgotPasswordModal();
+  () => authModal.active,
+  (active) => {
+    if (active === "login") {
+      resetLoginForm();
+    } else if (active === "register") {
+      resetRegisterForm();
+    } else if (active === "forgotPassword") {
+      resetForgotPasswordForm();
     }
-    authModalStore.clear(); //一次性訊號，處理完立刻清掉，不然下次發同樣的請求時watch不會再觸發
   },
 );
 
-const router = useRouter();
-
 //==維修手機(預約維修單)相關==
-//已登入直接導過去；沒登入先跳登入視窗，登入成功後會自動導過去(見login()裡的afterLoginRedirect判斷)
+//已登入直接導過去；沒登入先跳登入視窗，登入成功後會自動導過去(見finishAuth()裡的redirect判斷)
+//第三個參數true = 沿用預約維修原本的行為：就算關掉視窗沒登入，之後再登入還是會被帶去預約表單
+//(購物車、論壇則相反，關窗就忘掉)
 const goToRepairAppointment = () => {
   if (memberInfo.value) {
     router.push("/repair-appointment");
   } else {
-    afterLoginRedirect.value = "/repair-appointment";
-    openLoginModal();
+    authModal.open("login", "/repair-appointment", true);
   }
 };
 //★改：網址帶?login=1&redirect=xxx(例如通知信連結被路由守衛擋下)就自動開登入視窗，登入成功後導去redirect
@@ -442,9 +436,10 @@ watch(
   (login) => {
     if (login !== "1" || memberInfo.value) return;
     const redirect = router.currentRoute.value.query.redirect;
-    afterLoginRedirect.value =
-      typeof redirect === "string" && redirect.startsWith("/") ? redirect : null;
-    openLoginModal();
+    authModal.open(
+      "login",
+      typeof redirect === "string" && redirect.startsWith("/") ? redirect : null,
+    );
     router.replace({ path: router.currentRoute.value.path }); //清掉query，避免重新整理又跳一次
   },
   { immediate: true },
@@ -454,8 +449,7 @@ const goToCart = () => {
   if (memberInfo.value) {
     router.push("/cart");
   } else {
-    afterLoginRedirect.value = "/cart";
-    openLoginModal();
+    authModal.open("login", "/cart");
   }
 };
 </script>
@@ -482,7 +476,7 @@ const goToCart = () => {
             v-if="!memberInfo"
             type="button"
             class="action-item"
-            @click="openLoginModal()"
+            @click="authModal.open('login')"
           >
             <span class="icon-box"
               ><i class="bi bi-person icon icon-person"></i
@@ -595,7 +589,11 @@ const goToCart = () => {
   </Teleport>
 
   <!-- 登入的彈窗 -->
-  <LoginRegisterModal v-model="showloginModal" :showBackdrop="false">
+  <LoginRegisterModal
+    :model-value="showloginModal"
+    :showBackdrop="false"
+    @update:model-value="authModal.close()"
+  >
     <template #title>會員登入</template>
     <label class="form-label">Email</label>
     <input
@@ -628,17 +626,29 @@ const goToCart = () => {
     <template #footer>
       <button
         class="btn btn-link forgot-password-link"
-        @click="openForgotPasswordModal()"
+        :disabled="loginLoading"
+        @click="authModal.switchTo('forgotPassword')"
       >
         忘記密碼？
       </button>
-      <button class="btn btn-secondary" @click="openRegisterModal()">
+      <button
+        class="btn btn-secondary"
+        :disabled="loginLoading"
+        @click="authModal.switchTo('register')"
+      >
         註冊
       </button>
       <span v-if="loginErrorMsg" class="btn btn-primary disabled"
         >請輸入正確資訊</span
       >
-      <button v-else class="btn btn-primary" @click="login()">送出</button>
+      <button
+        v-else
+        class="btn btn-primary"
+        :disabled="loginLoading"
+        @click="login()"
+      >
+        {{ loginLoading ? "登入中..." : "送出" }}
+      </button>
 
       <div class="w-100 d-flex align-items-center gap-2 my-2">
         <hr class="flex-grow-1 m-0" />
@@ -655,7 +665,11 @@ const goToCart = () => {
   </LoginRegisterModal>
 
   <!-- 註冊的彈窗 -->
-  <LoginRegisterModal v-model="showRegisterModal" :showBackdrop="false">
+  <LoginRegisterModal
+    :model-value="showRegisterModal"
+    :showBackdrop="false"
+    @update:model-value="authModal.close()"
+  >
     <template #title>會員註冊</template>
     <!-- demo/測試用：一鍵把下面除了OTP以外的欄位都填上假資料，OTP仍須真的收信才能填寫 -->
     <div class="d-flex justify-content-end mb-2">
@@ -817,7 +831,11 @@ const goToCart = () => {
   </LoginRegisterModal>
 
   <!-- 忘記密碼的彈窗 -->
-  <LoginRegisterModal v-model="showForgotPasswordModal" :showBackdrop="false">
+  <LoginRegisterModal
+    :model-value="showForgotPasswordModal"
+    :showBackdrop="false"
+    @update:model-value="authModal.close()"
+  >
     <template #title>忘記密碼</template>
     <label class="form-label">Email</label>
     <input
