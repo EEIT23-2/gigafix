@@ -97,7 +97,7 @@ public class AdminAccountService {
                         .adminName(account.getName())
                         .role(account.getRole())
                         .createDateTime(account.getCreateTime())
-                        .online(isOnline(account.getName()))
+                        .online(isOnline(account.getId()))
                         .build())
                 .toList();
     }
@@ -136,16 +136,16 @@ public class AdminAccountService {
         // 這裡不用驗證舊密碼——因為是「總管理員幫別人重設」，不是「使用者自己改」
         account.setPassword(passwordEncoder.encode(newPassword));
         adminRepository.save(account);
-        forceLogout(account.getName());//更改後把人踢下線
+        forceLogout(account.getId());//更改後把人踢下線
         return toResp(account);
     }
     //總管理員更改其他管理員權限
     public AdminInfoDto updateRole(Integer id, Role role) {
         AdminAccount account = adminRepository.findById(id).orElseThrow(() -> new AdminAccountNotFoundException());
-        
+
         account.setRole(role);
         AdminAccount saved = adminRepository.save(account);
-        forceLogout(account.getName());//更改後把人踢下線
+        forceLogout(account.getId());//更改後把人踢下線
         return toResp(saved);
     }
     
@@ -157,7 +157,7 @@ public class AdminAccountService {
 			if (passwordEncoder.matches(saPassword, admin.getPassword())) { //matches(明文密碼, 資料庫雜湊值)
 				//如果總管理員密碼輸入正確的話，就刪除指定的使用者
 				AdminAccount deleteAdmin = adminRepository.findById(adminId).orElseThrow(() -> new AdminAccountNotFoundException());
-				forceLogout(deleteAdmin.getName());//更改後把人踢下線
+				forceLogout(deleteAdmin.getId());//更改後把人踢下線
 				adminRepository.deleteById(deleteAdmin.getId());
 			return;
 			}
@@ -177,20 +177,22 @@ public class AdminAccountService {
     }
     
     //查該帳號目前有沒有還沒過期的session,用來判斷管理員列表上的在線狀態
-    private boolean isOnline(String name) {
+    //用id比對而不是name，因為sessionRegistry裡登記的principal是登入當下的舊物件，改名時不會被同步更新，
+    //但id不會變(AdminUserDetails的equals/hashCode也是用id判斷)，才能在改名後還正確找到對應的session
+    private boolean isOnline(Integer id) {
         return sessionRegistry.getAllPrincipals().stream()
-                .filter(principal -> principal instanceof AdminUserDetails userDetails && userDetails.getName().equals(name))
+                .filter(principal -> principal instanceof AdminUserDetails userDetails && userDetails.getId().equals(id))
                 .anyMatch(principal -> !sessionRegistry.getAllSessions(principal, false).isEmpty());
     }
 
     //強制踢人其他管理員下線，只有總管理員操作改其他管理員資訊和刪除帳號時會觸發
-    private void forceLogout(String name) {
+    private void forceLogout(Integer id) {
     	//下面這個方法不只服務spring security可能還服務其他的安全框架(OAuth2、未使用框架String)，因此回傳值是object
     	List<Object> admins = sessionRegistry.getAllPrincipals();
     	
     	for (Object admin : admins) {
     		//admin instanceof AdminUserDetails userDetails除了判斷後會傳boolean之外，會把admin轉型成AdminUserDetails塞到userDetails裡面
-			if (admin instanceof AdminUserDetails userDetails && userDetails.getName().equals(name)) {
+			if (admin instanceof AdminUserDetails userDetails && userDetails.getId().equals(id)) {
 				List<SessionInformation> sessions = sessionRegistry.getAllSessions(admin, false); //把該使用者所有Session抓出來
 				for (SessionInformation sessionInfo : sessions) {//把每個session都標記成過期，雖然config有設定只有一個但是
                     sessionInfo.expireNow(); //這個機制依賴使用者還會再發出請求才會被攔截到
