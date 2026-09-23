@@ -121,9 +121,11 @@ async function updateStatus() {
     return;
   }
 
-  // 第一段轉換直接改為檢測中；第二段只寄 OTP，狀態需等會員驗證與簽名。
+  // 第一段轉換為檢測中；寄出 OTP 後進入待會員簽署階段。
   if (
-    application.value.recycleStatus === "INSPECTING" &&
+    ["INSPECTING", "WAITING_FOR_AGREEMENT"].includes(
+      application.value.recycleStatus,
+    ) &&
     selectedStatus.value === "WAITING_FOR_AGREEMENT"
   ) {
     await requestAgreementOtp();
@@ -263,9 +265,14 @@ async function autoEstimatePrice() {
   }
 }
 
-// 選擇「待簽署同意」時先寄 OTP；此時資料庫狀態仍維持 INSPECTING。
+// 選擇「待簽署同意」時寄出 OTP，後端同時將狀態推進至待簽署階段。
 async function requestAgreementOtp() {
-  if (!application.value || application.value.recycleStatus !== "INSPECTING") {
+  if (
+    !application.value ||
+    !["INSPECTING", "WAITING_FOR_AGREEMENT"].includes(
+      application.value.recycleStatus,
+    )
+  ) {
     return;
   }
   if (application.value.estimatedPrice == null) {
@@ -279,6 +286,7 @@ async function requestAgreementOtp() {
 
   try {
     await requestRecycleAgreementOtp(application.value.applyId);
+    await fetchApplication();
     agreementRequested.value = true;
     successMessage.value =
       "6 位數驗證碼已寄到會員信箱，請會員在前台回收明細完成簽署";
@@ -549,12 +557,6 @@ onBeforeUnmount(() => {
                       {{ estimatingPrice ? "估價中..." : "自動估價" }}
                     </button>
                   </div>
-                  <div
-                    v-if="application.recycleStatus !== 'INSPECTING'"
-                    class="text-secondary small mt-1"
-                  >
-                    請先將檢測狀態改為「現場檢測評估中」。
-                  </div>
                   <div v-if="estimateResult" class="estimate-breakdown mt-2">
                     <div>
                       {{ estimateResult.modelLabel }}・{{ estimateResult.specificationLabel }}・{{ estimateResult.conditionLabel }}
@@ -669,6 +671,8 @@ onBeforeUnmount(() => {
                     (application.recycleStatus === 'APPLIED' &&
                       selectedStatus === 'INSPECTING') ||
                     (application.recycleStatus === 'INSPECTING' &&
+                      selectedStatus === 'WAITING_FOR_AGREEMENT') ||
+                    (application.recycleStatus === 'WAITING_FOR_AGREEMENT' &&
                       selectedStatus === 'WAITING_FOR_AGREEMENT') ||
                     (application.recycleStatus === 'WIPING' &&
                       selectedStatus === 'COMPLETED')
