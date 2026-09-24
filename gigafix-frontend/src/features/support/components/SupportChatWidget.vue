@@ -45,6 +45,11 @@ const INTERNAL_LINKS = {
   '維修手機>預約維修': { name: 'repair-appointment' },
   '認證二手手機販售': { name: 'mall-list' },
   '二手機收購/回收': { name: 'recycle-form' },
+  '維修手機>報價參考': { name: 'repair-price-reference' },
+  'iPhone收購價目表': { name: 'recycle-iphone-prices' },
+  'iPad收購價目表': { name: 'recycle-ipad-prices' },
+  'Apple Watch收購價目表': { name: 'recycle-watch-prices' },
+  'Gigafix討論區': { name: 'forumList' },
 }
 
 // 真人客服信箱，跟 SupportSystemPrompt 裡寫給模型的地址是同一組——
