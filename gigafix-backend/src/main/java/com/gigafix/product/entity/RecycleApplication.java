@@ -70,4 +70,5 @@ public class RecycleApplication {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "store_id")
 	private Stores stores;
+	//
 }
