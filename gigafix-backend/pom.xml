@@ -148,6 +148,19 @@
 			<artifactId>cloudinary-http5</artifactId>
 			<version>2.4.0</version>
 		</dependency>
+		
+		<!--amazon 語言模型雲端平台-->
+		<dependency>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>bedrockruntime</artifactId>
+			<version>2.55.3</version>
+		</dependency>
+		
+		<!--Jacksonu 依賴-->
+		<dependency>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-databind</artifactId>
+		</dependency>
 
 	</dependencies>
 

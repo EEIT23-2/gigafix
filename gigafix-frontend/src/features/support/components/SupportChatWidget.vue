@@ -59,7 +59,10 @@ function escapeRegExp(text) {
 // 把一則訊息文字拆成「純文字」「白名單內的站內連結」「客服信箱」交錯的片段，給模板用 v-for 渲染
 function parseMessageSegments(content) {
   const segments = []
-  const pattern = new RegExp(`\\[([^[\\]]+)\\]|(${escapeRegExp(SUPPORT_EMAIL)})`, 'g')
+  const pattern = new RegExp(
+    `\\[([^[\\]]+)\\]|(${escapeRegExp(SUPPORT_EMAIL)})|\\*\\*([^*]+)\\*\\*`,
+    'g',
+  )
   let lastIndex = 0
   let match
 
@@ -71,8 +74,10 @@ function parseMessageSegments(content) {
       const label = match[1]
       const to = INTERNAL_LINKS[label]
       segments.push(to ? { type: 'link', text: label, to } : { type: 'text', text: match[0] })
-    } else {
+    } else if (match[2] !== undefined) {
       segments.push({ type: 'email', text: SUPPORT_EMAIL })
+    } else {
+      segments.push({ type: 'bold', text: match[3] })
     }
     lastIndex = pattern.lastIndex
   }
@@ -189,6 +194,7 @@ function handleKeydown(event) {
                       :href="`mailto:${segment.text}`"
                       class="message-link"
                     >{{ segment.text }}</a>
+                    <strong v-else-if="segment.type === 'bold'">{{ segment.text }}</strong>
                     <template v-else>{{ segment.text }}</template>
                   </template>
                 </template>
